@@ -1,0 +1,1 @@
+LOGIN LIKE: ssh -o StrictHostKeyChecking=no -X -p  root@

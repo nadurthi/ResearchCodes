@@ -1,0 +1,17 @@
+
+
+find_package(DBoW3 REQUIRED)
+message(STATUS "SOME_PROJECT_SOME_VAR = ${DBoW3_LIBS}")
+message(STATUS "SOME_PROJECT_SOME_INCLUDE_DIRS = ${DBoW3_INCLUDE_DIRS}")
+message(STATUS "SOME_PROJECT_SOME_LIB_DIR = ${DBoW3_LIB_DIR}")
+message(STATUS "SOME_PROJECT_SOME_LIBRARIES = ${DBoW3_LIBRARIES}")
+
+
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src )
+LINK_LIBRARIES(${PROJECT_NAME})
+IF(OPENCV_VERSION_3)
+ADD_EXECUTABLE(demo_general demo_general.cpp)
+ADD_EXECUTABLE(create_voc_step0 create_voc_step0.cpp)
+ADD_EXECUTABLE(create_voc_step1 create_voc_step1.cpp)
+INSTALL(TARGETS  demo_general  create_voc_step0  create_voc_step1  RUNTIME DESTINATION bin)
+ENDIF()

@@ -1,0 +1,54 @@
+sudo apt-get install freeglut3-dev
+sudo apt-get install mesa-utils
+sudo apt-get install python3.8 python3.8-venv python3.8-distutils
+pip3 install pytest
+sudo apt-get install python3.8-dev
+
+# when install pybind11 wrappers for your c++, run this to get 
+git submodule update --init --recursive
+
+/usr/bin/python3.8 -m pip install pytest
+
+https://docs-cupy.chainer.org/en/stable/install.html
+
+install
+
+vtk 8.2.0
+pcl 1.10.1
+
+autopep8 --in-place --aggressive --aggressive -v -r .
+
+make-sure
+
+~/.zshrc has
+
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/lib:/lib"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu/:/usr/lib"
+
+#export PATH="${PATH}:/usr/local/lib:/usr/local/bin"
+#export PATH="${PATH}:/usr/lib/x86_64-linux-gnu/:/usr/lib"
+
+#export PATH="${PATH}:/usr/local/include/pcl-1.10/:/usr/local/bin"
+#export PATH="${PATH}:/usr/local/include/pcl-1.10/pcl"
+#export PATH="${PATH}:/usr/local/include/vtk-9.0"
+
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/include/pcl-1.10/"
+
+#PCL_ROOT=(PCL Install/Build_Binary FolderPath)
+#set PATH=%PCL_ROOT%/bin/;%OPEN_NI2_ROOT%/Tools;$(VTK_ROOT)/bin;%PATH%
+
+
+export GUROBI_HOME="/opt/gurobi900/linux64"
+export PATH="${PATH}:${GUROBI_HOME}/bin"
+#export LD_LIBRARY_PATH="${GUROBI_HOME}/lib"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"
+
+export CUDA_TOOLKIT_ROOT_DIR="/usr/local/cuda-10.2"
+
+export ROS_MASTER_URI=http://roshubmain:11311
+source /opt/ros/melodic/setup.zsh
+export ROS_MASTER_URI=http://roshubmain:11311
+
+export PATH=/usr/local/cuda-10.2/bin:/usr/local/cuda-10.2/NsightCompute-2019.1${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda-10.2/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
