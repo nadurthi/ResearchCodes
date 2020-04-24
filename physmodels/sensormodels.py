@@ -15,7 +15,7 @@ class SensorModel:
         pass
 
 
-class DiscLTSensorModel:
+class DiscLTSensorModel(SensorModel):
     def __init__(self, H, R, **kwargs):
         self.H = H
         self.R = R
@@ -28,7 +28,7 @@ class DiscLTSensorModel:
     
     def __call__(t, dt, xk):
         zk = np.matmul(self.H,xk)
-        return zk
+        return (z, 1, 0)
     
 
 class PlanarSensorModel(SensorModel):
