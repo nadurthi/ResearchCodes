@@ -39,7 +39,8 @@ if __name__ == '__main__':
 
         # do 2D based tracking
         tic = time.time()
-        tracked_sequence = create_tracklets(config, raw_detections, segmentations, flow)
+        tracked_sequence = create_tracklets(
+            config, raw_detections, segmentations, flow)
         toc = time.time()
         print('  time elapsed', toc - tic)
         time_2d += toc - tic
@@ -50,7 +51,8 @@ if __name__ == '__main__':
             tracked_sequence.fix_mask_overlap()
 
         tracked_sequence.reorder_ids()
-        export_tracking_result(tracked_sequence, config.dir('2D_tracking_result_savedir') + sequence + '/')
+        export_tracking_result(tracked_sequence, config.dir(
+            '2D_tracking_result_savedir') + sequence + '/')
 
         print('  2D tracking done.')
 
@@ -60,13 +62,15 @@ if __name__ == '__main__':
         raw_imgs = import_raw_imgs(config, sequence)
 
         # load calibration parameters
-        calibration_params = CalibrationParameters(config.dir('data_dir') + 'images/' + sequence + '/' + sequence + '.txt')
+        calibration_params = CalibrationParameters(
+            config.dir('data_dir') + 'images/' + sequence + '/' + sequence + '.txt')
 
         # do 3D reconstruction based tracking
         # create dynamic transforms
         print('  Create dynamic transforms...')
         tic = time.time()
-        tracked_sequence = create_dynamic_transforms(config, tracked_sequence, flow, point_imgs, raw_imgs, calibration_params)
+        tracked_sequence = create_dynamic_transforms(
+            config, tracked_sequence, flow, point_imgs, raw_imgs, calibration_params)
         toc = time.time()
         print('  time elapsed', toc - tic)
         time_dyn += toc - tic
@@ -75,7 +79,15 @@ if __name__ == '__main__':
         # merge tracks
         print('  Merge tracks...')
         tic = time.time()
-        tracked_sequence = merge_tracks(config, tracked_sequence, point_imgs, raw_imgs, poses, flow, calibration_params, refinement_net)
+        tracked_sequence = merge_tracks(
+            config,
+            tracked_sequence,
+            point_imgs,
+            raw_imgs,
+            poses,
+            flow,
+            calibration_params,
+            refinement_net)
         toc = time.time()
         print('  time elapsed', toc - tic)
         time_merge += toc - tic
@@ -84,7 +96,15 @@ if __name__ == '__main__':
         # extrapolate final tracks
         print('  Extrapolate tracks...')
         tic = time.time()
-        tracked_sequence = extrapolate_final_tracks(config, tracked_sequence, flow, poses, point_imgs, calibration_params, raw_imgs, refinement_net)
+        tracked_sequence = extrapolate_final_tracks(
+            config,
+            tracked_sequence,
+            flow,
+            poses,
+            point_imgs,
+            calibration_params,
+            raw_imgs,
+            refinement_net)
         toc = time.time()
         print('  time elapsed', toc - tic)
         time_exp += toc - tic
@@ -94,13 +114,15 @@ if __name__ == '__main__':
         if config.str('mode') == 'MOTS':
             tracked_sequence.fix_mask_overlap()
         tracked_sequence.reorder_ids()
-        export_tracking_result(tracked_sequence, config.dir('3D_tracking_result_savedir') + sequence + '/')
+        export_tracking_result(tracked_sequence, config.dir(
+            '3D_tracking_result_savedir') + sequence + '/')
         print('  3D tracking done.')
 
         # visualize 3D tracking result
         if config.bool('debug'):
             print('  Visualize sequence reconstruction in Point Cloud...')
-            visualize_sequence_3D(config, tracked_sequence, point_imgs, raw_imgs)
+            visualize_sequence_3D(
+                config, tracked_sequence, point_imgs, raw_imgs)
             print('  done.')
 
     print('time_2d', time_2d)
@@ -109,30 +131,60 @@ if __name__ == '__main__':
     print('time_exp', time_exp)
 
     # evaluate
-    if not 'test' in args.config:
+    if 'test' not in args.config:
         print('Evaluating results...')
         print('2D tracking:')
         if config.str('mode') == 'MOTS':
-            run_mots_eval(config.dir('2D_tracking_result_savedir'), list_sequences, config.dir('mots_gt_folder'), config.str('mots_seqmap_file'))
+            run_mots_eval(
+                config.dir('2D_tracking_result_savedir'),
+                list_sequences,
+                config.dir('mots_gt_folder'),
+                config.str('mots_seqmap_file'))
         else:
-            run_mot_eval(config.dir('2D_tracking_result_savedir'), list_sequences, eval_modified=False)
-            run_mot_eval(config.dir('2D_tracking_result_savedir'), list_sequences, eval_modified=True)
+            run_mot_eval(
+                config.dir('2D_tracking_result_savedir'),
+                list_sequences,
+                eval_modified=False)
+            run_mot_eval(
+                config.dir('2D_tracking_result_savedir'),
+                list_sequences,
+                eval_modified=True)
         print('')
         print('3D tracking:')
         if config.str('mode') == 'MOTS':
-            run_mots_eval(config.dir('3D_tracking_result_savedir'), list_sequences, config.dir('mots_gt_folder'), config.str('mots_seqmap_file'))
+            run_mots_eval(
+                config.dir('3D_tracking_result_savedir'),
+                list_sequences,
+                config.dir('mots_gt_folder'),
+                config.str('mots_seqmap_file'))
         else:
-            run_mot_eval(config.dir('3D_tracking_result_savedir'), list_sequences, eval_modified=False)
-            run_mot_eval(config.dir('3D_tracking_result_savedir'), list_sequences, eval_modified=True)
+            run_mot_eval(
+                config.dir('3D_tracking_result_savedir'),
+                list_sequences,
+                eval_modified=False)
+            run_mot_eval(
+                config.dir('3D_tracking_result_savedir'),
+                list_sequences,
+                eval_modified=True)
 
-    #visualize
+    # visualize
     if config.str('mode') == 'MOTS':
         print('Visualizing results (3D)...')
-        visualize_sequences(list_sequences, config.dir('3D_tracking_result_savedir'), config.dir('data_dir') + 'images/',
-                            config.dir('3d_mots_vis_output_folder'), config.str('mots_seqmap_file'), draw_boxes=False,
-                            create_video=False)
+        visualize_sequences(
+            list_sequences,
+            config.dir('3D_tracking_result_savedir'),
+            config.dir('data_dir') + 'images/',
+            config.dir('3d_mots_vis_output_folder'),
+            config.str('mots_seqmap_file'),
+            draw_boxes=False,
+            create_video=False)
 
         print('Visualizing results (2D)...')
-        visualize_sequences(list_sequences, config.dir('2D_tracking_result_savedir'), config.dir('data_dir') + 'images/',
-                            config.dir('2d_mots_vis_output_folder'), config.str('mots_seqmap_file'), draw_boxes=False,
-                            create_video=False)
+        visualize_sequences(
+            list_sequences,
+            config.dir('2D_tracking_result_savedir'),
+            config.dir('data_dir') + 'images/',
+            config.dir('2d_mots_vis_output_folder'),
+            config.str('mots_seqmap_file'),
+            draw_boxes=False,
+            create_video=False)

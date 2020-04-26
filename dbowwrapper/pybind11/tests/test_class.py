@@ -80,7 +80,8 @@ def test_automatic_upcasting():
     assert type(m.return_class_1()).__name__ == "DerivedClass1"
     assert type(m.return_class_2()).__name__ == "DerivedClass2"
     assert type(m.return_none()).__name__ == "NoneType"
-    # Repeat these a few times in a random order to ensure no invalid caching is applied
+    # Repeat these a few times in a random order to ensure no invalid caching
+    # is applied
     assert type(m.return_class_n(1)).__name__ == "DerivedClass1"
     assert type(m.return_class_n(2)).__name__ == "DerivedClass2"
     assert type(m.return_class_n(0)).__name__ == "BaseClass"
@@ -91,7 +92,8 @@ def test_automatic_upcasting():
 
 
 def test_isinstance():
-    objects = [tuple(), dict(), m.Pet("Polly", "parrot")] + [m.Dog("Molly")] * 4
+    objects = [tuple(), dict(), m.Pet("Polly", "parrot")] + \
+        [m.Dog("Molly")] * 4
     expected = (True, True, True, True, True, False, False)
     assert m.check_instances(objects) == expected
 
@@ -126,7 +128,8 @@ def test_implicit_conversion_life_support():
     assert m.implicitly_convert_argument(UserType(5)) == 5
     assert m.implicitly_convert_variable(UserType(5)) == 5
 
-    assert "outside a bound function" in m.implicitly_convert_variable_fail(UserType(5))
+    assert "outside a bound function" in m.implicitly_convert_variable_fail(
+        UserType(5))
 
 
 def test_operator_new_delete(capture):
@@ -229,7 +232,8 @@ def test_reentrant_implicit_conversion_failure(msg):
     # ensure that there is no runaway reentrant implicit conversion (#1035)
     with pytest.raises(TypeError) as excinfo:
         m.BogusImplicitConversion(0)
-    assert msg(excinfo.value) == '''__init__(): incompatible constructor arguments. The following argument types are supported:
+    assert msg(
+        excinfo.value) == '''__init__(): incompatible constructor arguments. The following argument types are supported:
     1. m.class_.BogusImplicitConversion(arg0: m.class_.BogusImplicitConversion)
 
 Invoked with: 0'''

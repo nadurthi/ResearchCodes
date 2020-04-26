@@ -46,7 +46,7 @@ class VOCBboxDataset:
     * :obj:`difficult.dtype == numpy.bool`
 
     Args:
-        data_dir (string): Path to the root of the training data. 
+        data_dir (string): Path to the root of the training data.
             i.e. "/data/image/voc/VOCdevkit/VOC2007/"
         split ({'train', 'val', 'trainval', 'test'}): Select a split of the
             dataset. :obj:`test` split is only available for
@@ -121,7 +121,9 @@ class VOCBboxDataset:
         bbox = np.stack(bbox).astype(np.float32)
         label = np.stack(label).astype(np.int32)
         # When `use_difficult==False`, all elements in `difficult` are False.
-        difficult = np.array(difficult, dtype=np.bool).astype(np.uint8)  # PyTorch don't support np.bool
+        difficult = np.array(
+            difficult, dtype=np.bool).astype(
+            np.uint8)  # PyTorch don't support np.bool
 
         # Load a image
         img_file = os.path.join(self.data_dir, 'JPEGImages', id_ + '.jpg')

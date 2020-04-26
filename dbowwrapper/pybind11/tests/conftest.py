@@ -30,11 +30,13 @@ def _split_and_sort(s):
 
 def _make_explanation(a, b):
     """Explanation for a failed assert -- the a and b arguments are List[str]"""
-    return ["--- actual / +++ expected"] + [line.strip('\n') for line in difflib.ndiff(a, b)]
+    return ["--- actual / +++ expected"] + \
+        [line.strip('\n') for line in difflib.ndiff(a, b)]
 
 
 class Output(object):
     """Basic output post-processing and comparison"""
+
     def __init__(self, string):
         self.string = string
         self.explanation = []
@@ -44,7 +46,8 @@ class Output(object):
 
     def __eq__(self, other):
         # Ignore constructor/destructor output which is prefixed with "###"
-        a = [line for line in self.string.strip().splitlines() if not line.startswith("###")]
+        a = [line for line in self.string.strip().splitlines()
+             if not line.startswith("###")]
         b = _strip_and_dedent(other).splitlines()
         if a == b:
             return True
@@ -55,6 +58,7 @@ class Output(object):
 
 class Unordered(Output):
     """Custom comparison for output without strict line ordering"""
+
     def __eq__(self, other):
         a = _split_and_sort(self.string)
         b = _split_and_sort(other)
@@ -124,7 +128,8 @@ class SanitizedString(object):
         if a == b:
             return True
         else:
-            self.explanation = _make_explanation(a.splitlines(), b.splitlines())
+            self.explanation = _make_explanation(
+                a.splitlines(), b.splitlines())
             return False
 
 
@@ -204,17 +209,25 @@ def pytest_namespace():
     skipif = pytest.mark.skipif
     return {
         'suppress': suppress,
-        'requires_numpy': skipif(not np, reason="numpy is not installed"),
-        'requires_scipy': skipif(not np, reason="scipy is not installed"),
-        'requires_eigen_and_numpy': skipif(not have_eigen or not np,
-                                           reason="eigen and/or numpy are not installed"),
-        'requires_eigen_and_scipy': skipif(not have_eigen or not scipy,
-                                           reason="eigen and/or scipy are not installed"),
-        'unsupported_on_pypy': skipif(pypy, reason="unsupported on PyPy"),
-        'unsupported_on_py2': skipif(sys.version_info.major < 3,
-                                     reason="unsupported on Python 2.x"),
-        'gc_collect': gc_collect
-    }
+        'requires_numpy': skipif(
+            not np,
+            reason="numpy is not installed"),
+        'requires_scipy': skipif(
+            not np,
+            reason="scipy is not installed"),
+        'requires_eigen_and_numpy': skipif(
+            not have_eigen or not np,
+            reason="eigen and/or numpy are not installed"),
+        'requires_eigen_and_scipy': skipif(
+            not have_eigen or not scipy,
+            reason="eigen and/or scipy are not installed"),
+        'unsupported_on_pypy': skipif(
+            pypy,
+            reason="unsupported on PyPy"),
+        'unsupported_on_py2': skipif(
+            sys.version_info.major < 3,
+            reason="unsupported on Python 2.x"),
+        'gc_collect': gc_collect}
 
 
 def _test_import_pybind11():

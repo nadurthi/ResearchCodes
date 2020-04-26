@@ -18,7 +18,8 @@ def test_vectorize(capture):
             assert np.isclose(f(np.array(1), np.array(2), 3), 6)
         assert capture == "my_func(x:int=1, y:float=2, z:float=3)"
         with capture:
-            assert np.allclose(f(np.array([1, 3]), np.array([2, 4]), 3), [6, 36])
+            assert np.allclose(
+                f(np.array([1, 3]), np.array([2, 4]), 3), [6, 36])
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=3)
             my_func(x:int=3, y:float=4, z:float=3)
@@ -30,7 +31,8 @@ def test_vectorize(capture):
             result = f(a, b, c)
             assert np.allclose(result, a * b * c)
             assert result.flags.f_contiguous
-        # All inputs are F order and full or singletons, so we the result is in col-major order:
+        # All inputs are F order and full or singletons, so we the result is in
+        # col-major order:
         assert capture == """
             my_func(x:int=1, y:float=10, z:float=3)
             my_func(x:int=3, y:float=30, z:float=3)
@@ -38,7 +40,8 @@ def test_vectorize(capture):
             my_func(x:int=4, y:float=40, z:float=3)
         """
         with capture:
-            a, b, c = np.array([[1, 3, 5], [7, 9, 11]]), np.array([[2, 4, 6], [8, 10, 12]]), 3
+            a, b, c = np.array([[1, 3, 5], [7, 9, 11]]), np.array(
+                [[2, 4, 6], [8, 10, 12]]), 3
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=3)
@@ -71,7 +74,8 @@ def test_vectorize(capture):
             my_func(x:int=6, y:float=3, z:float=2)
         """
         with capture:
-            a, b, c = np.array([[1, 2, 3], [4, 5, 6]], order='F'), np.array([[2], [3]]), 2
+            a, b, c = np.array([[1, 2, 3], [4, 5, 6]],
+                               order='F'), np.array([[2], [3]]), 2
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=2)
@@ -82,7 +86,8 @@ def test_vectorize(capture):
             my_func(x:int=6, y:float=3, z:float=2)
         """
         with capture:
-            a, b, c = np.array([[1, 2, 3], [4, 5, 6]])[::, ::2], np.array([[2], [3]]), 2
+            a, b, c = np.array([[1, 2, 3], [4, 5, 6]])[
+                ::, ::2], np.array([[2], [3]]), 2
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=2)
@@ -91,7 +96,8 @@ def test_vectorize(capture):
             my_func(x:int=6, y:float=3, z:float=2)
         """
         with capture:
-            a, b, c = np.array([[1, 2, 3], [4, 5, 6]], order='F')[::, ::2], np.array([[2], [3]]), 2
+            a, b, c = np.array([[1, 2, 3], [4, 5, 6]], order='F')[
+                ::, ::2], np.array([[2], [3]]), 2
             assert np.allclose(f(a, b, c), a * b * c)
         assert capture == """
             my_func(x:int=1, y:float=2, z:float=2)
@@ -102,9 +108,18 @@ def test_vectorize(capture):
 
 
 def test_type_selection():
-    assert m.selective_func(np.array([1], dtype=np.int32)) == "Int branch taken."
-    assert m.selective_func(np.array([1.0], dtype=np.float32)) == "Float branch taken."
-    assert m.selective_func(np.array([1.0j], dtype=np.complex64)) == "Complex float branch taken."
+    assert m.selective_func(
+        np.array(
+            [1],
+            dtype=np.int32)) == "Int branch taken."
+    assert m.selective_func(
+        np.array(
+            [1.0],
+            dtype=np.float32)) == "Float branch taken."
+    assert m.selective_func(
+        np.array(
+            [1.0j],
+            dtype=np.complex64)) == "Complex float branch taken."
 
 
 def test_docs(doc):
@@ -117,14 +132,18 @@ def test_trivial_broadcasting():
     trivial, vectorized_is_trivial = m.trivial, m.vectorized_is_trivial
 
     assert vectorized_is_trivial(1, 2, 3) == trivial.c_trivial
-    assert vectorized_is_trivial(np.array(1), np.array(2), 3) == trivial.c_trivial
-    assert vectorized_is_trivial(np.array([1, 3]), np.array([2, 4]), 3) == trivial.c_trivial
+    assert vectorized_is_trivial(
+        np.array(1),
+        np.array(2),
+        3) == trivial.c_trivial
+    assert vectorized_is_trivial(
+        np.array([1, 3]), np.array([2, 4]), 3) == trivial.c_trivial
     assert trivial.c_trivial == vectorized_is_trivial(
         np.array([[1, 3, 5], [7, 9, 11]]), np.array([[2, 4, 6], [8, 10, 12]]), 3)
-    assert vectorized_is_trivial(
-        np.array([[1, 2, 3], [4, 5, 6]]), np.array([2, 3, 4]), 2) == trivial.non_trivial
-    assert vectorized_is_trivial(
-        np.array([[1, 2, 3], [4, 5, 6]]), np.array([[2], [3]]), 2) == trivial.non_trivial
+    assert vectorized_is_trivial(np.array([[1, 2, 3], [4, 5, 6]]), np.array([
+        2, 3, 4]), 2) == trivial.non_trivial
+    assert vectorized_is_trivial(np.array([[1, 2, 3], [4, 5, 6]]), np.array([
+        [2], [3]]), 2) == trivial.non_trivial
     z1 = np.array([[1, 2, 3, 4], [5, 6, 7, 8]], dtype='int32')
     z2 = np.array(z1, dtype='float32')
     z3 = np.array(z1, dtype='float64')
@@ -170,7 +189,8 @@ def test_passthrough_arguments(doc):
     b = np.array([[10, 20, 30]], dtype='float64')
     c = np.array([100, 200])  # NOT a vectorized argument
     d = np.array([[1000], [2000], [3000]], dtype='int')
-    g = np.array([[1000000, 2000000, 3000000]], dtype='int')  # requires casting
+    g = np.array([[1000000, 2000000, 3000000]],
+                 dtype='int')  # requires casting
     assert np.all(
         m.vec_passthrough(1, b, c, d, 10000, m.NonPODClass(100000), g) ==
         np.array([[1111111, 2111121, 3111131],

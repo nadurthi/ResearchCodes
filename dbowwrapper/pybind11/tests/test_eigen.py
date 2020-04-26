@@ -7,11 +7,11 @@ with pytest.suppress(ImportError):
     from pybind11_tests import eigen as m
     import numpy as np
 
-    ref = np.array([[ 0.,  3,  0,  0,  0, 11],
-                    [22,  0,  0,  0, 17, 11],
-                    [ 7,  5,  0,  1,  0, 11],
-                    [ 0,  0,  0,  0,  0, 11],
-                    [ 0,  0, 14,  0,  8, 11]])
+    ref = np.array([[0., 3, 0, 0, 0, 11],
+                    [22, 0, 0, 0, 17, 11],
+                    [7, 5, 0, 1, 0, 11],
+                    [0, 0, 0, 0, 0, 11],
+                    [0, 0, 14, 0, 8, 11]])
 
 
 def assert_equal_ref(mat):
@@ -41,20 +41,27 @@ def test_dense():
 
 
 def test_partially_fixed():
-    ref2 = np.array([[0., 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], [12, 13, 14, 15]])
+    ref2 = np.array([[0., 1, 2, 3], [4, 5, 6, 7], [
+                    8, 9, 10, 11], [12, 13, 14, 15]])
     np.testing.assert_array_equal(m.partial_copy_four_rm_r(ref2), ref2)
     np.testing.assert_array_equal(m.partial_copy_four_rm_c(ref2), ref2)
-    np.testing.assert_array_equal(m.partial_copy_four_rm_r(ref2[:, 1]), ref2[:, [1]])
-    np.testing.assert_array_equal(m.partial_copy_four_rm_c(ref2[0, :]), ref2[[0], :])
-    np.testing.assert_array_equal(m.partial_copy_four_rm_r(ref2[:, (0, 2)]), ref2[:, (0, 2)])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_rm_r(ref2[:, 1]), ref2[:, [1]])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_rm_c(ref2[0, :]), ref2[[0], :])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_rm_r(ref2[:, (0, 2)]), ref2[:, (0, 2)])
     np.testing.assert_array_equal(
         m.partial_copy_four_rm_c(ref2[(3, 1, 2), :]), ref2[(3, 1, 2), :])
 
     np.testing.assert_array_equal(m.partial_copy_four_cm_r(ref2), ref2)
     np.testing.assert_array_equal(m.partial_copy_four_cm_c(ref2), ref2)
-    np.testing.assert_array_equal(m.partial_copy_four_cm_r(ref2[:, 1]), ref2[:, [1]])
-    np.testing.assert_array_equal(m.partial_copy_four_cm_c(ref2[0, :]), ref2[[0], :])
-    np.testing.assert_array_equal(m.partial_copy_four_cm_r(ref2[:, (0, 2)]), ref2[:, (0, 2)])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_cm_r(ref2[:, 1]), ref2[:, [1]])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_cm_c(ref2[0, :]), ref2[[0], :])
+    np.testing.assert_array_equal(
+        m.partial_copy_four_cm_r(ref2[:, (0, 2)]), ref2[:, (0, 2)])
     np.testing.assert_array_equal(
         m.partial_copy_four_cm_c(ref2[(3, 1, 2), :]), ref2[(3, 1, 2), :])
 
@@ -106,11 +113,13 @@ def test_cpp_casting():
     assert m.cpp_ref_c(m.get_cm_ref()) == 21.
     assert m.cpp_ref_r(m.get_rm_ref()) == 21.
     with pytest.raises(RuntimeError) as excinfo:
-        # Can't reference m.fixed_c: it contains floats, m.cpp_ref_any wants doubles
+        # Can't reference m.fixed_c: it contains floats, m.cpp_ref_any wants
+        # doubles
         m.cpp_ref_any(m.fixed_c())
     assert 'Unable to cast Python instance' in str(excinfo.value)
     with pytest.raises(RuntimeError) as excinfo:
-        # Can't reference m.fixed_r: it contains floats, m.cpp_ref_any wants doubles
+        # Can't reference m.fixed_r: it contains floats, m.cpp_ref_any wants
+        # doubles
         m.cpp_ref_any(m.fixed_r())
     assert 'Unable to cast Python instance' in str(excinfo.value)
     assert m.cpp_ref_any(m.ReturnTester.create()) == 1.
@@ -125,7 +134,10 @@ def test_pass_readonly_array():
     np.testing.assert_array_equal(z, m.fixed_copy_r(z))
     np.testing.assert_array_equal(m.fixed_r_const(), m.fixed_r())
     assert not m.fixed_r_const().flags.writeable
-    np.testing.assert_array_equal(m.fixed_copy_r(m.fixed_r_const()), m.fixed_r_const())
+    np.testing.assert_array_equal(
+        m.fixed_copy_r(
+            m.fixed_r_const()),
+        m.fixed_r_const())
 
 
 def test_nonunit_stride_from_python():
@@ -134,10 +146,14 @@ def test_nonunit_stride_from_python():
     second_col = counting_mat[:, 1]
     np.testing.assert_array_equal(m.double_row(second_row), 2.0 * second_row)
     np.testing.assert_array_equal(m.double_col(second_row), 2.0 * second_row)
-    np.testing.assert_array_equal(m.double_complex(second_row), 2.0 * second_row)
+    np.testing.assert_array_equal(
+        m.double_complex(second_row),
+        2.0 * second_row)
     np.testing.assert_array_equal(m.double_row(second_col), 2.0 * second_col)
     np.testing.assert_array_equal(m.double_col(second_col), 2.0 * second_col)
-    np.testing.assert_array_equal(m.double_complex(second_col), 2.0 * second_col)
+    np.testing.assert_array_equal(
+        m.double_complex(second_col),
+        2.0 * second_col)
 
     counting_3d = np.arange(27.0, dtype=np.float32).reshape((3, 3, 3))
     slices = [counting_3d[0, :, :], counting_3d[:, 0, :], counting_3d[:, :, 0]]
@@ -148,7 +164,8 @@ def test_nonunit_stride_from_python():
     # Mutator:
     m.double_threer(second_row)
     m.double_threec(second_col)
-    np.testing.assert_array_equal(counting_mat, [[0., 2, 2], [6, 16, 10], [6, 14, 8]])
+    np.testing.assert_array_equal(
+        counting_mat, [[0., 2, 2], [6, 16, 10], [6, 14, 8]])
 
 
 def test_negative_stride_from_python(msg):
@@ -162,10 +179,14 @@ def test_negative_stride_from_python(msg):
     second_col = counting_mat[:, 1]
     np.testing.assert_array_equal(m.double_row(second_row), 2.0 * second_row)
     np.testing.assert_array_equal(m.double_col(second_row), 2.0 * second_row)
-    np.testing.assert_array_equal(m.double_complex(second_row), 2.0 * second_row)
+    np.testing.assert_array_equal(
+        m.double_complex(second_row),
+        2.0 * second_row)
     np.testing.assert_array_equal(m.double_row(second_col), 2.0 * second_col)
     np.testing.assert_array_equal(m.double_col(second_col), 2.0 * second_col)
-    np.testing.assert_array_equal(m.double_complex(second_col), 2.0 * second_col)
+    np.testing.assert_array_equal(
+        m.double_complex(second_col),
+        2.0 * second_col)
 
     counting_3d = np.arange(27.0, dtype=np.float32).reshape((3, 3, 3))
     counting_3d = counting_3d[::-1, ::-1, ::-1]
@@ -198,7 +219,8 @@ def test_nonunit_stride_to_python():
     assert np.all(m.diagonal(ref) == ref.diagonal())
     assert np.all(m.diagonal_1(ref) == ref.diagonal(1))
     for i in range(-5, 7):
-        assert np.all(m.diagonal_n(ref, i) == ref.diagonal(i)), "m.diagonal_n({})".format(i)
+        assert np.all(m.diagonal_n(ref, i) == ref.diagonal(i)
+                      ), "m.diagonal_n({})".format(i)
 
     assert np.all(m.block(ref, 2, 1, 3, 3) == ref[2:5, 1:4])
     assert np.all(m.block(ref, 1, 4, 4, 2) == ref[1:, 4:])
@@ -209,7 +231,8 @@ def test_eigen_ref_to_python():
     chols = [m.cholesky1, m.cholesky2, m.cholesky3, m.cholesky4]
     for i, chol in enumerate(chols, start=1):
         mymat = chol(np.array([[1., 2, 4], [2, 13, 23], [4, 23, 77]]))
-        assert np.all(mymat == np.array([[1, 0, 0], [2, 3, 0], [4, 5, 6]])), "cholesky{}".format(i)
+        assert np.all(mymat == np.array(
+            [[1, 0, 0], [2, 3, 0], [4, 5, 6]])), "cholesky{}".format(i)
 
 
 def assign_both(a1, a2, r, c, v):
@@ -326,8 +349,10 @@ def test_eigen_return_references():
     np.testing.assert_array_equal(a_block1, master[3:5, 3:5])
     np.testing.assert_array_equal(a_block2, master[2:5, 2:4])
     np.testing.assert_array_equal(a_block3, master[6:10, 7:10])
-    np.testing.assert_array_equal(a_corn1, master[0::master.shape[0] - 1, 0::master.shape[1] - 1])
-    np.testing.assert_array_equal(a_corn2, master[0::master.shape[0] - 1, 0::master.shape[1] - 1])
+    np.testing.assert_array_equal(
+        a_corn1, master[0::master.shape[0] - 1, 0::master.shape[1] - 1])
+    np.testing.assert_array_equal(
+        a_corn2, master[0::master.shape[0] - 1, 0::master.shape[1] - 1])
 
     np.testing.assert_array_equal(a_copy1, c1want)
     np.testing.assert_array_equal(a_copy2, c2want)
@@ -363,9 +388,15 @@ def test_eigen_keepalive():
     del unsafe
     del copies
 
-    for meth in [m.ReturnTester.get, m.ReturnTester.get_ptr, m.ReturnTester.view,
-                 m.ReturnTester.view_ptr, m.ReturnTester.ref_safe, m.ReturnTester.ref_const_safe,
-                 m.ReturnTester.corners, m.ReturnTester.corners_const]:
+    for meth in [
+            m.ReturnTester.get,
+            m.ReturnTester.get_ptr,
+            m.ReturnTester.view,
+            m.ReturnTester.view_ptr,
+            m.ReturnTester.ref_safe,
+            m.ReturnTester.ref_const_safe,
+            m.ReturnTester.corners,
+            m.ReturnTester.corners_const]:
         assert_keeps_alive(m.ReturnTester, meth)
 
     for meth in [m.ReturnTester.block_safe, m.ReturnTester.block_const]:
@@ -423,7 +454,8 @@ def test_eigen_ref_mutators():
     assert np.all(zr == np.array([[1., 2, 28], [4, 5, 6], [7, 8, 9]]))
     assert np.all(zc == np.array([[1., 2, 47], [4, 5, 6], [7, 8, 9]]))
 
-    # You shouldn't be allowed to pass a non-writeable array to a mutating Eigen method:
+    # You shouldn't be allowed to pass a non-writeable array to a mutating
+    # Eigen method:
     zro = zr[0:4, 0:4]
     zro.flags.writeable = False
     with pytest.raises(TypeError):
@@ -435,7 +467,8 @@ def test_eigen_ref_mutators():
     with pytest.raises(TypeError):
         m.add2(zro, 0, 0, 0)
 
-    # integer array shouldn't be passable to a double-matrix-accepting mutating func:
+    # integer array shouldn't be passable to a double-matrix-accepting
+    # mutating func:
     zi = np.array([[1, 2], [3, 4]])
     with pytest.raises(TypeError):
         m.add_rm(zi)
@@ -460,7 +493,8 @@ def test_numpy_ref_mutators():
 
     zc[1, 2] = 99
     expect = np.array([[11., 12, 13], [21, 22, 99], [31, 32, 33]])
-    # We should have just changed zc, of course, but also zcro and the original eigen matrix
+    # We should have just changed zc, of course, but also zcro and the
+    # original eigen matrix
     assert np.all(zc == expect)
     assert np.all(zcro == expect)
     assert np.all(m.get_cm_ref() == expect)
@@ -512,7 +546,8 @@ def test_both_ref_mutators():
 
     y = np.array(range(100), dtype='float64').reshape(10, 10)
     y2 = m.incr_matrix_any(y, 10)  # np -> eigen -> np
-    y3 = m.incr_matrix_any(y2[0::2, 0::2], -33)  # np -> eigen -> np slice -> np -> eigen -> np
+    # np -> eigen -> np slice -> np -> eigen -> np
+    y3 = m.incr_matrix_any(y2[0::2, 0::2], -33)
     y4 = m.even_rows(y3)  # numpy -> eigen slice -> (... y3)
     y5 = m.even_cols(y4)  # numpy -> eigen slice -> (... y4)
     y6 = m.incr_matrix_any(y5, 1000)  # numpy -> eigen -> (... y5)
@@ -533,10 +568,19 @@ def test_both_ref_mutators():
 def test_nocopy_wrapper():
     # get_elem requires a column-contiguous matrix reference, but should be
     # callable with other types of matrix (via copying):
-    int_matrix_colmajor = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], order='F')
-    dbl_matrix_colmajor = np.array(int_matrix_colmajor, dtype='double', order='F', copy=True)
+    int_matrix_colmajor = np.array(
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]], order='F')
+    dbl_matrix_colmajor = np.array(
+        int_matrix_colmajor,
+        dtype='double',
+        order='F',
+        copy=True)
     int_matrix_rowmajor = np.array(int_matrix_colmajor, order='C', copy=True)
-    dbl_matrix_rowmajor = np.array(int_matrix_rowmajor, dtype='double', order='C', copy=True)
+    dbl_matrix_rowmajor = np.array(
+        int_matrix_rowmajor,
+        dtype='double',
+        order='C',
+        copy=True)
 
     # All should be callable via get_elem:
     assert m.get_elem(int_matrix_colmajor) == 8
@@ -547,32 +591,33 @@ def test_nocopy_wrapper():
     # All but the second should fail with m.get_elem_nocopy:
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_nocopy(int_matrix_colmajor)
-    assert ('get_elem_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.f_contiguous' in str(excinfo.value))
+    assert ('get_elem_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.f_contiguous' in str(excinfo.value))
     assert m.get_elem_nocopy(dbl_matrix_colmajor) == 8
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_nocopy(int_matrix_rowmajor)
-    assert ('get_elem_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.f_contiguous' in str(excinfo.value))
+    assert ('get_elem_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.f_contiguous' in str(excinfo.value))
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_nocopy(dbl_matrix_rowmajor)
-    assert ('get_elem_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.f_contiguous' in str(excinfo.value))
+    assert ('get_elem_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.f_contiguous' in str(excinfo.value))
 
-    # For the row-major test, we take a long matrix in row-major, so only the third is allowed:
+    # For the row-major test, we take a long matrix in row-major, so only the
+    # third is allowed:
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_rm_nocopy(int_matrix_colmajor)
-    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.c_contiguous' in str(excinfo.value))
+    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.c_contiguous' in str(excinfo.value))
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_rm_nocopy(dbl_matrix_colmajor)
-    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.c_contiguous' in str(excinfo.value))
+    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.c_contiguous' in str(excinfo.value))
     assert m.get_elem_rm_nocopy(int_matrix_rowmajor) == 8
     with pytest.raises(TypeError) as excinfo:
         m.get_elem_rm_nocopy(dbl_matrix_rowmajor)
-    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(excinfo.value) and
-            ', flags.c_contiguous' in str(excinfo.value))
+    assert ('get_elem_rm_nocopy(): incompatible function arguments.' in str(
+        excinfo.value) and ', flags.c_contiguous' in str(excinfo.value))
 
 
 def test_eigen_ref_life_support():
@@ -592,9 +637,9 @@ def test_eigen_ref_life_support():
 def test_special_matrix_objects():
     assert np.all(m.incr_diag(7) == np.diag([1., 2, 3, 4, 5, 6, 7]))
 
-    asymm = np.array([[ 1.,  2,  3,  4],
-                      [ 5,  6,  7,  8],
-                      [ 9, 10, 11, 12],
+    asymm = np.array([[1., 2, 3, 4],
+                      [5, 6, 7, 8],
+                      [9, 10, 11, 12],
                       [13, 14, 15, 16]])
     symm_lower = np.array(asymm)
     symm_upper = np.array(asymm)
@@ -665,11 +710,15 @@ def test_sparse_signature(doc):
 
 def test_issue738():
     """Ignore strides on a length-1 dimension (even if they would be incompatible length > 1)"""
-    assert np.all(m.iss738_f1(np.array([[1., 2, 3]])) == np.array([[1., 102, 203]]))
-    assert np.all(m.iss738_f1(np.array([[1.], [2], [3]])) == np.array([[1.], [12], [23]]))
+    assert np.all(m.iss738_f1(
+        np.array([[1., 2, 3]])) == np.array([[1., 102, 203]]))
+    assert np.all(m.iss738_f1(
+        np.array([[1.], [2], [3]])) == np.array([[1.], [12], [23]]))
 
-    assert np.all(m.iss738_f2(np.array([[1., 2, 3]])) == np.array([[1., 102, 203]]))
-    assert np.all(m.iss738_f2(np.array([[1.], [2], [3]])) == np.array([[1.], [12], [23]]))
+    assert np.all(m.iss738_f2(
+        np.array([[1., 2, 3]])) == np.array([[1., 102, 203]]))
+    assert np.all(m.iss738_f2(
+        np.array([[1.], [2], [3]])) == np.array([[1.], [12], [23]]))
 
 
 def test_custom_operator_new():

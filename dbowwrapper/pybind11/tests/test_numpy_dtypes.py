@@ -18,7 +18,8 @@ def simple_dtype():
 
 @pytest.fixture(scope='module')
 def packed_dtype():
-    return np.dtype([('bool_', '?'), ('uint_', 'u4'), ('float_', 'f4'), ('ldbl_', 'g')])
+    return np.dtype([('bool_', '?'), ('uint_', 'u4'),
+                     ('float_', 'f4'), ('ldbl_', 'g')])
 
 
 def dt_fmt():
@@ -62,20 +63,29 @@ def partial_nested_fmt():
 
 
 def assert_equal(actual, expected_data, expected_dtype):
-    np.testing.assert_equal(actual, np.array(expected_data, dtype=expected_dtype))
+    np.testing.assert_equal(
+        actual,
+        np.array(
+            expected_data,
+            dtype=expected_dtype))
 
 
 def test_format_descriptors():
     with pytest.raises(RuntimeError) as excinfo:
         m.get_format_unbound()
-    assert re.match('^NumPy type info missing for .*UnboundStruct.*$', str(excinfo.value))
+    assert re.match(
+        '^NumPy type info missing for .*UnboundStruct.*$', str(excinfo.value))
 
     ld = np.dtype('longdouble')
     ldbl_fmt = ('4x' if ld.alignment > 4 else '') + ld.char
     ss_fmt = "^T{?:bool_:3xI:uint_:f:float_:" + ldbl_fmt + ":ldbl_:}"
     dbl = np.dtype('double')
     partial_fmt = ("^T{?:bool_:3xI:uint_:f:float_:" +
-                   str(4 * (dbl.alignment > 4) + dbl.itemsize + 8 * (ld.alignment > 8)) +
+                   str(4 *
+                       (dbl.alignment > 4) +
+                       dbl.itemsize +
+                       8 *
+                       (ld.alignment > 8)) +
                    "xg:ldbl_:}")
     nested_extra = str(max(8, ld.alignment))
     assert m.print_format_descriptors() == [
@@ -113,19 +123,27 @@ def test_dtype(simple_dtype):
     d1 = np.dtype({'names': ['a', 'b'], 'formats': ['int32', 'float64'],
                    'offsets': [1, 10], 'itemsize': 20})
     d2 = np.dtype([('a', 'i4'), ('b', 'f4')])
-    assert m.test_dtype_ctors() == [np.dtype('int32'), np.dtype('float64'),
-                                    np.dtype('bool'), d1, d1, np.dtype('uint32'), d2]
+    assert m.test_dtype_ctors() == [np.dtype('int32'), np.dtype(
+        'float64'), np.dtype('bool'), d1, d1, np.dtype('uint32'), d2]
 
-    assert m.test_dtype_methods() == [np.dtype('int32'), simple_dtype, False, True,
-                                      np.dtype('int32').itemsize, simple_dtype.itemsize]
+    assert m.test_dtype_methods() == [
+        np.dtype('int32'),
+        simple_dtype,
+        False,
+        True,
+        np.dtype('int32').itemsize,
+        simple_dtype.itemsize]
 
-    assert m.trailing_padding_dtype() == m.buffer_to_dtype(np.zeros(1, m.trailing_padding_dtype()))
+    assert m.trailing_padding_dtype() == m.buffer_to_dtype(
+        np.zeros(1, m.trailing_padding_dtype()))
 
 
 def test_recarray(simple_dtype, packed_dtype):
-    elements = [(False, 0, 0.0, -0.0), (True, 1, 1.5, -2.5), (False, 2, 3.0, -5.0)]
+    elements = [(False, 0, 0.0, -0.0), (True, 1, 1.5, -2.5),
+                (False, 2, 3.0, -5.0)]
 
-    for func, dtype in [(m.create_rec_simple, simple_dtype), (m.create_rec_packed, packed_dtype)]:
+    for func, dtype in [(m.create_rec_simple, simple_dtype),
+                        (m.create_rec_packed, packed_dtype)]:
         arr = func(0)
         assert arr.dtype == dtype
         assert_equal(arr, [], simple_dtype)
@@ -185,8 +203,10 @@ def test_recarray(simple_dtype, packed_dtype):
 def test_array_constructors():
     data = np.arange(1, 7, dtype='int32')
     for i in range(8):
-        np.testing.assert_array_equal(m.test_array_ctors(10 + i), data.reshape((3, 2)))
-        np.testing.assert_array_equal(m.test_array_ctors(20 + i), data.reshape((3, 2)))
+        np.testing.assert_array_equal(
+            m.test_array_ctors(10 + i), data.reshape((3, 2)))
+        np.testing.assert_array_equal(
+            m.test_array_ctors(20 + i), data.reshape((3, 2)))
     for i in range(5):
         np.testing.assert_array_equal(m.test_array_ctors(30 + i), data)
         np.testing.assert_array_equal(m.test_array_ctors(40 + i), data)
@@ -213,10 +233,12 @@ def test_array_array():
     e = '<' if byteorder == 'little' else '>'
 
     arr = m.create_array_array(3)
-    assert str(arr.dtype) == (
+    assert str(
+        arr.dtype) == (
         "{{'names':['a','b','c','d'], " +
         "'formats':[('S4', (3,)),('<i4', (2,)),('u1', (3,)),('{e}f4', (4, 2))], " +
-        "'offsets':[0,12,20,24], 'itemsize':56}}").format(e=e)
+        "'offsets':[0,12,20,24], 'itemsize':56}}").format(
+            e=e)
     assert m.print_array_array(arr) == [
         "a={{A,B,C,D},{K,L,M,N},{U,V,W,X}},b={0,1}," +
         "c={0,1,2},d={{0,1},{10,11},{20,21},{30,31}}",
@@ -280,7 +302,11 @@ def test_scalar_conversion():
     for i, func in enumerate(funcs):
         for j, arr in enumerate(arrays):
             if i == j and i < 2:
-                assert [func(arr[k]) for k in range(n)] == [k * 10 for k in range(n)]
+                assert [
+                    func(
+                        arr[k]) for k in range(n)] == [
+                    k *
+                    10 for k in range(n)]
             else:
                 with pytest.raises(TypeError) as excinfo:
                     func(arr[0])

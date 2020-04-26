@@ -55,7 +55,10 @@ class TrackedSequence:
         else:
             if postprocess:
                 mask = cocomask.decode(self.masks[t][id])
-                return cocomask.encode(cv2.erode(mask, np.ones((5, 5), np.uint8), iterations=1))
+                return cocomask.encode(
+                    cv2.erode(
+                        mask, np.ones(
+                            (5, 5), np.uint8), iterations=1))
             else:
                 return self.masks[t][id]
 
@@ -122,13 +125,15 @@ class TrackedSequence:
         self.detections[t].append(detection)
         self.masks[t].append(mask)
 
-        return len(self.track_ids[t])-1
+        return len(self.track_ids[t]) - 1
 
     def add_new_attribute(self, name, values=None):
         if values is None:
-            self.attributes[name] = [[None for _ in range(self.get_num_ids())] for _ in range(self.timesteps)]
+            self.attributes[name] = [[None for _ in range(
+                self.get_num_ids())] for _ in range(self.timesteps)]
         else:
-            self.attributes[name] = [[values[t][id] for id in range(self.get_num_ids())] for t in range(self.timesteps)]
+            self.attributes[name] = [[values[t][id] for id in range(
+                self.get_num_ids())] for t in range(self.timesteps)]
 
     def add_to_attribute(self, name, t, id, object):
         self.attributes[name][t][id] = object
@@ -156,9 +161,11 @@ class TrackedSequence:
             if any(self.get_track(curr_id)):
                 count = 0
                 sum_box_score = 0
-                for timestep, box in enumerate(self.get_track_detections(curr_id)):
+                for timestep, box in enumerate(
+                        self.get_track_detections(curr_id)):
                     if box is not None:
-                        sum_box_score += self.get_detection(timestep, curr_id)['score']
+                        sum_box_score += self.get_detection(
+                            timestep, curr_id)['score']
                         count += 1
 
                 if count:
@@ -175,22 +182,28 @@ class TrackedSequence:
                 if self.masks[t][id] is not None:
                     ref_mask = self.masks[t][id]
 
-                    for k in range(id+1, self.get_num_ids()):
+                    for k in range(id + 1, self.get_num_ids()):
                         if self.masks[t][k] is not None:
-                            overlap = cocomask.area(cocomask.merge([self.masks[t][k], ref_mask], intersect=True))
+                            overlap = cocomask.area(cocomask.merge(
+                                [self.masks[t][k], ref_mask], intersect=True))
                             if overlap > 0.0:
-                                if overlap > thresh * np.minimum(cocomask.area(ref_mask), cocomask.area(self.masks[t][k])):
-                                    if cocomask.area(ref_mask) < cocomask.area(self.masks[t][k]):
+                                if overlap > thresh * \
+                                        np.minimum(cocomask.area(ref_mask), cocomask.area(self.masks[t][k])):
+                                    if cocomask.area(ref_mask) < cocomask.area(
+                                            self.masks[t][k]):
                                         ref_mask = None
                                         break
                                     else:
                                         self.remove_from_track(t, k)
 
                                 else:
-                                    if cocomask.area(ref_mask) < cocomask.area(self.masks[t][k]):
-                                        self.masks[t][k] = cut(self.masks[t][k], ref_mask)
+                                    if cocomask.area(ref_mask) < cocomask.area(
+                                            self.masks[t][k]):
+                                        self.masks[t][k] = cut(
+                                            self.masks[t][k], ref_mask)
                                     else:
-                                        ref_mask = cut(ref_mask, self.masks[t][k])
+                                        ref_mask = cut(
+                                            ref_mask, self.masks[t][k])
 
                     self.masks[t][id] = ref_mask
 

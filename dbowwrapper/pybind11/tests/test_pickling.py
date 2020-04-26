@@ -22,7 +22,9 @@ def test_roundtrip(cls_name):
 
 
 @pytest.unsupported_on_pypy
-@pytest.mark.parametrize("cls_name", ["PickleableWithDict", "PickleableWithDictNew"])
+@pytest.mark.parametrize(
+    "cls_name", [
+        "PickleableWithDict", "PickleableWithDictNew"])
 def test_roundtrip_with_dict(cls_name):
     cls = getattr(m, cls_name)
     p = cls("test_value")

@@ -26,7 +26,7 @@ OxtsData = namedtuple('OxtsData', 'packet, T_w_imu')
 def subselect_files(files, indices):
     try:
         files = [files[i] for i in indices]
-    except:
+    except BaseException:
         pass
     return files
 
@@ -35,27 +35,27 @@ def rotx(t):
     """Rotation about the x-axis."""
     c = np.cos(t)
     s = np.sin(t)
-    return np.array([[1,  0,  0],
-                     [0,  c, -s],
-                     [0,  s,  c]])
+    return np.array([[1, 0, 0],
+                     [0, c, -s],
+                     [0, s, c]])
 
 
 def roty(t):
     """Rotation about the y-axis."""
     c = np.cos(t)
     s = np.sin(t)
-    return np.array([[c,  0,  s],
-                     [0,  1,  0],
-                     [-s, 0,  c]])
+    return np.array([[c, 0, s],
+                     [0, 1, 0],
+                     [-s, 0, c]])
 
 
 def rotz(t):
     """Rotation about the z-axis."""
     c = np.cos(t)
     s = np.sin(t)
-    return np.array([[c, -s,  0],
-                     [s,  c,  0],
-                     [0,  0,  1]])
+    return np.array([[c, -s, 0],
+                     [s, c, 0],
+                     [0, 0, 1]])
 
 
 def transform_from_rot_trans(R, t):
@@ -107,7 +107,7 @@ def pose_from_oxts_packet(packet, scale):
 def load_oxts_packets_and_poses(oxts_files):
     """Generator to read OXTS ground truth data.
 
-       Poses are given in an East-North-Up coordinate system 
+       Poses are given in an East-North-Up coordinate system
        whose origin is the first GPS position.
     """
     # Scale for Mercator projection (from first lat value)

@@ -1,9 +1,14 @@
+import logging
 import numpy as np
+import uuid
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class MotionModel:
     def __init__(self, *args, **kwargs):
-        pass
+        self.ID = uuid.uuid4()
 
     def propforward(self, *args, uk=None, **kwargs):
         pass

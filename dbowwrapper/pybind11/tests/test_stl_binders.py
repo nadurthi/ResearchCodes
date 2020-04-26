@@ -80,8 +80,8 @@ def test_vector_buffer_numpy():
     ma[1]['x'] = 99
     assert v[1].x == 99
 
-    v = m.VectorStruct(np.zeros(3, dtype=np.dtype([('w', 'bool'), ('x', 'I'),
-                                                   ('y', 'float64'), ('z', 'bool')], align=True)))
+    v = m.VectorStruct(np.zeros(3, dtype=np.dtype(
+        [('w', 'bool'), ('x', 'I'), ('y', 'float64'), ('z', 'bool')], align=True)))
     assert len(v) == 3
 
 

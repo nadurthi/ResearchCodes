@@ -11,18 +11,40 @@ import sys
 from subprocess import call
 import glob
 
-URL_BASE="https://s3.eu-central-1.amazonaws.com/avg-kitti/"
-tracking_dir_names = ['image_02', 'image_03', 'velodyne', 'calib', 'oxts', 'label_02', 'det_02']
-tracking_dir_zip_tags = ['image_2', 'image_3', 'velodyne', 'calib', 'oxts', 'label_2', 'det_2_lsvm']
+URL_BASE = "https://s3.eu-central-1.amazonaws.com/avg-kitti/"
+tracking_dir_names = [
+    'image_02',
+    'image_03',
+    'velodyne',
+    'calib',
+    'oxts',
+    'label_02',
+    'det_02']
+tracking_dir_zip_tags = [
+    'image_2',
+    'image_3',
+    'velodyne',
+    'calib',
+    'oxts',
+    'label_2',
+    'det_2_lsvm']
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--kitti_root', type=str, default=os.path.join('data', 'kitti'))
+    parser.add_argument(
+        '--kitti_root',
+        type=str,
+        default=os.path.join(
+            'data',
+            'kitti'))
     # parser.add_argument('--root', type=str, default=None, help='data folder')
 
     return parser.parse_args(sys.argv[1:])
 
-## Need to clean up lsvm as their files have trailing whitespaces
+# Need to clean up lsvm as their files have trailing whitespaces
+
+
 def clean_file(filename):
     f = open(filename, 'r')
     new_lines = []
@@ -34,8 +56,9 @@ def clean_file(filename):
     for line in new_lines:
         f.write(line + '\n')
 
-
     f.close()
+
+
 def clean_lsvm(lsvm_dir):
     for filename in glob.glob(lsvm_dir + '/*.txt'):
         print('Cleaning ', filename)
@@ -61,18 +84,22 @@ def main():
     os.makedirs(tracking_dir, exist_ok=True)
     os.chdir(tracking_dir)
 
-    tracking_zip_names = ["data_tracking_" + name + ".zip" for name in tracking_dir_zip_tags]
+    tracking_zip_names = ["data_tracking_" + name +
+                          ".zip" for name in tracking_dir_zip_tags]
 
     for dir_name, zip_name in zip(tracking_dir_names, tracking_zip_names):
         canary_dir = os.path.join('training', dir_name)
         if os.path.isdir(canary_dir):
-            print("Directory {} canary dir seems to exist, so I will assume the data is there.".format(canary_dir))
+            print("Directory {} canary dir seems to exist, so I will assume the data is there.".format(
+                canary_dir))
         else:
             if os.path.exists(zip_name):
                 print("File {} exists. Not re-downloading.".format(zip_name))
             else:
                 url = URL_BASE + zip_name
-                print("Downloading file {} to folder {}.".format(zip_name, kitti_dir))
+                print(
+                    "Downloading file {} to folder {}.".format(
+                        zip_name, kitti_dir))
                 call(['wget', url])
 
             call(['unzip', '-o', zip_name])

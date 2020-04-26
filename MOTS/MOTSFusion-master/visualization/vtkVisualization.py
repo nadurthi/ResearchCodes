@@ -15,8 +15,9 @@ class VTKEntity3D(ABC):
 
 
 class VTKPointCloud(VTKEntity3D):
-    def __init__(self, points: np.ndarray=None, colors: np.ndarray=None):
-        assert (points is None and colors is None) or (points is not None and colors is not None)
+    def __init__(self, points: np.ndarray = None, colors: np.ndarray = None):
+        assert (points is None and colors is None) or (
+            points is not None and colors is not None)
 
         self.num_points = 0
 
@@ -49,7 +50,7 @@ class VTKPointCloud(VTKEntity3D):
 
         self.add_points(points, colors)
 
-    def add_points(self, points: np.ndarray, colors: np.ndarray): #points, colors Nx3
+    def add_points(self, points: np.ndarray, colors: np.ndarray):  # points, colors Nx3
         assert len(points.shape) == 2
         assert len(colors.shape) == 2
         assert points.shape[0] == colors.shape[0]
@@ -146,7 +147,8 @@ class VTKVisualization(object):
         self.window.AddRenderer(self.renderer)
 
         self.interactor = vtk.vtkRenderWindowInteractor()
-        self.interactor.SetInteractorStyle(vtk.vtkInteractorStyleTrackballCamera())
+        self.interactor.SetInteractorStyle(
+            vtk.vtkInteractorStyleTrackballCamera())
         self.interactor.SetRenderWindow(self.window)
 
         self.camera = vtk.vtkCamera()

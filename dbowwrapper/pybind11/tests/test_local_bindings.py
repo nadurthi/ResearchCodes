@@ -6,7 +6,8 @@ from pybind11_tests import local_bindings as m
 def test_local_bindings():
     """Tests that duplicate `py::module_local` class bindings work across modules"""
 
-    # Make sure we can load the second module with the conflicting (but local) definition:
+    # Make sure we can load the second module with the conflicting (but local)
+    # definition:
     import pybind11_cross_module_tests as cm
 
     i1 = m.LocalType(5)
@@ -36,7 +37,8 @@ def test_nonlocal_failure():
 
     with pytest.raises(RuntimeError) as excinfo:
         cm.register_nonlocal()
-    assert str(excinfo.value) == 'generic_type: type "NonLocalType" is already registered!'
+    assert str(
+        excinfo.value) == 'generic_type: type "NonLocalType" is already registered!'
 
 
 def test_duplicate_local():
@@ -88,15 +90,18 @@ def test_stl_bind_global():
 
     with pytest.raises(RuntimeError) as excinfo:
         cm.register_nonlocal_map()
-    assert str(excinfo.value) == 'generic_type: type "NonLocalMap" is already registered!'
+    assert str(
+        excinfo.value) == 'generic_type: type "NonLocalMap" is already registered!'
 
     with pytest.raises(RuntimeError) as excinfo:
         cm.register_nonlocal_vec()
-    assert str(excinfo.value) == 'generic_type: type "NonLocalVec" is already registered!'
+    assert str(
+        excinfo.value) == 'generic_type: type "NonLocalVec" is already registered!'
 
     with pytest.raises(RuntimeError) as excinfo:
         cm.register_nonlocal_map2()
-    assert str(excinfo.value) == 'generic_type: type "NonLocalMap2" is already registered!'
+    assert str(
+        excinfo.value) == 'generic_type: type "NonLocalMap2" is already registered!'
 
 
 def test_mixed_local_global():
@@ -175,12 +180,13 @@ def test_cross_module_calls():
     assert m.LocalVec is not cm.LocalVec
     # Returning a copy, on the other hand, always goes to the local type,
     # regardless of where the source type came from.
-    assert type(m.return_copy(v1)) is m.LocalVec
-    assert type(m.return_copy(v2)) is m.LocalVec
-    assert type(cm.return_copy(v1)) is cm.LocalVec
-    assert type(cm.return_copy(v2)) is cm.LocalVec
+    assert isinstance(m.return_copy(v1), m.LocalVec)
+    assert isinstance(m.return_copy(v2), m.LocalVec)
+    assert isinstance(cm.return_copy(v1), cm.LocalVec)
+    assert isinstance(cm.return_copy(v2), cm.LocalVec)
 
-    # Test the example given in the documentation (which also tests inheritance casting):
+    # Test the example given in the documentation (which also tests
+    # inheritance casting):
     mycat = m.Cat("Fluffy")
     mydog = cm.Dog("Rover")
     assert mycat.get_name() == "Fluffy"

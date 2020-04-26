@@ -9,16 +9,20 @@ def isclose(a, b, rel_tol=1e-05, abs_tol=0.0):
 
 
 def allclose(a_list, b_list, rel_tol=1e-05, abs_tol=0.0):
-    return all(isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol) for a, b in zip(a_list, b_list))
+    return all(isclose(a, b, rel_tol=rel_tol, abs_tol=abs_tol)
+               for a, b in zip(a_list, b_list))
 
 
 def test_generalized_iterators():
-    assert list(m.IntPairs([(1, 2), (3, 4), (0, 5)]).nonzero()) == [(1, 2), (3, 4)]
-    assert list(m.IntPairs([(1, 2), (2, 0), (0, 3), (4, 5)]).nonzero()) == [(1, 2)]
+    assert list(m.IntPairs([(1, 2), (3, 4), (0, 5)]).nonzero()) == [
+        (1, 2), (3, 4)]
+    assert list(m.IntPairs([(1, 2), (2, 0), (0, 3), (4, 5)]).nonzero()) == [
+        (1, 2)]
     assert list(m.IntPairs([(0, 3), (1, 2), (3, 4)]).nonzero()) == []
 
     assert list(m.IntPairs([(1, 2), (3, 4), (0, 5)]).nonzero_keys()) == [1, 3]
-    assert list(m.IntPairs([(1, 2), (2, 0), (0, 3), (4, 5)]).nonzero_keys()) == [1]
+    assert list(m.IntPairs(
+        [(1, 2), (2, 0), (0, 3), (4, 5)]).nonzero_keys()) == [1]
     assert list(m.IntPairs([(0, 3), (1, 2), (3, 4)]).nonzero_keys()) == []
 
     # __next__ must continue to raise StopIteration
@@ -146,7 +150,8 @@ def test_iterator_passthrough():
     """#181: iterator passthrough did not compile"""
     from pybind11_tests.sequences_and_iterators import iterator_passthrough
 
-    assert list(iterator_passthrough(iter([3, 5, 7, 9, 11, 13, 15]))) == [3, 5, 7, 9, 11, 13, 15]
+    assert list(iterator_passthrough(iter([3, 5, 7, 9, 11, 13, 15]))) == [
+        3, 5, 7, 9, 11, 13, 15]
 
 
 def test_iterator_rvp():

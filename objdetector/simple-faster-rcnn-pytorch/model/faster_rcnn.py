@@ -1,4 +1,4 @@
-from __future__ import  absolute_import
+from __future__ import absolute_import
 from __future__ import division
 import torch as t
 import numpy as np
@@ -14,10 +14,11 @@ from utils.config import opt
 
 
 def nograd(f):
-    def new_f(*args,**kwargs):
+    def new_f(*args, **kwargs):
         with t.no_grad():
-           return f(*args,**kwargs)
+            return f(*args, **kwargs)
     return new_f
+
 
 class FasterRCNN(nn.Module):
     """Base class for Faster R-CNN.
@@ -69,9 +70,9 @@ class FasterRCNN(nn.Module):
     """
 
     def __init__(self, extractor, rpn, head,
-                loc_normalize_mean = (0., 0., 0., 0.),
-                loc_normalize_std = (0.1, 0.1, 0.2, 0.2)
-    ):
+                 loc_normalize_mean=(0., 0., 0., 0.),
+                 loc_normalize_std=(0.1, 0.1, 0.2, 0.2)
+                 ):
         super(FasterRCNN, self).__init__()
         self.extractor = extractor
         self.rpn = rpn
@@ -184,7 +185,7 @@ class FasterRCNN(nn.Module):
         return bbox, label, score
 
     @nograd
-    def predict(self, imgs,sizes=None,visualize=False):
+    def predict(self, imgs, sizes=None, visualize=False):
         """Detect objects from images.
 
         This method predicts objects for each image.
@@ -223,7 +224,7 @@ class FasterRCNN(nn.Module):
                 prepared_imgs.append(img)
                 sizes.append(size)
         else:
-             prepared_imgs = imgs 
+            prepared_imgs = imgs
         bboxes = list()
         labels = list()
         scores = list()
@@ -270,7 +271,7 @@ class FasterRCNN(nn.Module):
 
     def get_optimizer(self):
         """
-        return optimizer, It could be overwriten if you want to specify 
+        return optimizer, It could be overwriten if you want to specify
         special optimizer
         """
         lr = opt.lr
@@ -278,9 +279,11 @@ class FasterRCNN(nn.Module):
         for key, value in dict(self.named_parameters()).items():
             if value.requires_grad:
                 if 'bias' in key:
-                    params += [{'params': [value], 'lr': lr * 2, 'weight_decay': 0}]
+                    params += [{'params': [value],
+                                'lr': lr * 2, 'weight_decay': 0}]
                 else:
-                    params += [{'params': [value], 'lr': lr, 'weight_decay': opt.weight_decay}]
+                    params += [{'params': [value], 'lr': lr,
+                                'weight_decay': opt.weight_decay}]
         if opt.use_adam:
             self.optimizer = t.optim.Adam(params)
         else:
@@ -291,7 +294,3 @@ class FasterRCNN(nn.Module):
         for param_group in self.optimizer.param_groups:
             param_group['lr'] *= decay
         return self.optimizer
-
-
-
-

@@ -171,8 +171,15 @@ def test_multiple_inheritance_python_many_bases():
             m.BaseN7.__init__(self, 7)
             m.BaseN8.__init__(self, 8)
 
-    class MIMany916(m.BaseN9, m.BaseN10, m.BaseN11, m.BaseN12, m.BaseN13, m.BaseN14, m.BaseN15,
-                    m.BaseN16):
+    class MIMany916(
+            m.BaseN9,
+            m.BaseN10,
+            m.BaseN11,
+            m.BaseN12,
+            m.BaseN13,
+            m.BaseN14,
+            m.BaseN15,
+            m.BaseN16):
         def __init__(self):
             m.BaseN9.__init__(self, 9)
             m.BaseN10.__init__(self, 10)
@@ -196,12 +203,14 @@ def test_multiple_inheritance_python_many_bases():
             MIMany916.__init__(self)
             m.BaseN17.__init__(self, 17)
 
-    # Inherits from 4 registered C++ classes: can fit in one pointer on any modern arch:
+    # Inherits from 4 registered C++ classes: can fit in one pointer on any
+    # modern arch:
     a = MIMany14()
     for i in range(1, 4):
         assert getattr(a, "f" + str(i))() == 2 * i
 
-    # Inherits from 8: requires 1/2 pointers worth of holder flags on 32/64-bit arch:
+    # Inherits from 8: requires 1/2 pointers worth of holder flags on
+    # 32/64-bit arch:
     b = MIMany916()
     for i in range(9, 16):
         assert getattr(b, "f" + str(i))() == 2 * i
@@ -293,24 +302,24 @@ def test_mi_base_return():
     n_inst = ConstructorStats.detail_reg_inst()
 
     c1 = m.i801c_b1()
-    assert type(c1) is m.I801C
+    assert isinstance(c1, m.I801C)
     assert c1.a == 1
     assert c1.b == 2
 
     d1 = m.i801d_b1()
-    assert type(d1) is m.I801D
+    assert isinstance(d1, m.I801D)
     assert d1.a == 1
     assert d1.b == 2
 
     assert ConstructorStats.detail_reg_inst() == n_inst + 4
 
     c2 = m.i801c_b2()
-    assert type(c2) is m.I801C
+    assert isinstance(c2, m.I801C)
     assert c2.a == 1
     assert c2.b == 2
 
     d2 = m.i801d_b2()
-    assert type(d2) is m.I801D
+    assert isinstance(d2, m.I801D)
     assert d2.a == 1
     assert d2.b == 2
 
@@ -325,12 +334,12 @@ def test_mi_base_return():
     # pick up the derived type, obviously, but should still work (as an object
     # of whatever type was returned).
     e1 = m.i801e_c()
-    assert type(e1) is m.I801C
+    assert isinstance(e1, m.I801C)
     assert e1.a == 1
     assert e1.b == 2
 
     e2 = m.i801e_b2()
-    assert type(e2) is m.I801B2
+    assert isinstance(e2, m.I801B2)
     assert e2.b == 2
 
 
@@ -340,7 +349,8 @@ def test_diamond_inheritance():
     # Issue #959: this shouldn't segfault:
     d = m.D()
 
-    # Make sure all the various distinct pointers are all recognized as registered instances:
+    # Make sure all the various distinct pointers are all recognized as
+    # registered instances:
     assert d is d.c0()
     assert d is d.c1()
     assert d is d.b()

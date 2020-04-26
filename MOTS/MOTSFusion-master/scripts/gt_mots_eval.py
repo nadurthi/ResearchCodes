@@ -27,18 +27,18 @@ if __name__ == '__main__':
 
     list_sequences, max_frames = load_seqmap(config.str('mots_seqmap_file'))
     for sequence in list_sequences:
-        tracks_gt = TrackedSequence(max_frames[sequence]+1)
+        tracks_gt = TrackedSequence(max_frames[sequence] + 1)
         import_gt_file('./data/mots_gt/' + sequence + '.txt')
 
         raw_detections = import_detections(config, sequence)
         segmentations = import_segmentations(config, sequence)
 
-        tracks_gt_seg = TrackedSequence(max_frames[sequence]+1)
+        tracks_gt_seg = TrackedSequence(max_frames[sequence] + 1)
 
-        while max_frames[sequence]+1 > len(raw_detections):
+        while max_frames[sequence] + 1 > len(raw_detections):
             raw_detections.append([])
 
-        while max_frames[sequence]+1 > len(segmentations):
+        while max_frames[sequence] + 1 > len(segmentations):
             segmentations.append([])
 
         for step in range(tracks_gt.timesteps):
@@ -48,9 +48,11 @@ if __name__ == '__main__':
                 ref_det = tracks_gt.get_detection(step, gt_id)
                 ref_class = ref_det['class']
 
-                for mask, det in zip(segmentations[step], raw_detections[step]):
+                for mask, det in zip(
+                        segmentations[step], raw_detections[step]):
                     # mask based (MOTS)
-                    mask_iou = cocomask.area(cocomask.merge([mask, ref_mask], intersect=True)) / cocomask.area(cocomask.merge([mask, ref_mask]))
+                    mask_iou = cocomask.area(cocomask.merge(
+                        [mask, ref_mask], intersect=True)) / cocomask.area(cocomask.merge([mask, ref_mask]))
                     if mask_iou > 0.5:
                         while tracks_gt_seg.get_num_ids() <= gt_id:
                             tracks_gt_seg.add_empty_track()
@@ -60,9 +62,14 @@ if __name__ == '__main__':
                         if step not in combined_mask_per_frame:
                             combined_mask_per_frame[step] = mask
                         else:
-                            combined_mask_per_frame[step] = cocomask.merge([combined_mask_per_frame[step], mask],
-                                                                            intersect=False)
+                            combined_mask_per_frame[step] = cocomask.merge(
+                                [combined_mask_per_frame[step], mask], intersect=False)
         tracks_gt_seg.fix_mask_overlap()
-        export_tracking_result_in_mots_format(tracks_gt_seg, './scripts/gt_mots_eval/' + sequence + '/')
+        export_tracking_result_in_mots_format(
+            tracks_gt_seg, './scripts/gt_mots_eval/' + sequence + '/')
 
-    run_mots_eval('./scripts/gt_mots_eval/', list_sequences, config.dir('mots_gt_folder'), config.str('mots_seqmap_file'))
+    run_mots_eval(
+        './scripts/gt_mots_eval/',
+        list_sequences,
+        config.dir('mots_gt_folder'),
+        config.str('mots_seqmap_file'))

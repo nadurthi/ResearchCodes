@@ -18,92 +18,92 @@ ModelOptions = \
     ])
 
 
-## Copyright 2018 The TensorFlow Authors All Rights Reserved.
+# Copyright 2018 The TensorFlow Authors All Rights Reserved.
 ##
-## Licensed under the Apache License, Version 2.0 (the "License");
-## you may not use this file except in compliance with the License.
-## You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 ##
-##     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 ##
-## Unless required by applicable law or agreed to in writing, software
-## distributed under the License is distributed on an "AS IS" BASIS,
-## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-## See the License for the specific language governing permissions and
-## limitations under the License.
-## ==============================================================================
-#"""Provides flags that are common to scripts.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+# """Provides flags that are common to scripts.
 #
-#Common flags from train/eval/vis/export_model.py are collected in this script.
-#"""
+# Common flags from train/eval/vis/export_model.py are collected in this script.
+# """
 #import collections
 #
 #import tensorflow as tf
 #
 #flags = tf.app.flags
 #
-## Flags for input preprocessing.
+# Flags for input preprocessing.
 #
-#flags.DEFINE_integer('min_resize_value', None,
+# flags.DEFINE_integer('min_resize_value', None,
 #                     'Desired size of the smaller image side.')
 #
-#flags.DEFINE_integer('max_resize_value', None,
+# flags.DEFINE_integer('max_resize_value', None,
 #                     'Maximum allowed size of the larger image side.')
 #
-#flags.DEFINE_integer('resize_factor', None,
+# flags.DEFINE_integer('resize_factor', None,
 #                     'Resized dimensions are multiple of factor plus one.')
 #
-## Model dependent flags.
+# Model dependent flags.
 #
-#flags.DEFINE_integer('logits_kernel_size', 1,
+# flags.DEFINE_integer('logits_kernel_size', 1,
 #                     'The kernel size for the convolutional kernel that '
 #                     'generates logits.')
 #
-## When using 'mobilent_v2', we set atrous_rates = decoder_output_stride = None.
-## When using 'xception_65', we set atrous_rates = [6, 12, 18] (output stride 16)
-## and decoder_output_stride = 4.
-#flags.DEFINE_enum('model_variant', 'mobilenet_v2',
+# When using 'mobilent_v2', we set atrous_rates = decoder_output_stride = None.
+# When using 'xception_65', we set atrous_rates = [6, 12, 18] (output stride 16)
+# and decoder_output_stride = 4.
+# flags.DEFINE_enum('model_variant', 'mobilenet_v2',
 #                  ['xception_65', 'mobilenet_v2'], 'DeepLab model variant.')
 #
-#flags.DEFINE_multi_float('image_pyramid', None,
+# flags.DEFINE_multi_float('image_pyramid', None,
 #                         'Input scales for multi-scale feature extraction.')
 #
-#flags.DEFINE_boolean('add_image_level_feature', True,
+# flags.DEFINE_boolean('add_image_level_feature', True,
 #                     'Add image level feature.')
 #
-#flags.DEFINE_boolean('aspp_with_batch_norm', True,
+# flags.DEFINE_boolean('aspp_with_batch_norm', True,
 #                     'Use batch norm parameters for ASPP or not.')
 #
-#flags.DEFINE_boolean('aspp_with_separable_conv', True,
+# flags.DEFINE_boolean('aspp_with_separable_conv', True,
 #                     'Use separable convolution for ASPP or not.')
 #
-#flags.DEFINE_multi_integer('multi_grid', None,
+# flags.DEFINE_multi_integer('multi_grid', None,
 #                           'Employ a hierarchy of atrous rates for ResNet.')
 #
-#flags.DEFINE_float('depth_multiplier', 1.0,
+# flags.DEFINE_float('depth_multiplier', 1.0,
 #                   'Multiplier for the depth (number of channels) for all '
 #                   'convolution ops used in MobileNet.')
 #
-## For `xception_65`, use decoder_output_stride = 4. For `mobilenet_v2`, use
-## decoder_output_stride = None.
-#flags.DEFINE_integer('decoder_output_stride', None,
+# For `xception_65`, use decoder_output_stride = 4. For `mobilenet_v2`, use
+# decoder_output_stride = None.
+# flags.DEFINE_integer('decoder_output_stride', None,
 #                     'The ratio of input to output spatial resolution when '
 #                     'employing decoder to refine segmentation results.')
 #
-#flags.DEFINE_boolean('decoder_use_separable_conv', True,
+# flags.DEFINE_boolean('decoder_use_separable_conv', True,
 #                     'Employ separable convolution for decoder or not.')
 #
-#flags.DEFINE_enum('merge_method', 'max', ['max', 'avg'],
+# flags.DEFINE_enum('merge_method', 'max', ['max', 'avg'],
 #                  'Scheme to merge multi scale features.')
 #
 #FLAGS = flags.FLAGS
 #
-## Constants
+# Constants
 #
-## Perform semantic segmentation predictions.
+# Perform semantic segmentation predictions.
 #OUTPUT_TYPE = 'semantic'
 #
-## Semantic segmentation item names.
+# Semantic segmentation item names.
 #LABELS_CLASS = 'labels_class'
 #IMAGE = 'image'
 #HEIGHT = 'height'
@@ -112,11 +112,11 @@ ModelOptions = \
 #LABEL = 'label'
 #ORIGINAL_IMAGE = 'original_image'
 #
-## Test set name.
+# Test set name.
 #TEST_SET = 'test'
 #
 #
-#class ModelOptions(
+# class ModelOptions(
 #    collections.namedtuple('ModelOptions', [
 #        'outputs_to_num_classes',
 #        'crop_size',
@@ -162,4 +162,4 @@ ModelOptions = \
 #        FLAGS.decoder_use_separable_conv, FLAGS.logits_kernel_size,
 #        FLAGS.model_variant)
 #
-#"""
+# """

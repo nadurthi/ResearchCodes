@@ -40,8 +40,14 @@ class MOTSResults:
 
 
 # go through all frames and associate ground truth and tracker results
-def compute_MOTS_metrics_per_sequence(seq_name, gt_seq, results_seq, max_frames, class_id,
-                                      ignore_class, overlap_function):
+def compute_MOTS_metrics_per_sequence(
+        seq_name,
+        gt_seq,
+        results_seq,
+        max_frames,
+        class_id,
+        ignore_class,
+        overlap_function):
     results_obj = MOTSResults()
     results_obj.total_num_frames = max_frames + 1
     seq_trajectories = defaultdict(list)
@@ -59,8 +65,8 @@ def compute_MOTS_metrics_per_sequence(seq_name, gt_seq, results_seq, max_frames,
     n_gts = 0
     n_trs = 0
 
-    #print('......................................................................................')
-    #print(seq_name)
+    # print('......................................................................................')
+    # print(seq_name)
     # Iterate over frames in this sequence
     num_fp_total = 0
     for f in range(max_frames + 1):
@@ -99,12 +105,14 @@ def compute_MOTS_metrics_per_sequence(seq_name, gt_seq, results_seq, max_frames,
         tmpfp = 0
         tmpfn = 0
         tmpc = 0  # this will sum up the overlaps for all true positives
-        tmpcs = [0] * len(g)  # this will save the overlaps for all true positives
+        # this will save the overlaps for all true positives
+        tmpcs = [0] * len(g)
         # the reason is that some true positives might be ignored
         # later such that the corrsponding overlaps can
         # be subtracted from tmpc for MODSP computation
 
-        # To associate, simply take for each ground truth the (unique!) detection with IoU>0.5 if it exists
+        # To associate, simply take for each ground truth the (unique!)
+        # detection with IoU>0.5 if it exists
 
         # all ground truth trajectories are initially not associated
         # extend groundtruth trajectories lists (merge lists)
@@ -230,26 +238,31 @@ def compute_MOTS_metrics_per_sequence(seq_name, gt_seq, results_seq, max_frames,
     # compute MT/PT/ML, fragments, idswitches for all groundtruth trajectories
     if len(seq_trajectories) != 0:
         for g in seq_trajectories.values():
-            # all frames of this gt trajectory are not assigned to any detections
+            # all frames of this gt trajectory are not assigned to any
+            # detections
             if all([this == -1 for this in g]):
                 results_obj.ML += 1
                 continue
             # compute tracked frames in trajectory
             last_id = g[0]
-            # first detection (necessary to be in gt_trajectories) is always tracked
+            # first detection (necessary to be in gt_trajectories) is always
+            # tracked
             tracked = 1 if g[0] >= 0 else 0
             for f in range(1, len(g)):
                 if last_id != g[f] and last_id != -1 and g[f] != -1:
                     if g[f - 1] != -1:
                         results_obj.id_switches += 1
                     results_obj.id_switches_all += 1
-                if f < len(g) - 1 and g[f - 1] != g[f] and last_id != -1 and g[f] != -1 and g[f + 1] != -1:
+                if f < len(
+                        g) - 1 and g[f - 1] != g[f] and last_id != -1 and g[f] != -1 and g[f + 1] != -1:
                     results_obj.fragments += 1
                 if g[f] != -1:
                     tracked += 1
                     last_id = g[f]
-            # handle last frame; tracked state is handled in for loop (g[f]!=-1)
-            if len(g) > 1 and g[f - 1] != g[f] and last_id != -1 and g[f] != -1:
+            # handle last frame; tracked state is handled in for loop
+            # (g[f]!=-1)
+            if len(g) > 1 and g[f -
+                                1] != g[f] and last_id != -1 and g[f] != -1:
                 results_obj.fragments += 1
 
             # compute MT/PT/ML
@@ -264,7 +277,13 @@ def compute_MOTS_metrics_per_sequence(seq_name, gt_seq, results_seq, max_frames,
     return results_obj
 
 
-def compute_MOTS_metrics(gt, results, max_frames, class_id, ignore_class, overlap_function):
+def compute_MOTS_metrics(
+        gt,
+        results,
+        max_frames,
+        class_id,
+        ignore_class,
+        overlap_function):
     """
         Like KITTI tracking eval but with simplified association (when we assume non overlapping masks)
     """
@@ -273,14 +292,22 @@ def compute_MOTS_metrics(gt, results, max_frames, class_id, ignore_class, overla
         results_seq = {}
         if seq in results:
             results_seq = results[seq]
-        results_per_seq[seq] = compute_MOTS_metrics_per_sequence(seq, gt[seq], results_seq, max_frames[seq], class_id,
-                                                                 ignore_class, overlap_function)
+        results_per_seq[seq] = compute_MOTS_metrics_per_sequence(
+            seq,
+            gt[seq],
+            results_seq,
+            max_frames[seq],
+            class_id,
+            ignore_class,
+            overlap_function)
 
     # Sum up results for all sequences
     results_for_all_seqs = MOTSResults()
-    mots_results_attributes = [a for a in dir(results_for_all_seqs) if not a.startswith('__')]
+    mots_results_attributes = [a for a in dir(
+        results_for_all_seqs) if not a.startswith('__')]
     for attr in mots_results_attributes:
-        results_for_all_seqs.__dict__[attr] = sum(obj.__dict__[attr] for obj in results_per_seq.values())
+        results_for_all_seqs.__dict__[attr] = sum(
+            obj.__dict__[attr] for obj in results_per_seq.values())
 
     # Compute aggregate metrics
     for res in results_per_seq.values():
@@ -294,17 +321,21 @@ def compute_MOTS_metrics(gt, results, max_frames, class_id, ignore_class, overla
 
 def compute_prec_rec_clearmot(results_obj):
     # precision/recall etc.
-    if (results_obj.fp + results_obj.tp) == 0 or (results_obj.tp + results_obj.fn) == 0:
+    if (results_obj.fp +
+        results_obj.tp) == 0 or (results_obj.tp +
+                                 results_obj.fn) == 0:
         results_obj.recall = 0.
         results_obj.precision = 0.
     else:
-        results_obj.recall = results_obj.tp / float(results_obj.tp + results_obj.fn)
-        results_obj.precision = results_obj.tp / float(results_obj.fp + results_obj.tp)
+        results_obj.recall = results_obj.tp / \
+            float(results_obj.tp + results_obj.fn)
+        results_obj.precision = results_obj.tp / \
+            float(results_obj.fp + results_obj.tp)
     if (results_obj.recall + results_obj.precision) == 0:
         results_obj.F1 = 0.
     else:
         results_obj.F1 = 2. * (results_obj.precision * results_obj.recall) / (
-                    results_obj.precision + results_obj.recall)
+            results_obj.precision + results_obj.recall)
     if results_obj.total_num_frames == 0:
         results_obj.FAR = "n/a"
     else:
@@ -317,13 +348,16 @@ def compute_prec_rec_clearmot(results_obj):
         results_obj.sMOTSA = -float("inf")
         results_obj.sMOTSA_all_ids = -float("inf")
     else:
-        results_obj.MOTSA = 1 - (results_obj.fn + results_obj.fp + results_obj.id_switches) / float(results_obj.n_gt)
-        results_obj.MOTSA_all_ids = 1 - (results_obj.fn + results_obj.fp + results_obj.id_switches_all) / float(
-            results_obj.n_gt)
-        results_obj.MODSA = 1 - (results_obj.fn + results_obj.fp) / float(results_obj.n_gt)
-        results_obj.sMOTSA = (results_obj.total_cost - results_obj.fp - results_obj.id_switches) / float(
-            results_obj.n_gt)
-        results_obj.sMOTSA_all_ids = (results_obj.total_cost - results_obj.fp - results_obj.id_switches_all) / float(
+        results_obj.MOTSA = 1 - \
+            (results_obj.fn + results_obj.fp + results_obj.id_switches) / float(results_obj.n_gt)
+        results_obj.MOTSA_all_ids = 1 - \
+            (results_obj.fn + results_obj.fp + results_obj.id_switches_all) / float(results_obj.n_gt)
+        results_obj.MODSA = 1 - \
+            (results_obj.fn + results_obj.fp) / float(results_obj.n_gt)
+        results_obj.sMOTSA = (results_obj.total_cost - results_obj.fp -
+                              results_obj.id_switches) / float(results_obj.n_gt)
+        results_obj.sMOTSA_all_ids = (
+            results_obj.total_cost - results_obj.fp - results_obj.id_switches_all) / float(
             results_obj.n_gt)
     if results_obj.tp == 0:
         results_obj.MOTSP = float("inf")
@@ -331,18 +365,19 @@ def compute_prec_rec_clearmot(results_obj):
         results_obj.MOTSP = results_obj.total_cost / float(results_obj.tp)
     if results_obj.n_gt != 0:
         if results_obj.id_switches == 0:
-            results_obj.MOTSAL = 1 - (results_obj.fn + results_obj.fp + results_obj.id_switches) / float(
-                results_obj.n_gt)
+            results_obj.MOTSAL = 1 - \
+                (results_obj.fn + results_obj.fp + results_obj.id_switches) / float(results_obj.n_gt)
         else:
-            results_obj.MOTSAL = 1 - (results_obj.fn + results_obj.fp + math.log10(results_obj.id_switches)) / float(
-                results_obj.n_gt)
+            results_obj.MOTSAL = 1 - (results_obj.fn + results_obj.fp + math.log10(
+                results_obj.id_switches)) / float(results_obj.n_gt)
     else:
         results_obj.MOTSAL = -float("inf")
 
     if results_obj.total_num_frames == 0:
         results_obj.MODSP = "n/a"
     else:
-        results_obj.MODSP = results_obj.MODSP / float(results_obj.total_num_frames)
+        results_obj.MODSP = results_obj.MODSP / \
+            float(results_obj.total_num_frames)
 
     if results_obj.n_gt_trajectories == 0:
         results_obj.MT = 0.
@@ -356,7 +391,11 @@ def compute_prec_rec_clearmot(results_obj):
     return results_obj
 
 
-def print_summary(seq_names, results_per_seq, results_for_all_seqs, column_width=14):
+def print_summary(
+        seq_names,
+        results_per_seq,
+        results_for_all_seqs,
+        column_width=14):
     metrics = [("sMOTSA", "sMOTSA"), ("sMOTSA*", "sMOTSA_all_ids"),
                ("MOTSA", "MOTSA"), ("MOTSA*", "MOTSA_all_ids"),
                ("MOTSP", "MOTSP"), ("MOTSAL", "MOTSAL"), ("MODSA", "MODSA"), ("MODSP", "MODSP"),
@@ -368,7 +407,8 @@ def print_summary(seq_names, results_per_seq, results_for_all_seqs, column_width
                ("TR Obj", "n_tr"), ("TR Trk", "n_tr_trajectories"), ("Ig TR Tck", "n_itr")]
     metrics_names = [tup[0] for tup in metrics]
     metrics_keys = [tup[1] for tup in metrics]
-    row_format = "{:>4}" + "".join([("{:>" + str(max(len(name), 4) + 2) + "}") for name in metrics_names])
+    row_format = "{:>4}" + "".join([("{:>" + str(max(len(name), 4) + 2) + "}")
+                                    for name in metrics_names])
     print(row_format.format("", *metrics_names))
 
     def format_results_entries(results_obj):
@@ -392,15 +432,25 @@ def create_summary_KITTI_style(results_obj):
     summary = ""
 
     summary += "tracking evaluation summary".center(80, "=") + "\n"
-    summary += print_entry("Multiple Object Tracking Accuracy (MOTSA)", results_obj.MOTSA) + "\n"
-    summary += print_entry("Multiple Object Tracking Accuracy (MOTSA_all_ids)", results_obj.MOTSA_all_ids) + "\n"
-    summary += print_entry("Multiple Object Tracking Precision (MOTSP)", results_obj.MOTSP) + "\n"
-    summary += print_entry("Multiple Object Tracking Accuracy (MOTSAL)", results_obj.MOTSAL) + "\n"
-    summary += print_entry("Multiple Object Detection Accuracy (MODSA)", results_obj.MODSA) + "\n"
-    summary += print_entry("Multiple Object Detection Precision (MODSP)", results_obj.MODSP) + "\n"
-    summary += print_entry("Multiple Object Tracking Segmentation Accuracy (sMOTSA)", results_obj.sMOTSA) + "\n"
-    summary += print_entry("Multiple Object Tracking Segmentation Accuracy (sMOTSA_all_ids)",
-                           results_obj.sMOTSA_all_ids) + "\n"
+    summary += print_entry("Multiple Object Tracking Accuracy (MOTSA)",
+                           results_obj.MOTSA) + "\n"
+    summary += print_entry(
+        "Multiple Object Tracking Accuracy (MOTSA_all_ids)",
+        results_obj.MOTSA_all_ids) + "\n"
+    summary += print_entry("Multiple Object Tracking Precision (MOTSP)",
+                           results_obj.MOTSP) + "\n"
+    summary += print_entry("Multiple Object Tracking Accuracy (MOTSAL)",
+                           results_obj.MOTSAL) + "\n"
+    summary += print_entry("Multiple Object Detection Accuracy (MODSA)",
+                           results_obj.MODSA) + "\n"
+    summary += print_entry("Multiple Object Detection Precision (MODSP)",
+                           results_obj.MODSP) + "\n"
+    summary += print_entry(
+        "Multiple Object Tracking Segmentation Accuracy (sMOTSA)",
+        results_obj.sMOTSA) + "\n"
+    summary += print_entry(
+        "Multiple Object Tracking Segmentation Accuracy (sMOTSA_all_ids)",
+        results_obj.sMOTSA_all_ids) + "\n"
     summary += "\n"
     summary += print_entry("Recall", results_obj.recall) + "\n"
     summary += print_entry("Precision", results_obj.precision) + "\n"
@@ -416,15 +466,19 @@ def create_summary_KITTI_style(results_obj):
     summary += print_entry("False Negatives", results_obj.fn) + "\n"
     summary += print_entry("Missed Targets", results_obj.fn) + "\n"
     summary += print_entry("ID-switches", results_obj.id_switches) + "\n"
-    summary += print_entry("ID-switches (all)", results_obj.id_switches_all) + "\n"
+    summary += print_entry("ID-switches (all)",
+                           results_obj.id_switches_all) + "\n"
     summary += print_entry("Fragmentations", results_obj.fragments) + "\n"
     summary += "\n"
-    summary += print_entry("Ground Truth Objects (Total)", results_obj.n_gt) + "\n"
-    summary += print_entry("Ground Truth Trajectories", results_obj.n_gt_trajectories) + "\n"
+    summary += print_entry("Ground Truth Objects (Total)",
+                           results_obj.n_gt) + "\n"
+    summary += print_entry("Ground Truth Trajectories",
+                           results_obj.n_gt_trajectories) + "\n"
     summary += "\n"
     summary += print_entry("Tracker Objects (Total)", results_obj.n_tr) + "\n"
     summary += print_entry("Ignored Tracker Objects", results_obj.n_itr) + "\n"
-    summary += print_entry("Tracker Trajectories", results_obj.n_tr_trajectories) + "\n"
+    summary += print_entry("Tracker Trajectories",
+                           results_obj.n_tr_trajectories) + "\n"
     summary += "=" * 80
 
     return summary
@@ -432,10 +486,10 @@ def create_summary_KITTI_style(results_obj):
 
 def print_entry(key, val, width=(70, 10)):
     s_out = key.ljust(width[0])
-    if type(val) == int:
+    if isinstance(val, int):
         s = "%%%dd" % width[1]
         s_out += s % val
-    elif type(val) == float:
+    elif isinstance(val, float):
         s = "%%%df" % (width[1])
         s_out += s % val
     else:

@@ -40,7 +40,8 @@ def test_override(capture, msg):
 
     with pytest.raises(RuntimeError) as excinfo:
         m.runExampleVirtVirtual(ex12)
-    assert msg(excinfo.value) == 'Tried to call pure virtual function "ExampleVirt::pure_virtual"'
+    assert msg(
+        excinfo.value) == 'Tried to call pure virtual function "ExampleVirt::pure_virtual"'
 
     ex12p = ExtendedExampleVirt(10)
     with capture:
@@ -160,7 +161,11 @@ def test_alias_delay_initialization2(capture):
 # PyPy: Reference count > 1 causes call with noncopyable instance
 # to fail in ncv1.print_nc()
 @pytest.unsupported_on_pypy
-@pytest.mark.skipif(not hasattr(m, "NCVirt"), reason="NCVirt test broken on ICPC")
+@pytest.mark.skipif(
+    not hasattr(
+        m,
+        "NCVirt"),
+    reason="NCVirt test broken on ICPC")
 def test_move_support():
     class NCVirtExt(m.NCVirt):
         def get_noncopyable(self, a, b):
@@ -188,7 +193,8 @@ def test_move_support():
     assert ncv1.print_movable(4, 5) == "9"
     ncv2 = NCVirtExt2()
     assert ncv2.print_movable(7, 7) == "14"
-    # Don't check the exception message here because it differs under debug/non-debug mode
+    # Don't check the exception message here because it differs under
+    # debug/non-debug mode
     with pytest.raises(RuntimeError):
         ncv2.print_nc(9, 9)
 
@@ -217,7 +223,8 @@ def test_dispatch_issue(msg):
         def dispatch(self):
             with pytest.raises(RuntimeError) as excinfo:
                 super(PyClass2, self).dispatch()
-            assert msg(excinfo.value) == 'Tried to call pure virtual function "Base::dispatch"'
+            assert msg(
+                excinfo.value) == 'Tried to call pure virtual function "Base::dispatch"'
 
             p = PyClass1()
             return m.dispatch_issue_go(p)

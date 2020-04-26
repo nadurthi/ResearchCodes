@@ -31,25 +31,33 @@ def extract(key, extractions):
 
 def do_refinement(detections, image, refinement_net):
     data = refinement_net.valid_data
-    boxes = [[det['bbox'][0], det['bbox'][1], det['bbox'][2] - det['bbox'][0], det['bbox'][3] - det['bbox'][1]] for det in detections]
+    boxes = [[det['bbox'][0], det['bbox'][1], det['bbox'][2] - det['bbox']
+              [0], det['bbox'][3] - det['bbox'][1]] for det in detections]
     image_data = data.set_up_data_for_image(image, boxes)
 
     segmentations = []
     for idx in range(len(boxes)):
         segmentation = {}
         feed_dict = data.get_feed_dict_for_next_step(image_data, idx)
-        step_res = refinement_net.trainer.validation_step(feed_dict=feed_dict, extraction_keys=[
-            Extractions.SEGMENTATION_POSTERIORS_ORIGINAL_SIZE,
-            Extractions.SEGMENTATION_MASK_ORIGINAL_SIZE, DataKeys.OBJ_TAGS])
+        step_res = refinement_net.trainer.validation_step(
+            feed_dict=feed_dict,
+            extraction_keys=[
+                Extractions.SEGMENTATION_POSTERIORS_ORIGINAL_SIZE,
+                Extractions.SEGMENTATION_MASK_ORIGINAL_SIZE,
+                DataKeys.OBJ_TAGS])
         extractions = step_res[Extractions.EXTRACTIONS]
-        predicted_segmentation = extract(Extractions.SEGMENTATION_MASK_ORIGINAL_SIZE, extractions)
+        predicted_segmentation = extract(
+            Extractions.SEGMENTATION_MASK_ORIGINAL_SIZE, extractions)
         mask = predicted_segmentation.astype("uint8") * 255
         encoded_mask = encode(np.asfortranarray(mask))
         segmentation['counts'] = encoded_mask['counts'].decode("UTF-8")
 
-        posteriors = extract(Extractions.SEGMENTATION_POSTERIORS_ORIGINAL_SIZE, extractions)
+        posteriors = extract(
+            Extractions.SEGMENTATION_POSTERIORS_ORIGINAL_SIZE,
+            extractions)
         conf_scores = posteriors.copy()
-        conf_scores[predicted_segmentation == 0] = 1 - posteriors[predicted_segmentation == 0]
+        conf_scores[predicted_segmentation == 0] = 1 - \
+            posteriors[predicted_segmentation == 0]
         conf_scores = 2 * conf_scores - 1
         conf_score = conf_scores[:].mean()
         segmentation['score'] = str(conf_score)
@@ -69,7 +77,9 @@ def compute_segmentations(refinement_net, sequence_dir, save_path, detections):
     file_list = sorted(os.listdir(sequence_dir))
     segmentations = []
     for i in range(len(file_list)):
-        curr_segmentations = do_refinement(detections[i], imread(sequence_dir + file_list[i]), refinement_net)
+        curr_segmentations = do_refinement(
+            detections[i], imread(
+                sequence_dir + file_list[i]), refinement_net)
         segmentations.append(curr_segmentations)
 
     json.dump(segmentations, open(save_path + 'segmentations.json', 'w'))

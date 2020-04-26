@@ -6,28 +6,26 @@ Created on Fri Apr 10 16:07:09 2020
 @author: nagnanamus
 """
 
+import pandas as pd
+import queue
+import threading
+import open3d as o3d
+import pykitti
+import time
+import cv2
+import datetime as dt
+import glob
+import os
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
 import numpy as np
 import itertools as itr
 import matplotlib
 matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-import os
-import glob
-import datetime as dt
-import cv2
-import time
-import pykitti
-import open3d as o3d
-import threading
-import queue
-import pandas as pd
 
-#%%
+# %%
 # % KITTI TRACKING BENCHMARK DEMONSTRATION
-# % 
+# %
 # % This tool displays the images and the object labels for the benchmark and
 # % provides an entry point for writing your own interface to the data set.
 # % Before running this tool, set root_dir to the directory where you have
@@ -55,11 +53,11 @@ import pandas as pd
 # %   dashed: truncated
 
 
-def readLabels(labelpath,seq_idx)
+def readLabels(labelpath, seq_idx)
 
     # % parse input file
-    labelfile = os.path.join(labelpath,'{0:04d}.txt'.format( seq_idx) ) 
-    df=pd.read_csv(labelfile)
+    labelfile = os.path.join(labelpath, '{0:04d}.txt'.format(seq_idx))
+    df = pd.read_csv(labelfile)
      1    frame        Frame within the sequence where the object appearers
    1    track id     Unique tracking id of this object within this sequence
    1    type         Describes the type of object: 'Car', 'Van', 'Truck',
@@ -103,7 +101,7 @@ calibpath = os.path.join(root_dir,data_set, 'label_{0:02d}'.format(2))
 
 labelfile = os.path.join(labelpath,'{0:04d}.txt'.format( seq_idx) ) 
 
-#%%
+# %%
 
 
 # % show data for tracking sequences

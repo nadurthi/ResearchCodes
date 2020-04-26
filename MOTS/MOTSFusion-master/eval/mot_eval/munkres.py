@@ -282,22 +282,23 @@ import sys
 # Exports
 # ---------------------------------------------------------------------------
 
-__all__     = ['Munkres', 'make_cost_matrix']
+__all__ = ['Munkres', 'make_cost_matrix']
 
 # ---------------------------------------------------------------------------
 # Globals
 # ---------------------------------------------------------------------------
 
 # Info about the module
-__version__   = "1.0.5.4"
-__author__    = "Brian Clapper, bmc@clapper.org"
-__url__       = "http://bmc.github.com/munkres/"
+__version__ = "1.0.5.4"
+__author__ = "Brian Clapper, bmc@clapper.org"
+__url__ = "http://bmc.github.com/munkres/"
 __copyright__ = "(c) 2008 Brian M. Clapper"
-__license__   = "BSD-style license"
+__license__ = "BSD-style license"
 
 # ---------------------------------------------------------------------------
 # Classes
 # ---------------------------------------------------------------------------
+
 
 class Munkres:
     """
@@ -398,12 +399,12 @@ class Munkres:
         done = False
         step = 1
 
-        steps = { 1 : self.__step1,
-                  2 : self.__step2,
-                  3 : self.__step3,
-                  4 : self.__step4,
-                  5 : self.__step5,
-                  6 : self.__step6 }
+        steps = {1: self.__step1,
+                 2: self.__step2,
+                 3: self.__step3,
+                 4: self.__step4,
+                 5: self.__step5,
+                 6: self.__step6}
 
         while not done:
             try:
@@ -482,7 +483,7 @@ class Munkres:
                     count += 1
 
         if count >= n:
-            step = 7 # done
+            step = 7  # done
         else:
             step = 4
 
@@ -542,14 +543,14 @@ class Munkres:
             if row >= 0:
                 count += 1
                 path[count][0] = row
-                path[count][1] = path[count-1][1]
+                path[count][1] = path[count - 1][1]
             else:
                 done = True
 
             if not done:
                 col = self.__find_prime_in_row(path[count][0])
                 count += 1
-                path[count][0] = path[count-1][0]
+                path[count][0] = path[count - 1][0]
                 path[count][1] = col
 
         self.__convert_path(path, count)
@@ -649,7 +650,7 @@ class Munkres:
         return col
 
     def __convert_path(self, path, count):
-        for i in range(count+1):
+        for i in range(count + 1):
             if self.marked[path[i][0]][path[i][1]] == 1:
                 self.marked[path[i][0]][path[i][1]] = 0
             else:
@@ -671,6 +672,7 @@ class Munkres:
 # ---------------------------------------------------------------------------
 # Functions
 # ---------------------------------------------------------------------------
+
 
 def make_cost_matrix(profit_matrix, inversion_function):
     """
@@ -706,6 +708,7 @@ def make_cost_matrix(profit_matrix, inversion_function):
     for row in profit_matrix:
         cost_matrix.append([inversion_function(value) for value in row])
     return cost_matrix
+
 
 def print_matrix(matrix, msg=None):
     """
@@ -744,38 +747,38 @@ def print_matrix(matrix, msg=None):
 # Main
 # ---------------------------------------------------------------------------
 
+
 if __name__ == '__main__':
 
-
     matrices = [
-                # Square
-                ([[400, 150, 400],
-                  [400, 450, 600],
-                  [300, 225, 300]],
-                 850 # expected cost
-                ),
+        # Square
+        ([[400, 150, 400],
+          [400, 450, 600],
+          [300, 225, 300]],
+         850  # expected cost
+         ),
 
-                # Rectangular variant
-                ([[400, 150, 400, 1],
-                  [400, 450, 600, 2],
-                  [300, 225, 300, 3]],
-                 452 # expected cost
-                ),
+        # Rectangular variant
+        ([[400, 150, 400, 1],
+          [400, 450, 600, 2],
+          [300, 225, 300, 3]],
+         452  # expected cost
+         ),
 
-                # Square
-                ([[10, 10,  8],
-                  [ 9,  8,  1],
-                  [ 9,  7,  4]],
-                 18
-                ),
+        # Square
+        ([[10, 10, 8],
+          [9, 8, 1],
+          [9, 7, 4]],
+         18
+         ),
 
-                # Rectangular variant
-                ([[10, 10,  8, 11],
-                  [ 9,  8,  1, 1],
-                  [ 9,  7,  4, 10]],
-                 15
-                ),
-               ]
+        # Rectangular variant
+        ([[10, 10, 8, 11],
+          [9, 8, 1, 1],
+          [9, 7, 4, 10]],
+         15
+         ),
+    ]
 
     m = Munkres()
     for cost_matrix, expected_total in matrices:
@@ -788,4 +791,3 @@ if __name__ == '__main__':
             print('(%d, %d) -> %d' % (r, c, x))
         print('lowest cost=%d' % total_cost)
         assert expected_total == total_cost
-

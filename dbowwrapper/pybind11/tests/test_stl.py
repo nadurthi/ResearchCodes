@@ -15,7 +15,8 @@ def test_vector(doc):
     assert doc(m.cast_vector) == "cast_vector() -> List[int]"
     assert doc(m.load_vector) == "load_vector(arg0: List[int]) -> bool"
 
-    # Test regression caused by 936: pointers to stl containers weren't castable
+    # Test regression caused by 936: pointers to stl containers weren't
+    # castable
     assert m.cast_ptr_vector() == ["lvalue", "lvalue"]
 
 
@@ -69,7 +70,8 @@ def test_recursive_casting():
     assert m.cast_lv_array() == ["lvalue", "lvalue"]
     assert m.cast_rv_map() == {"a": "rvalue"}
     assert m.cast_lv_map() == {"a": "lvalue", "b": "lvalue"}
-    assert m.cast_rv_nested() == [[[{"b": "rvalue", "c": "rvalue"}], [{"a": "rvalue"}]]]
+    assert m.cast_rv_nested() == [
+        [[{"b": "rvalue", "c": "rvalue"}], [{"a": "rvalue"}]]]
     assert m.cast_lv_nested() == {
         "a": [[["lvalue", "lvalue"]], [["lvalue", "lvalue"]]],
         "b": [[["lvalue", "lvalue"], ["lvalue", "lvalue"]]]
@@ -113,7 +115,8 @@ def test_optional():
     assert m.nodefer_none_optional(None)
 
 
-@pytest.mark.skipif(not hasattr(m, "has_exp_optional"), reason='no <experimental/optional>')
+@pytest.mark.skipif(not hasattr(m, "has_exp_optional"),
+                    reason='no <experimental/optional>')
 def test_exp_optional():
     assert m.double_or_zero_exp(None) == 0
     assert m.double_or_zero_exp(42) == 84
@@ -146,7 +149,8 @@ def test_variant(doc):
 
     assert m.cast_variant() == (5, "Hello")
 
-    assert doc(m.load_variant) == "load_variant(arg0: Union[int, str, float, None]) -> str"
+    assert doc(
+        m.load_variant) == "load_variant(arg0: Union[int, str, float, None]) -> str"
 
 
 def test_vec_of_reference_wrapper():

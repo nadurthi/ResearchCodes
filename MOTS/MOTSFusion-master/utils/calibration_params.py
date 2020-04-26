@@ -13,9 +13,10 @@ class CalibrationParameters:
         self.fy = self.cam_projection_matrix_l[1, 1]
         self.cx = self.cam_projection_matrix_l[0, 2]
         self.cy = self.cam_projection_matrix_l[1, 2]
-        self.bf =  self.baseline * self.fx
+        self.bf = self.baseline * self.fx
 
-        self.camera_matrix = np.asarray([self.fx, 0., self.cx, 0., self.fy, self.cy, 0., 0., 1.]).reshape((3, 3))
+        self.camera_matrix = np.asarray(
+            [self.fx, 0., self.cx, 0., self.fy, self.cy, 0., 0., 1.]).reshape((3, 3))
 
     def parseLine(self, line, shape):
         data = line.split()

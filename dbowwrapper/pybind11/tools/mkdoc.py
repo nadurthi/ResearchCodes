@@ -58,6 +58,7 @@ job_semaphore = Semaphore(job_count)
 
 output = []
 
+
 def d(s):
     return s.decode('utf8')
 
@@ -98,8 +99,8 @@ def process_comment(comment):
         result = result2
 
     # Doxygen tags
-    cpp_group = '([\w:]+)'
-    param_group = '([\[\w:\]]+)'
+    cpp_group = r'([\w:]+)'
+    param_group = r'([\[\w:\]]+)'
 
     s = result
     s = re.sub(r'\\c\s+%s' % cpp_group, r'``\1``', s)
@@ -222,6 +223,7 @@ class ExtractionThread(Thread):
             extract(self.filename, tu.cursor, '')
         finally:
             job_semaphore.release()
+
 
 if __name__ == '__main__':
     parameters = ['-x', 'c++', '-std=c++11']

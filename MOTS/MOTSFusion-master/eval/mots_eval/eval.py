@@ -13,7 +13,8 @@ def mask_iou(a, b, criterion="union"):
 
 
 def evaluate_class(gt, results, max_frames, class_id):
-    _, results_obj = compute_MOTS_metrics(gt, results, max_frames, class_id, IGNORE_CLASS, mask_iou)
+    _, results_obj = compute_MOTS_metrics(
+        gt, results, max_frames, class_id, IGNORE_CLASS, mask_iou)
     return results_obj
 
 
@@ -29,13 +30,20 @@ def run_mots_eval(result_dir, sequences, gt_folder, seqmap_filename):
     print("Evaluate class: Pedestrians")
     results_ped = evaluate_class(gt, results, max_frames, 2)
     print("Results for table (no *)")
-    print("%.1f" % (results_cars.sMOTSA * 100.0), "%.1f" % (results_ped.sMOTSA * 100.0),
-          "%.1f" % (results_cars.MOTSA * 100.0), "%.1f" % (results_ped.MOTSA * 100.0),
-          "%.1f" % (results_cars.MOTSP * 100.0), "%.1f" % (results_ped.MOTSP * 100.0), results_cars.id_switches,
-          results_ped.id_switches, sep="\t")
+    print(
+        "%.1f" %
+        (results_cars.sMOTSA * 100.0), "%.1f" %
+        (results_ped.sMOTSA * 100.0), "%.1f" %
+        (results_cars.MOTSA * 100.0), "%.1f" %
+        (results_ped.MOTSA * 100.0), "%.1f" %
+        (results_cars.MOTSP * 100.0), "%.1f" %
+        (results_ped.MOTSP * 100.0), results_cars.id_switches, results_ped.id_switches, sep="\t")
     print("Results for table (*)")
-    print("%.1f" % (results_cars.sMOTSA_all_ids * 100.0), "%.1f" % (results_ped.sMOTSA_all_ids * 100.0),
-          "%.1f" % (results_cars.MOTSA_all_ids * 100.0), "%.1f" % (results_ped.MOTSA_all_ids * 100.0),
-          "%.1f" % (results_cars.MOTSP * 100.0), "%.1f" % (results_ped.MOTSP * 100.0), results_cars.id_switches_all,
-          results_ped.id_switches_all, sep="\t")
-
+    print(
+        "%.1f" %
+        (results_cars.sMOTSA_all_ids * 100.0), "%.1f" %
+        (results_ped.sMOTSA_all_ids * 100.0), "%.1f" %
+        (results_cars.MOTSA_all_ids * 100.0), "%.1f" %
+        (results_ped.MOTSA_all_ids * 100.0), "%.1f" %
+        (results_cars.MOTSP * 100.0), "%.1f" %
+        (results_ped.MOTSP * 100.0), results_cars.id_switches_all, results_ped.id_switches_all, sep="\t")

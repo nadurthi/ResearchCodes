@@ -10,8 +10,10 @@ IMAGES = "images"
 RAW_IMAGES = "raw_images"
 INPUTS = "inputs"
 IMAGE_FILENAMES = "image_filenames"
-BBOXES_y0x0y1x1 = "bboxes_y0x0y1x1"  # Order like in the tensorflow object detection API
-BBOXES_x0y0x1y1 = "bboxes_x0y0x1y1"  # Alternative order, used for example in the frcnn implementation
+# Order like in the tensorflow object detection API
+BBOXES_y0x0y1x1 = "bboxes_y0x0y1x1"
+# Alternative order, used for example in the frcnn implementation
+BBOXES_x0y0x1y1 = "bboxes_x0y0x1y1"
 CLASSES = "classes"
 IDS = "ids"  # bounding box number 1,2,3...  or 0 if no bounding box
 CROP_BOXES_y0x0y1x1 = "crop_boxes_y0x0y1x1"
@@ -26,5 +28,7 @@ FEATUREMAP_BOXES = "featuremap_boxes"
 IMAGE_ID = "image_id"
 IS_CROWD = "is_crowd"
 SEGMENTATION_MASK = "segmentation_mask"
-SKIP_EXAMPLE = "skip_example"  # If true, filter the corresponding example from the datastream. Useful, when an example
-                               # turns out to be bad during preprocessing.
+# If true, filter the corresponding example from the datastream. Useful,
+# when an example
+SKIP_EXAMPLE = "skip_example"
+# turns out to be bad during preprocessing.

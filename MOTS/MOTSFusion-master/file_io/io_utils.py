@@ -5,7 +5,7 @@ import numpy as np
 def readFloat(name):
     f = open(name, 'rb')
 
-    if(f.readline().decode("utf-8"))  != 'float\n':
+    if(f.readline().decode("utf-8")) != 'float\n':
         raise Exception('float file %s did not contain <float> keyword' % name)
 
     dim = int(f.readline())
@@ -30,8 +30,8 @@ def readFloat(name):
 def writeFloat(name, data):
     f = open(name, 'wb')
 
-    dim=len(data.shape)
-    if dim>3:
+    dim = len(data.shape)
+    if dim > 3:
         raise Exception('bad float file dimension: %d' % dim)
 
     f.write(('float\n').encode('ascii'))
@@ -46,7 +46,7 @@ def writeFloat(name, data):
             f.write(('%d\n' % data.shape[i]).encode('ascii'))
 
     data = data.astype(np.float32)
-    if dim==2:
+    if dim == 2:
         data.tofile(f)
 
     else:
@@ -77,11 +77,11 @@ def readPFM(file):
         raise Exception('Malformed PFM header.')
 
     scale = float(file.readline().decode("ascii").rstrip())
-    if scale < 0: # little-endian
+    if scale < 0:  # little-endian
         endian = '<'
         scale = -scale
     else:
-        endian = '>' # big-endian
+        endian = '>'  # big-endian
 
     data = np.fromfile(file, endian + 'f')
     shape = (height, width, 3) if color else (height, width)
@@ -93,7 +93,7 @@ def readPFM(file):
 
 def readFlow(name):
     if name.endswith('.pfm') or name.endswith('.PFM'):
-        return readPFM(name)[0][:,:,0:2]
+        return readPFM(name)[0][:, :, 0:2]
 
     f = open(name, 'rb')
 
@@ -104,7 +104,15 @@ def readFlow(name):
     width = np.fromfile(f, np.int32, 1).squeeze()
     height = np.fromfile(f, np.int32, 1).squeeze()
 
-    flow = np.fromfile(f, np.float32, width * height * 2).reshape((height, width, 2))
+    flow = np.fromfile(
+        f,
+        np.float32,
+        width *
+        height *
+        2).reshape(
+        (height,
+         width,
+         2))
 
     return flow.astype(np.float32)
 

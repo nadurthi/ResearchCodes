@@ -22,7 +22,8 @@ def test_unicode_conversion():
     with pytest.raises(UnicodeDecodeError):
         m.bad_utf16_string()
 
-    # These are provided only if they actually fail (they don't when 32-bit and under Python 2.7)
+    # These are provided only if they actually fail (they don't when 32-bit
+    # and under Python 2.7)
     if hasattr(m, "bad_utf32_string"):
         with pytest.raises(UnicodeDecodeError):
             m.bad_utf32_string()
@@ -44,9 +45,11 @@ def test_single_char_arguments():
     toolong_message = "Expected a character, but multi-character string found"
 
     assert m.ord_char(u'a') == 0x61  # simple ASCII
-    assert m.ord_char(u'é') == 0xE9  # requires 2 bytes in utf-8, but can be stuffed in a char
+    # requires 2 bytes in utf-8, but can be stuffed in a char
+    assert m.ord_char(u'é') == 0xE9
     with pytest.raises(ValueError) as excinfo:
-        assert m.ord_char(u'Ā') == 0x100  # requires 2 bytes, doesn't fit in a char
+        # requires 2 bytes, doesn't fit in a char
+        assert m.ord_char(u'Ā') == 0x100
     assert str(excinfo.value) == toobig_message(0x100)
     with pytest.raises(ValueError) as excinfo:
         assert m.ord_char(u'ab')
@@ -106,7 +109,11 @@ def test_bytes_to_string():
     assert m.string_length(u'💩'.encode("utf8")) == 4
 
 
-@pytest.mark.skipif(not hasattr(m, "has_string_view"), reason="no <string_view>")
+@pytest.mark.skipif(
+    not hasattr(
+        m,
+        "has_string_view"),
+    reason="no <string_view>")
 def test_string_view(capture):
     """Tests support for C++17 string_view arguments and return values"""
     assert m.string_view_chars("Hi") == [72, 105]

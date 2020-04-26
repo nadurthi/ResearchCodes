@@ -34,23 +34,38 @@ def create_tracklets(config, detections_raw, masks_raw, flow):
         if class_ == 1:
             tracker_options_class["detection_confidence_threshold"] = config.float(
                 "detection_confidence_threshold_car")
-            tracker_options_class["association_threshold"] = config.float("association_threshold_car")
+            tracker_options_class["association_threshold"] = config.float(
+                "association_threshold_car")
         elif class_ == 2:
             tracker_options_class["detection_confidence_threshold"] = config.float(
                 "detection_confidence_threshold_pedestrian")
-            tracker_options_class["association_threshold"] = config.float("association_threshold_pedestrian")
+            tracker_options_class["association_threshold"] = config.float(
+                "association_threshold_pedestrian")
         else:
             assert False, "unknown class"
 
-        tracks = tracker_per_class(tracks, tracker_options_class, detections_raw, masks_raw, class_, optical_flow=flow)
+        tracks = tracker_per_class(
+            tracks,
+            tracker_options_class,
+            detections_raw,
+            masks_raw,
+            class_,
+            optical_flow=flow)
 
     return tracks
 
 
-def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_to_track, optical_flow=None):
+def tracker_per_class(
+        tracks,
+        tracker_options,
+        detections_raw,
+        masks_raw,
+        class_to_track,
+        optical_flow=None):
     active_tracks = []
 
-    for t, (detections_raw_t, masks_t, flow_tm1_t) in enumerate(zip(detections_raw, masks_raw, optical_flow)):
+    for t, (detections_raw_t, masks_t, flow_tm1_t) in enumerate(
+            zip(detections_raw, masks_raw, optical_flow)):
 
         # if flow_tm1_t is not None:
         #     print(t)
@@ -68,14 +83,27 @@ def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_
 
         if len(active_tracks) == 0:
             for det in detections_t:
-                active_tracks.append(TrackElement(track_id=tracks.start_new_track(t, det[0], det[1]), step=t))
+                active_tracks.append(
+                    TrackElement(
+                        track_id=tracks.start_new_track(
+                            t, det[0], det[1]), step=t))
         elif len(detections_t) != 0:
 
-            association_similarities = np.zeros((len(detections_t), len(active_tracks)))
+            association_similarities = np.zeros(
+                (len(detections_t), len(active_tracks)))
             masks_t = [v[1] for v in detections_t]
-            masks_tm1 = [tracks.get_mask(t-1, v.track_id, decode=False) for v in active_tracks]
-            masks_tm1_warped = [warp_flow(mask, flow_tm1_t) for mask in masks_tm1]
-            mask_ious = cocomask.iou(masks_t, masks_tm1_warped, [False] * len(masks_tm1_warped))
+            masks_tm1 = [
+                tracks.get_mask(
+                    t - 1,
+                    v.track_id,
+                    decode=False) for v in active_tracks]
+            masks_tm1_warped = [warp_flow(mask, flow_tm1_t)
+                                for mask in masks_tm1]
+            mask_ious = cocomask.iou(
+                masks_t,
+                masks_tm1_warped,
+                [False] *
+                len(masks_tm1_warped))
             association_similarities += mask_ious
 
             # for mask_new, mask_warped in zip(masks_t, masks_tm1_warped):
@@ -102,16 +130,20 @@ def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_
                     if val < tracker_options["association_threshold"]:
                         break
                     det = detections_t[idx[0]]
-                    tracks.add_to_track(t, active_tracks[idx[1]].track_id, det[0], det[1])
-                    active_tracks[idx[1]] = active_tracks[idx[1]]._replace(step=t)
+                    tracks.add_to_track(
+                        t, active_tracks[idx[1]].track_id, det[0], det[1])
+                    active_tracks[idx[1]] = active_tracks[idx[1]
+                                                          ]._replace(step=t)
 
                     detections_assigned[idx[0]] = True
                     association_similarities[idx[0], :] = -1e10
                     association_similarities[:, idx[1]] = -1e10
 
             elif tracker_options["tracker"] == "hungarian":
-                cost_matrix = munkres.make_cost_matrix(association_similarities)
-                disallow_indices = np.argwhere(association_similarities <= tracker_options["association_threshold"])
+                cost_matrix = munkres.make_cost_matrix(
+                    association_similarities)
+                disallow_indices = np.argwhere(
+                    association_similarities <= tracker_options["association_threshold"])
                 for ind in disallow_indices:
                     cost_matrix[ind[0]][ind[1]] = 1e9
                 indexes = munkres_obj.compute(cost_matrix)
@@ -121,8 +153,10 @@ def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_
                         continue
 
                     det = detections_t[row]
-                    tracks.add_to_track(t, active_tracks[column].track_id, det[0], det[1])
-                    active_tracks[column] = active_tracks[column]._replace(step=t)
+                    tracks.add_to_track(
+                        t, active_tracks[column].track_id, det[0], det[1])
+                    active_tracks[column] = active_tracks[column]._replace(
+                        step=t)
                     detections_assigned[row] = True
                     # print('detection ' + str(row) + ' assigned to track', active_tracks[column].track_id)
             else:
@@ -130,7 +164,10 @@ def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_
 
             for det, assigned in zip(detections_t, detections_assigned):
                 if not assigned:
-                    active_tracks.append(TrackElement(track_id=tracks.start_new_track(t, det[0], det[1]), step=t))
+                    active_tracks.append(
+                        TrackElement(
+                            track_id=tracks.start_new_track(
+                                t, det[0], det[1]), step=t))
         else:
             active_tracks = []
 
@@ -140,4 +177,3 @@ def tracker_per_class(tracks, tracker_options, detections_raw, masks_raw, class_
         active_tracks = [track for track in active_tracks if track.step >= t]
 
     return tracks
-

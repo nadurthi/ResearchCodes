@@ -1,4 +1,4 @@
-from __future__ import  absolute_import
+from __future__ import absolute_import
 import torch as t
 from torch import nn
 from torchvision.models import vgg16
@@ -59,7 +59,7 @@ class FasterRCNNVGG16(FasterRCNN):
                  ratios=[0.5, 1, 2],
                  anchor_scales=[8, 16, 32]
                  ):
-                 
+
         extractor, classifier = decom_vgg16()
 
         rpn = RegionProposalNetwork(
@@ -88,7 +88,7 @@ class VGG16RoIHead(nn.Module):
     This class is used as a head for Faster R-CNN.
     This outputs class-wise localizations and classification based on feature
     maps in the given RoIs.
-    
+
     Args:
         n_class (int): The number of classes possibly including the background.
         roi_size (int): Height and width of the feature maps after RoI-pooling.
@@ -112,7 +112,10 @@ class VGG16RoIHead(nn.Module):
         self.n_class = n_class
         self.roi_size = roi_size
         self.spatial_scale = spatial_scale
-        self.roi = RoIPooling2D(self.roi_size, self.roi_size, self.spatial_scale)
+        self.roi = RoIPooling2D(
+            self.roi_size,
+            self.roi_size,
+            self.spatial_scale)
 
     def forward(self, x, rois, roi_indices):
         """Forward the chain.
@@ -137,7 +140,7 @@ class VGG16RoIHead(nn.Module):
         indices_and_rois = t.cat([roi_indices[:, None], rois], dim=1)
         # NOTE: important: yx->xy
         xy_indices_and_rois = indices_and_rois[:, [0, 2, 1, 4, 3]]
-        indices_and_rois =  xy_indices_and_rois.contiguous()
+        indices_and_rois = xy_indices_and_rois.contiguous()
 
         pool = self.roi(x, indices_and_rois)
         pool = pool.view(pool.size(0), -1)
@@ -153,7 +156,8 @@ def normal_init(m, mean, stddev, truncated=False):
     """
     # x is a parameter
     if truncated:
-        m.weight.data.normal_().fmod_(2).mul_(stddev).add_(mean)  # not a perfect approximation
+        m.weight.data.normal_().fmod_(2).mul_(stddev).add_(
+            mean)  # not a perfect approximation
     else:
         m.weight.data.normal_(mean, stddev)
         m.bias.data.zero_()

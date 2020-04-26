@@ -41,12 +41,15 @@ else:
 
 class InstallHeaders(install_headers):
     """Use custom header installer because the default one flattens subdirectories"""
+
     def run(self):
         if not self.distribution.headers:
             return
 
         for header in self.distribution.headers:
-            subdir = os.path.dirname(os.path.relpath(header, 'include/pybind11'))
+            subdir = os.path.dirname(
+                os.path.relpath(
+                    header, 'include/pybind11'))
             install_dir = os.path.join(self.install_dir, subdir)
             self.mkpath(install_dir)
 

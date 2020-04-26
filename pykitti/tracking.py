@@ -105,8 +105,8 @@ class tracking:
                          '*.{}'.format(self.imtype))))
         self.velo_files = sorted(glob.glob(
             os.path.join(self.base_path,
-                        'velodyne',
-                        self.sequence,
+                         'velodyne',
+                         self.sequence,
                          '*.bin')))
 
         # Subselect the chosen range of frames, if any
@@ -178,6 +178,7 @@ class tracking:
 
         self.calib = namedtuple('CalibData', data.keys())(*data.values())
 
+
 def to_array_list(df, length=None, by_id=True):
     """Converts a dataframe to a list of arrays, with one array for every unique index entry.
     Index is assumed to be 0-based contiguous. If there is a missing index entry, an empty
@@ -222,8 +223,12 @@ class KittiTrackingLabels(object):
     columns = 'id class truncated occluded alpha x1 y1 x2 y2 xd yd zd x y z roty score'.split()
     classes = 'Car Van Truck Pedestrian Person_sitting Cyclist Tram Misc DontCare'.split()
 
-
-    def __init__(self, path_or_df, bbox_with_size=True, remove_dontcare=True, split_on_reappear=True):
+    def __init__(
+            self,
+            path_or_df,
+            bbox_with_size=True,
+            remove_dontcare=True,
+            split_on_reappear=True):
 
         if isinstance(path_or_df, pd.DataFrame):
             self._df = path_or_df
@@ -250,10 +255,9 @@ class KittiTrackingLabels(object):
             self._convert_type(c, np.float32, np.float64)
             self._convert_type(c, np.int32, np.int64)
 
-
         # TODO: Add occlusion filtering back in
-        truncated_threshold=(0, 2.)
-        occluded_threshold=(0, 3.)
+        truncated_threshold = (0, 2.)
+        occluded_threshold = (0, 3.)
         # if not nest.is_sequence(occluded_threshold):
         #     occluded_threshold = (0, occluded_threshold)
         #
@@ -269,7 +273,14 @@ class KittiTrackingLabels(object):
         # make 0-based contiguous ids
         ids = self._df.id.unique()
         offset = max(ids) + 1
-        id_map = {id: new_id for id, new_id in zip(ids, np.arange(offset, len(ids) + offset))}
+        id_map = {
+            id: new_id for id,
+            new_id in zip(
+                ids,
+                np.arange(
+                    offset,
+                    len(ids) +
+                    offset))}
         self._df.replace({'id': id_map}, inplace=True)
         self._df.id -= offset
 
@@ -278,7 +289,8 @@ class KittiTrackingLabels(object):
         self.index = self._df.index.unique()
 
         if split_on_reappear:
-            added_ids = self._split_on_reappear(self._df, self.presence, self.ids[-1])
+            added_ids = self._split_on_reappear(
+                self._df, self.presence, self.ids[-1])
             self.ids.extend(added_ids)
             self.max_objects += len(added_ids)
 

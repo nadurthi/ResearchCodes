@@ -1,3 +1,7 @@
+import cv2
+from utils.geometry_utils import bbox_iou, pose_vec2mat
+from matplotlib import cm
+import pickle
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -5,13 +9,17 @@ from visualization.vtkVisualization import *
 from utils.geometry_utils import flow_warp_idx
 from mpl_toolkits.mplot3d import Axes3D
 np.set_printoptions(suppress=True)
-import pickle
-from matplotlib import cm
-from utils.geometry_utils import bbox_iou, pose_vec2mat
-import cv2
 
 
-def get_points_from_masks(mask_t0, mask_t1, point_img_t0, point_img_t1, flow_t1_t0, img_t0, img_t1, calibration_params):
+def get_points_from_masks(
+        mask_t0,
+        mask_t1,
+        point_img_t0,
+        point_img_t1,
+        flow_t1_t0,
+        img_t0,
+        img_t1,
+        calibration_params):
     #point_img_t0[np.logical_not(mask_t0)] = [0, 0, 0]
 
     h, w = flow_t1_t0.shape[:2]
@@ -24,10 +32,19 @@ def get_points_from_masks(mask_t0, mask_t1, point_img_t0, point_img_t1, flow_t1_
     mask_t0_warped = cv2.remap(mask_t0, flow, None, cv2.INTER_NEAREST)
     mask_t0_warped = np.equal(mask_t0_warped, 1).astype(np.uint8)
 
-    mask_overlap = np.logical_and(mask_t0_warped.astype(np.bool), mask_t1.astype(np.bool))
+    mask_overlap = np.logical_and(
+        mask_t0_warped.astype(
+            np.bool), mask_t1.astype(
+            np.bool))
 
-    object_points = np.concatenate((np.expand_dims(point_img_t0[mask_overlap], axis=1), np.expand_dims(point_img_t1[mask_overlap], axis=1)), axis=1)
-    colors = np.concatenate((np.expand_dims(img_t0[mask_overlap], axis=1), np.expand_dims(img_t1[mask_overlap], axis=1)), axis=1)
+    object_points = np.concatenate(
+        (np.expand_dims(
+            point_img_t0[mask_overlap], axis=1), np.expand_dims(
+            point_img_t1[mask_overlap], axis=1)), axis=1)
+    colors = np.concatenate(
+        (np.expand_dims(
+            img_t0[mask_overlap], axis=1), np.expand_dims(
+            img_t1[mask_overlap], axis=1)), axis=1)
 
     return object_points, colors
 
@@ -45,15 +62,20 @@ def get_overlapping_box(boxes, ref_box, iou_thresh=0.5):
 
 
 def compute_jacobian(proj_mat, point):
-    w = proj_mat[2, 0] * point[0] + proj_mat[2, 1] * point[1] + proj_mat[2, 2] * point[2] + proj_mat[2, 3]
+    w = proj_mat[2, 0] * point[0] + proj_mat[2, 1] * \
+        point[1] + proj_mat[2, 2] * point[2] + proj_mat[2, 3]
     w_2 = np.square(w)
 
     F = np.zeros((2, 3))
     for i in range(F.shape[0]):
-        sum_row_by_point = proj_mat[i, 0] * point[0] + proj_mat[i, 1] * point[1] + proj_mat[i, 2] * point[2] + proj_mat[
-            i, 3]
+        sum_row_by_point = proj_mat[i,
+                                    0] * point[0] + proj_mat[i,
+                                                             1] * point[1] + proj_mat[i,
+                                                                                      2] * point[2] + proj_mat[i,
+                                                                                                               3]
         for j in range(F.shape[1]):
-            F[i, j] = proj_mat[i, j] / w - sum_row_by_point * proj_mat[2, j] / w_2
+            F[i, j] = proj_mat[i, j] / w - \
+                sum_row_by_point * proj_mat[2, j] / w_2
 
     return F
 
@@ -66,7 +88,14 @@ def compute_uncertainty(point, calibration_params, output_covar=False):
     FLTFL = np.matmul(np.matmul(FL.transpose(), c2d_mat), FL)
     FRTFR = np.matmul(np.matmul(FR.transpose(), c2d_mat), FR)
 
-    cov_uncertainty = np.linalg.inv(np.add(FLTFL, FRTFR) +0.00001*np.random.rand(3, 3))  # add a bit noise to avoid singular matrix error
+    cov_uncertainty = np.linalg.inv(
+        np.add(
+            FLTFL,
+            FRTFR) +
+        0.00001 *
+        np.random.rand(
+            3,
+            3))  # add a bit noise to avoid singular matrix error
     uncertainty = 1 / np.linalg.norm(cov_uncertainty, 2)
     if not output_covar:
         return uncertainty
@@ -78,7 +107,8 @@ def get_dynamic_transform(points):
     filler = np.ones(len(points))
     A = np.asarray(np.column_stack((points[:, 1, 0], points[:, 1, 2])))
     B = np.asarray(np.column_stack((points[:, 0, 0], points[:, 0, 2], filler)))
-    # from A and B get delta x,z,theta (relative objection motion in birds eye view)
+    # from A and B get delta x,z,theta (relative objection motion in birds eye
+    # view)
     init = [0, 0, 0]
 
     def func(pose):
@@ -96,7 +126,12 @@ def get_dynamic_transform(points):
 
 def get_position_covariance(points, calibration_params):
     position_covariance = np.var(points)
-    depth_covariance = compute_uncertainty(np.mean(points, axis=0), calibration_params, output_covar=True)
+    depth_covariance = compute_uncertainty(
+        np.mean(
+            points,
+            axis=0),
+        calibration_params,
+        output_covar=True)
     return position_covariance + depth_covariance
 
 
@@ -104,7 +139,8 @@ def get_depth_covariance(point, transformation_matrix, calibration_params):
     point = np.column_stack(([point], [[1]]))
     point = point @ np.linalg.inv(transformation_matrix.T)
     point = point[:, 0:3]
-    covariance = compute_uncertainty(point[0], calibration_params, output_covar=True)
+    covariance = compute_uncertainty(
+        point[0], calibration_params, output_covar=True)
     return covariance
 
 
@@ -112,12 +148,15 @@ def warp_points(relative_poses, id, points):
     global_pose = pose_vec2mat([0, 0, 0])
     for pose in relative_poses:
         if pose is not None:
-            global_pose = np.matmul(global_pose, np.linalg.inv(pose_vec2mat(pose)))
+            global_pose = np.matmul(
+                global_pose, np.linalg.inv(
+                    pose_vec2mat(pose)))
 
     filler = np.ones(len(points))
     points_2d = np.column_stack((points[:, 0], points[:, 2], filler))
     warped_points = points_2d @ global_pose.T
-    warped_points = np.column_stack((warped_points[:, 0], points[:, 1], warped_points[:, 1]))
+    warped_points = np.column_stack(
+        (warped_points[:, 0], points[:, 1], warped_points[:, 1]))
     return warped_points
 
 
@@ -145,8 +184,10 @@ def inv_shift_transform(new_center_point, relative_pose):
     old_z = relative_pose[1]
     theta = relative_pose[2]
 
-    new_x = -np.cos(theta) * new_center_point[0] + np.sin(theta) * new_center_point[2] + new_center_point[0] + old_x
-    new_z = -np.sin(theta) * new_center_point[0] - np.cos(theta) * new_center_point[2] + new_center_point[2] + old_z
+    new_x = -np.cos(theta) * new_center_point[0] + np.sin(
+        theta) * new_center_point[2] + new_center_point[0] + old_x
+    new_z = -np.sin(theta) * new_center_point[0] - np.cos(
+        theta) * new_center_point[2] + new_center_point[2] + old_z
 
     return np.asarray([new_x, new_z, theta])
 
@@ -156,8 +197,10 @@ def shift_transform(center_point, relative_pose):
     old_z = relative_pose[1]
     theta = relative_pose[2]
 
-    new_x = np.cos(theta) * center_point[0] - np.sin(theta) * center_point[2] - center_point[0] + old_x
-    new_z = np.sin(theta) * center_point[0] + np.cos(theta) * center_point[2] - center_point[2] + old_z
+    new_x = np.cos(theta) * center_point[0] - np.sin(theta) * \
+        center_point[2] - center_point[0] + old_x
+    new_z = np.sin(theta) * center_point[0] + np.cos(theta) * \
+        center_point[2] - center_point[2] + old_z
 
     return np.asarray([new_x, new_z, theta])
 
@@ -178,9 +221,10 @@ def get_bbox_points(config, bbox_params, object_class=1):
          [half_w, -half_h, -half_l]])
 
     bbox_points2 = np.column_stack((bbox_points[:, 0], bbox_points[:, 2]))
-    bbox_points2 = bbox_points2 @ np.asarray(
-        [[np.cos(bbox_params[3]), -np.sin(bbox_params[3])], [np.sin(bbox_params[3]), np.cos(bbox_params[3])]]).T
-    bbox_points = np.column_stack((bbox_points2[:, 0], bbox_points[:, 1], bbox_points2[:, 1]))
+    bbox_points2 = bbox_points2 @ np.asarray([[np.cos(bbox_params[3]), -np.sin(
+        bbox_params[3])], [np.sin(bbox_params[3]), np.cos(bbox_params[3])]]).T
+    bbox_points = np.column_stack(
+        (bbox_points2[:, 0], bbox_points[:, 1], bbox_points2[:, 1]))
     bbox_points = bbox_points + bbox_params[0:3]
     return bbox_points
 
@@ -220,21 +264,23 @@ def get_center_point(config, points, object_class, past_points=None):
 
     theta_best = theta_best + np.pi / 2
 
-    return np.array((x_mean,y_mean,z_mean,theta_best))
+    return np.array((x_mean, y_mean, z_mean, theta_best))
 
 
 def compute_bboxes(fill_bbox_params, start_step, current_step):
-    [bbox_start, bbox_current, warping_start, warping_current, overlapping_points] = fill_bbox_params
+    [bbox_start, bbox_current, warping_start, warping_current,
+        overlapping_points] = fill_bbox_params
     points_ref, points_proposal = zip(*overlapping_points)
 
     bboxes_ref = [bbox_start.tolist()]
     for timestep in range(start_step + 1, current_step):
-        bboxes_ref.append(np.append(points_ref[timestep - start_step], bboxes_ref[-1][3] + warping_start[2]).tolist())
+        bboxes_ref.append(np.append(
+            points_ref[timestep - start_step], bboxes_ref[-1][3] + warping_start[2]).tolist())
 
     bboxes_proposal = [bbox_current.tolist()]
     for timestep in reversed(range(start_step + 1, current_step)):
-        bboxes_proposal.append(
-            np.append(points_proposal[timestep - start_step], bboxes_proposal[-1][3] - warping_current[2]).tolist())
+        bboxes_proposal.append(np.append(
+            points_proposal[timestep - start_step], bboxes_proposal[-1][3] - warping_current[2]).tolist())
 
     bboxes_ref.remove(bbox_start.tolist())
     bboxes_proposal.remove(bbox_current.tolist())
@@ -245,12 +291,28 @@ def compute_bboxes(fill_bbox_params, start_step, current_step):
 def get_point_box_distance(bbox, point_img, avg_predicted_position):
     [x1, y1, x2, y2] = bbox
     points_in_bbox = point_img[int(y1):int(y2), int(x1):int(x2)]
-    points_in_bbox = points_in_bbox.reshape((points_in_bbox.shape[0] * points_in_bbox.shape[1], points_in_bbox.shape[2]))
-    points_in_bbox = np.column_stack((points_in_bbox[:, 0], points_in_bbox[:, 2]))
-    return np.linalg.norm(np.median(points_in_bbox, axis=0) - avg_predicted_position, 2)
+    points_in_bbox = points_in_bbox.reshape(
+        (points_in_bbox.shape[0] *
+         points_in_bbox.shape[1],
+         points_in_bbox.shape[2]))
+    points_in_bbox = np.column_stack(
+        (points_in_bbox[:, 0], points_in_bbox[:, 2]))
+    return np.linalg.norm(
+        np.median(
+            points_in_bbox,
+            axis=0) -
+        avg_predicted_position,
+        2)
 
 
-def compute_final_bbox(bbox, points, point_img, transformation_matrix, calibration_params, w_delta=0.9, w_3D=0.1):
+def compute_final_bbox(
+        bbox,
+        points,
+        point_img,
+        transformation_matrix,
+        calibration_params,
+        w_delta=0.9,
+        w_3D=0.1):
     # transform points according to estimated camera motion (pose)
     points = np.column_stack((points, np.ones(len(points))))
     points = points @ np.linalg.inv(transformation_matrix.T)
@@ -274,7 +336,16 @@ def compute_final_bbox(bbox, points, point_img, transformation_matrix, calibrati
     return [x1, y1, x2, y2]
 
 
-def compute_final_bbox_flow(bbox, bbox_flow, points, point_img, transformation_matrix, calibration_params, w_delta=0.5, w_flow=0.4, w_3D=0.1):
+def compute_final_bbox_flow(
+        bbox,
+        bbox_flow,
+        points,
+        point_img,
+        transformation_matrix,
+        calibration_params,
+        w_delta=0.5,
+        w_flow=0.4,
+        w_3D=0.1):
     # transform points according to estimated camera motion (pose)
     points = np.column_stack((points, np.ones(len(points))))
     points = points @ np.linalg.inv(transformation_matrix.T)
@@ -292,8 +363,18 @@ def compute_final_bbox_flow(bbox, bbox_flow, points, point_img, transformation_m
 
     x1 = np.maximum(w_delta * bbox[0] + w_flow * bbox_flow[0] + w_3D * x1, 0)
     y1 = np.maximum(w_delta * bbox[1] + w_flow * bbox_flow[1] + w_3D * y1, 0)
-    x2 = np.minimum(w_delta * (bbox[2]) + w_flow * bbox_flow[2] + w_3D * x2, point_img.shape[1])
-    y2 = np.minimum(w_delta * (bbox[3]) + w_flow * bbox_flow[3] + w_3D * y2, point_img.shape[0])
+    x2 = np.minimum(w_delta *
+                    (bbox[2]) +
+                    w_flow *
+                    bbox_flow[2] +
+                    w_3D *
+                    x2, point_img.shape[1])
+    y2 = np.minimum(w_delta *
+                    (bbox[3]) +
+                    w_flow *
+                    bbox_flow[3] +
+                    w_3D *
+                    y2, point_img.shape[0])
 
     return [x1, y1, x2, y2]
 

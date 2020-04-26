@@ -13,12 +13,13 @@ import numpy as np
 import open3d as o3d
 import time
 
+
 class viz_pointcloud:
 
-    def __init__(self,xyz_points):
+    def __init__(self, xyz_points):
         o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Debug)
         self.pcd = o3d.geometry.PointCloud()
-        xyz_points = np.array([[0,0,0],[1,1,1],[5,5,5],[-5,-5,-5]])
+        xyz_points = np.array([[0, 0, 0], [1, 1, 1], [5, 5, 5], [-5, -5, -5]])
         self.pcd.points = o3d.utility.Vector3dVector(xyz_points)
         self.vis = o3d.visualization.Visualizer()
         self.vis.create_window()
@@ -44,10 +45,10 @@ class viz_pointcloud:
 
     def destroy_vis(self):
         self.vis.destroy_window()
-        
-        
+
+
 if __name__ == "__main__":
-    
+
     # pcd = o3d.io.read_point_cloud("/home/nagnanamus/Downloads/Open3D/examples/TestData/fragment.pcd")
     x = np.linspace(-3, 3, 401)
     mesh_x, mesh_y = np.meshgrid(x, x)
@@ -63,24 +64,25 @@ if __name__ == "__main__":
     # Pass xyz to Open3D.o3d.geometry.PointCloud and visualize
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(xyz)
-    
+
     # o3d.visualization.draw_geometries([pcd])
-    
+
     vpc = viz_pointcloud(xyz)
     vpc.vis_callback(xyz)
-    
+
     print('ok')
-    
-    cnt=0
+
+    cnt = 0
     st = time.time()
     time.sleep(0.1)
-    while time.time()-st<10:
+    while time.time() - st < 10:
         # time.sleep(0.1)
         print('ok2')
     # vpc.destroy_vis()
     vpc.destroy_vis()
     # print("Load a ply point cloud, print it, and render it")
-    pcd = o3d.io.read_point_cloud("/home/nagnanamus/Downloads/Open3D/examples/TestData/fragment.pcd")
+    pcd = o3d.io.read_point_cloud(
+        "/home/nagnanamus/Downloads/Open3D/examples/TestData/fragment.pcd")
     pcd = pcd.voxel_down_sample(voxel_size=0.05)
     o3d.visualization.draw_geometries([pcd])
 
@@ -93,8 +95,7 @@ if __name__ == "__main__":
     # mesh_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.0)
     # mesh_sphere.compute_vertex_normals()
     # mesh_sphere.paint_uniform_color([0.1, 0.1, 0.7])
-    
-    
+
     # mesh_cylinder = o3d.geometry.TriangleMesh.create_cylinder(radius=0.3,
     #                                                           height=4.0)
     # mesh_cylinder.compute_vertex_normals()

@@ -60,7 +60,8 @@ def test_custom(msg):
     # Can we translate to standard Python exceptions?
     with pytest.raises(RuntimeError) as excinfo:
         m.throws2()
-    assert msg(excinfo.value) == "this error should go to a standard Python exception"
+    assert msg(
+        excinfo.value) == "this error should go to a standard Python exception"
 
     # Can we handle unknown exceptions?
     with pytest.raises(RuntimeError) as excinfo:
@@ -75,7 +76,8 @@ def test_custom(msg):
     # Can we fall-through to the default handler?
     with pytest.raises(RuntimeError) as excinfo:
         m.throws_logic_error()
-    assert msg(excinfo.value) == "this error should fall through to the standard handler"
+    assert msg(
+        excinfo.value) == "this error should fall through to the standard handler"
 
     # Can we handle a helper-declared exception?
     with pytest.raises(m.MyException5) as excinfo:
@@ -109,7 +111,8 @@ def test_nested_throws(capture):
     def throw_myex5():
         raise m.MyException5("nested error 5")
 
-    # In the comments below, the exception is caught in the first step, thrown in the last step
+    # In the comments below, the exception is caught in the first step, thrown
+    # in the last step
 
     # C++ -> Python
     with capture:
@@ -130,7 +133,12 @@ def test_nested_throws(capture):
     # C++ -> Python -> C++ -> Python
     with capture:
         m.try_catch(
-            m.MyException5, pycatch, m.MyException, m.try_catch, m.MyException, throw_myex5)
+            m.MyException5,
+            pycatch,
+            m.MyException,
+            m.try_catch,
+            m.MyException,
+            throw_myex5)
     assert str(capture).startswith("MyException5: nested error 5")
 
     # C++ -> Python -> C++

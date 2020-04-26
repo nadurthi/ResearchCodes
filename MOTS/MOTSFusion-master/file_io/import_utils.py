@@ -10,13 +10,31 @@ import glob
 
 
 def import_point_imgs(config, sequence):
-    return [readFloat(config.dir('point_imgs_savedir') + sequence + '/' + file)
-            for file in sorted(os.listdir(config.dir('point_imgs_savedir') + sequence + '/'))]
+    return [
+        readFloat(
+            config.dir('point_imgs_savedir') +
+            sequence +
+            '/' +
+            file) for file in sorted(
+            os.listdir(
+                config.dir('point_imgs_savedir') +
+                sequence +
+                '/'))]
 
 
 def import_raw_imgs(config, sequence):
-    return [skimage.io.imread(config.dir('data_dir') + 'images/' + sequence + '/image_2/' + file)
-            for file in sorted(os.listdir(config.dir('data_dir') + 'images/' + sequence + '/image_2/'))]
+    return [
+        skimage.io.imread(
+            config.dir('data_dir') +
+            'images/' +
+            sequence +
+            '/image_2/' +
+            file) for file in sorted(
+            os.listdir(
+                config.dir('data_dir') +
+                'images/' +
+                sequence +
+                '/image_2/'))]
 
 
 def import_flow(config, sequence):
@@ -38,11 +56,33 @@ def postprocess_flow(flow, occlusion):
 
 
 def import_flow_FlowNet(flow_import_path, sequence):
-    flow_list = sorted(filter(lambda x: 'flow[0].fwd' in x, os.listdir(flow_import_path + sequence + '/')))
-    optical_flow = [readFlow(flow_import_path + sequence + '/' + flow) for flow in flow_list]
+    flow_list = sorted(
+        filter(
+            lambda x: 'flow[0].fwd' in x,
+            os.listdir(
+                flow_import_path +
+                sequence +
+                '/')))
+    optical_flow = [
+        readFlow(
+            flow_import_path +
+            sequence +
+            '/' +
+            flow) for flow in flow_list]
     optical_flow = [None] + optical_flow
-    occ_list = sorted(filter(lambda x: 'occ[0].fwd' in x, os.listdir(flow_import_path + sequence + '/')))
-    occlusion = [readFloat(flow_import_path + sequence + '/' + occ) for occ in occ_list]
+    occ_list = sorted(
+        filter(
+            lambda x: 'occ[0].fwd' in x,
+            os.listdir(
+                flow_import_path +
+                sequence +
+                '/')))
+    occlusion = [
+        readFloat(
+            flow_import_path +
+            sequence +
+            '/' +
+            occ) for occ in occ_list]
     occlusion = [None] + occlusion
     return postprocess_flow(optical_flow, occlusion)
 
@@ -83,10 +123,21 @@ def import_flow_PWCNet(flow_import_path, sequence):
         with open(flow_import_path + "/preprocessed_" + sequence, 'rb') as input:
             flows = pickle.load(input)
     else:
-        flow_files_x = sorted(glob.glob(flow_import_path + "/" + sequence + "/*_x_minimal*.png"))
-        flow_files_y = sorted(glob.glob(flow_import_path + "/" + sequence + "/*_y_minimal*.png"))
+        flow_files_x = sorted(
+            glob.glob(
+                flow_import_path +
+                "/" +
+                sequence +
+                "/*_x_minimal*.png"))
+        flow_files_y = sorted(
+            glob.glob(
+                flow_import_path +
+                "/" +
+                sequence +
+                "/*_y_minimal*.png"))
         assert len(flow_files_x) == len(flow_files_y)
-        flows = [open_flow_png_file([x, y]) for x, y in zip(flow_files_x, flow_files_y)]
+        flows = [open_flow_png_file([x, y])
+                 for x, y in zip(flow_files_x, flow_files_y)]
         with open(flow_import_path + "/preprocessed_" + sequence, 'wb') as output:
             pickle.dump(flows, output, pickle.HIGHEST_PROTOCOL)
     flows = [None] + flows
@@ -101,8 +152,15 @@ def import_disparity(config, sequence):
 
 
 def import_disp_DispNet(depth_import_path, sequence):
-    disp_list = sorted(filter(lambda x: 'disp' in x, os.listdir(depth_import_path + sequence + '/')))
-    disps = [readFloat(depth_import_path + sequence + '/' + disp) for disp in disp_list]
+    disp_list = sorted(
+        filter(
+            lambda x: 'disp' in x,
+            os.listdir(
+                depth_import_path +
+                sequence +
+                '/')))
+    disps = [readFloat(depth_import_path + sequence + '/' + disp)
+             for disp in disp_list]
     return disps
 
 
@@ -114,7 +172,11 @@ def import_poses(config, sequence):
 
 
 def import_pose_orbslam(pose_import_path, sequence):
-    pos_list = np.genfromtxt(pose_import_path + sequence + '/CameraTrajectory.txt', dtype='str')
+    pos_list = np.genfromtxt(
+        pose_import_path +
+        sequence +
+        '/CameraTrajectory.txt',
+        dtype='str')
     return process_poses(pos_list, 'orbslam')
 
 
@@ -137,7 +199,12 @@ def import_segmentations_BB2SegNet(config, sequence):
     #         plt.imshow(cm.decode(seg))
     #         plt.show()
 
-    return json.load(open(config.dir('segmentations_savedir') + sequence + '/segmentations.json', 'r'))
+    return json.load(
+        open(
+            config.dir('segmentations_savedir') +
+            sequence +
+            '/segmentations.json',
+            'r'))
 
 
 def import_segmentations_TrackRCNN(config, sequence):
@@ -146,8 +213,12 @@ def import_segmentations_TrackRCNN(config, sequence):
     try:
         with open(config.dir('segmentations_savedir') + sequence + '.txt') as f:
             lines = f.readlines()
-    except:
-        print('WARNING: could not load ' + config.dir('segmentations_savedir') + sequence + '.txt')
+    except BaseException:
+        print(
+            'WARNING: could not load ' +
+            config.dir('segmentations_savedir') +
+            sequence +
+            '.txt')
         return None
 
     for line in lines:
@@ -168,9 +239,11 @@ def import_segmentations_TrackRCNN(config, sequence):
 
 def import_detections(config, sequence):
     if config.str('use_detections') == 'RRC':
-        return import_detections_RRC(config.dir('detections_savedir') + sequence + '/')
+        return import_detections_RRC(
+            config.dir('detections_savedir') + sequence + '/')
     if config.str('use_detections') == 'TrackRCNN':
-        return import_detections_TrackRCNN(config.dir('detections_savedir') + sequence + '.txt')
+        return import_detections_TrackRCNN(
+            config.dir('detections_savedir') + sequence + '.txt')
     else:
         assert False, "Select appropriate detections"
 
@@ -183,7 +256,7 @@ def import_detections_RRC(detections_import_path):
         try:
             with open(file) as f:
                 lines = f.readlines()
-        except:
+        except BaseException:
             detections.append([])
             print('WARNING: could not load ' + file)
             continue
@@ -192,7 +265,12 @@ def import_detections_RRC(detections_import_path):
         for line in lines:
             line = line.split(' ')
             detection = {}
-            detection['bbox'] = [float(line[0]), float(line[1]), float(line[2]), float(line[3])]
+            detection['bbox'] = [
+                float(
+                    line[0]), float(
+                    line[1]), float(
+                    line[2]), float(
+                    line[3])]
             detection['score'] = float(line[4])
             detection['class'] = 1  # RRC works only for cars
 
@@ -225,14 +303,19 @@ def import_detections_TrackRCNN(detections_import_file):
     try:
         with open(detections_import_file) as f:
             lines = f.readlines()
-    except:
+    except BaseException:
         print('WARNING: could not load ' + detections_import_file)
         return None
 
     for line in lines:
         line = line.split(' ')
         detection = {}
-        detection['bbox'] = [float(line[1]), float(line[2]), float(line[3]), float(line[4])]
+        detection['bbox'] = [
+            float(
+                line[1]), float(
+                line[2]), float(
+                line[3]), float(
+                    line[4])]
         detection['score'] = float(line[5])
         detection['class'] = int(line[6])
 
@@ -249,6 +332,3 @@ def import_tracking_result(result_path):
     with open(result_path + 'saved_data.pkl', "rb") as f:
         tracked_sequence = pickle.load(f)
     return tracked_sequence
-
-
-

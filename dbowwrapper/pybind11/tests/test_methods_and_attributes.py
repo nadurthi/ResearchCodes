@@ -36,12 +36,12 @@ def test_methods_and_attributes():
     assert instance1.overloaded(0) == "(int)"
     assert instance1.overloaded(1, 1.0) == "(int, float)"
     assert instance1.overloaded(2.0, 2) == "(float, int)"
-    assert instance1.overloaded(3,   3) == "(int, int)"
+    assert instance1.overloaded(3, 3) == "(int, int)"
     assert instance1.overloaded(4., 4.) == "(float, float)"
     assert instance1.overloaded_const(-3) == "(int) const"
     assert instance1.overloaded_const(5, 5.0) == "(int, float) const"
     assert instance1.overloaded_const(6.0, 6) == "(float, int) const"
-    assert instance1.overloaded_const(7,   7) == "(int, int) const"
+    assert instance1.overloaded_const(7, 7) == "(int, int) const"
     assert instance1.overloaded_const(8., 8.) == "(float, float) const"
     assert instance1.overloaded_float(1, 1) == "(float, float)"
     assert instance1.overloaded_float(1, 1.) == "(float, float)"
@@ -153,7 +153,8 @@ def test_metaclass_override():
     assert type(m.MetaclassOverride).__name__ == "type"
 
     assert m.MetaclassOverride.readonly == 1
-    assert type(m.MetaclassOverride.__dict__["readonly"]).__name__ == "pybind11_static_property"
+    assert type(m.MetaclassOverride.__dict__[
+                "readonly"]).__name__ == "pybind11_static_property"
 
     # Regular `type` replaces the property instead of calling `__set__()`
     m.MetaclassOverride.readonly = 2
@@ -241,7 +242,8 @@ def test_dynamic_attributes():
 
     with pytest.raises(TypeError) as excinfo:
         instance.__dict__ = []
-    assert str(excinfo.value) == "__dict__ must be set to a dictionary, not a 'list'"
+    assert str(
+        excinfo.value) == "__dict__ must be set to a dictionary, not a 'list'"
 
     cstats = ConstructorStats.get(m.DynamicClass)
     assert cstats.alive() == 1
@@ -401,7 +403,8 @@ def test_accepts_none(msg):
         m.no_none5(None)
     assert "incompatible function arguments" in str(excinfo.value)
 
-    # The first one still raises because you can't pass None as a lvalue reference arg:
+    # The first one still raises because you can't pass None as a lvalue
+    # reference arg:
     with pytest.raises(TypeError) as excinfo:
         assert m.ok_none1(None) == -1
     assert msg(excinfo.value) == """
@@ -457,20 +460,24 @@ def test_custom_caster_destruction():
     destroyed when the function has py::return_value_policy::take_ownership policy applied."""
 
     cstats = m.destruction_tester_cstats()
-    # This one *doesn't* have take_ownership: the pointer should be used but not destroyed:
+    # This one *doesn't* have take_ownership: the pointer should be used but
+    # not destroyed:
     z = m.custom_caster_no_destroy()
     assert cstats.alive() == 1 and cstats.default_constructions == 1
     assert z
 
-    # take_ownership applied: this constructs a new object, casts it, then destroys it:
+    # take_ownership applied: this constructs a new object, casts it, then
+    # destroys it:
     z = m.custom_caster_destroy()
     assert z
     assert cstats.default_constructions == 2
 
-    # Same, but with a const pointer return (which should *not* inhibit destruction):
+    # Same, but with a const pointer return (which should *not* inhibit
+    # destruction):
     z = m.custom_caster_destroy_const()
     assert z
     assert cstats.default_constructions == 3
 
-    # Make sure we still only have the original object (from ..._no_destroy()) alive:
+    # Make sure we still only have the original object (from ..._no_destroy())
+    # alive:
     assert cstats.alive() == 1

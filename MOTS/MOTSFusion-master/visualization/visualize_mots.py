@@ -13,7 +13,8 @@ from functools import partial
 from subprocess import call
 
 
-# adapted from https://github.com/matterport/Mask_RCNN/blob/master/mrcnn/visualize.py
+# adapted from
+# https://github.com/matterport/Mask_RCNN/blob/master/mrcnn/visualize.py
 def generate_colors():
     """
     Generate random colors.
@@ -24,8 +25,8 @@ def generate_colors():
     brightness = 0.7
     hsv = [(i / N, 1, brightness) for i in range(N)]
     colors = list(map(lambda c: colorsys.hsv_to_rgb(*c), hsv))
-    perm = [15, 13, 25, 12, 19, 8, 22, 24, 29, 17, 28, 20, 2, 27, 11, 26, 21, 4, 3, 18, 9, 5, 14, 1, 16, 0, 23, 7, 6,
-            10]
+    perm = [15, 13, 25, 12, 19, 8, 22, 24, 29, 17, 28, 20, 2, 27,
+            11, 26, 21, 4, 3, 18, 9, 5, 14, 1, 16, 0, 23, 7, 6, 10]
     colors = [colors[idx] for idx in perm]
     return colors
 
@@ -41,22 +42,43 @@ def apply_mask(image, mask, color, alpha=0.5):
     return image
 
 
-def visualize_sequences(sequences, result_folder, img_folder, output_folder, seqmap_filename, draw_boxes=False,
-                     create_video=True):
+def visualize_sequences(
+        sequences,
+        result_folder,
+        img_folder,
+        output_folder,
+        seqmap_filename,
+        draw_boxes=False,
+        create_video=True):
     seqmap, max_frames = load_seqmap(seqmap_filename)
     for seq_id in sequences:
         os.makedirs(output_folder + "/" + seq_id, exist_ok=True)
         print("Processing sequence", seq_id)
         tracks = load_sequences(result_folder, [seq_id])[seq_id]
         max_frames_seq = max_frames[seq_id]
-        visualize_sequence(seq_id, tracks, max_frames_seq, img_folder, output_folder, draw_boxes, create_video)
+        visualize_sequence(
+            seq_id,
+            tracks,
+            max_frames_seq,
+            img_folder,
+            output_folder,
+            draw_boxes,
+            create_video)
 
 
-def visualize_sequence(seq_id, tracks, max_frames_seq, img_folder, output_folder, draw_boxes=False,
-                        create_video=False):
+def visualize_sequence(
+        seq_id,
+        tracks,
+        max_frames_seq,
+        img_folder,
+        output_folder,
+        draw_boxes=False,
+        create_video=False):
     colors = generate_colors()
     dpi = 100.0
-    frames_with_annotations = [frame for frame in tracks.keys() if len(tracks[frame]) > 0]
+    frames_with_annotations = [
+        frame for frame in tracks.keys() if len(
+            tracks[frame]) > 0]
     img_sizes = next(iter(tracks[frames_with_annotations[0]])).mask["size"]
     for t in range(max_frames_seq + 1):
         #print("Processing frame", t)
@@ -66,12 +88,24 @@ def visualize_sequence(seq_id, tracks, max_frames_seq, img_folder, output_folder
         elif os.path.exists(filename_t + ".jpg"):
             filename_t = filename_t + ".jpg"
         else:
-            print("Image file not found for " + filename_t + ".png/.jpg, continuing...")
+            print(
+                "Image file not found for " +
+                filename_t +
+                ".png/.jpg, continuing...")
             continue
         img = np.array(Image.open(filename_t), dtype="float32") / 255
         fig = plt.figure()
-        fig.set_size_inches(img_sizes[1] / dpi, img_sizes[0] / dpi, forward=True)
-        fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
+        fig.set_size_inches(
+            img_sizes[1] / dpi,
+            img_sizes[0] / dpi,
+            forward=True)
+        fig.subplots_adjust(
+            left=0,
+            bottom=0,
+            right=1,
+            top=1,
+            wspace=None,
+            hspace=None)
         ax = fig.subplots()
         ax.set_axis_off()
 
@@ -95,12 +129,20 @@ def visualize_sequence(seq_id, tracks, max_frames_seq, img_folder, output_folder
                     x, y, w, h = rletools.toBbox(obj.mask)
                     if draw_boxes:
                         import matplotlib.patches as patches
-                        rect = patches.Rectangle((x, y), w, h, linewidth=1,
-                                                 edgecolor=color, facecolor='none', alpha=1.0)
+                        rect = patches.Rectangle(
+                            (x, y), w, h, linewidth=1, edgecolor=color, facecolor='none', alpha=1.0)
                         ax.add_patch(rect)
                     category_name += ":" + str(obj.track_id)
-                    ax.annotate(category_name, (x + 0.5 * w, y + 0.5 * h), color=color, weight='bold',
-                                fontsize=12, ha='center', va='center', alpha=1.0)
+                    ax.annotate(
+                        category_name,
+                        (x + 0.5 * w,
+                         y + 0.5 * h),
+                        color=color,
+                        weight='bold',
+                        fontsize=12,
+                        ha='center',
+                        va='center',
+                        alpha=1.0)
                 binary_mask = rletools.decode(obj.mask)
                 apply_mask(img, binary_mask, color)
 
@@ -109,6 +151,20 @@ def visualize_sequence(seq_id, tracks, max_frames_seq, img_folder, output_folder
         plt.close(fig)
     if create_video:
         os.chdir(output_folder + "/" + seq_id)
-        call(["ffmpeg", "-framerate", "10", "-y", "-i", "%06d.jpg", "-c:v", "libx264", "-profile:v", "high", "-crf",
+        call(["ffmpeg",
+              "-framerate",
+              "10",
+              "-y",
+              "-i",
+              "%06d.jpg",
+              "-c:v",
+              "libx264",
+              "-profile:v",
+              "high",
+              "-crf",
               "20",
-              "-pix_fmt", "yuv420p", "-vf", "pad=\'width=ceil(iw/2)*2:height=ceil(ih/2)*2\'", "output.mp4"])
+              "-pix_fmt",
+              "yuv420p",
+              "-vf",
+              "pad=\'width=ceil(iw/2)*2:height=ceil(ih/2)*2\'",
+              "output.mp4"])
