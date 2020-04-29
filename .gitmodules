@@ -1,0 +1,11 @@
+[submodule "pyuq"]
+	path = uq
+	url = git@github.com:nadurthi/pyuq.git
+
+[submodule "visionprocessing"]
+	path = visionprocessing
+	url = git@github.com:nadurthi/visionprocessing.git
+
+[submodule "pclwrapper"]
+	path = pclwrapper
+	url = git@github.com:nadurthi/pclwrapper.git

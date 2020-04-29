@@ -11,6 +11,15 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.mat
+*.pz
+*.npz
+*.pkl
+*.zip
+*.7z
+
+simulations/
+
 # C extensions
 *.so
 
