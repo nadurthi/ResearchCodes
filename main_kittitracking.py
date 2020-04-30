@@ -9,6 +9,8 @@ import numpy as np
 from scipy.linalg import block_diag
 import collections as clc
 import pandas as pd
+import os
+import dill,pickle
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +42,22 @@ from physmodels.sensormodels import DiscLTSensorModel
 import uq.motfilter.measurements as motmeas
 from uq.uqutils import recorder as uqrecorder
 from uq.uqutils import helper as uqutilhelp
+from uq.uqutils import metrics as uqmetrics
 
+
+# if __name__=='__main__':
 #%%
-mu = np.zeros(3)
-P = np.eye(3)
-X, w = uqcb.UT_sigmapoints(mu, P)
+metalog="""
+JPDA test on tracking 5 targets using 1 sensor
+this is the initial testing code to see if everything works
 
-X, w = uqcb.CUT4pts_gaussian(mu, P)
+Author: Venkat
+"""
+
+simtime = uqutilhelp.SimTime(t0=0,tf=55,dt=0.5,dtplot=0.1)
+simmanger = uqutilhelp.SimManager(simname="JPDA_test",savepath="simulations",workdir=os.getcwd())
+
+simmanger.initialize()
 
 
 #%%
@@ -62,7 +73,7 @@ jpdamot = JPDAMOT(filterer,recordMeasurementSets=True)
 jpdamot.sensorset.addSensor(sensormodel)
 
 
-simtime = uqutilhelp.SimTime(t0=0,tf=55,dt=0.5,dtplot=0.1)
+
 
 
 vmag = 2
@@ -77,9 +88,9 @@ for i in range(5):
     
     dynmodel = KinematicModel_UM()
     
-    recorder = uqrecorder.StatesRecorder_fixedDim(statetypes = {'t':(1,),'xfk':(1,dynmodel.fn,),'Pfk':(1,dynmodel.fn,dynmodel.fn)})
+    recorderobj = uqrecorder.StatesRecorder_fixedDim(statetypes = {'t':(1,),'xfk':(1,dynmodel.fn,),'Pfk':(1,dynmodel.fn,dynmodel.fn)})
     target = Target(dynModels=[dynmodel], xfk=[xfk], Pfk=[Pfk], currtk = 0, recordfilterstate=True,
-            status='active', recorder = recorder,filterer=filterer,saveinitializingdata=True)
+            status='active', recorderobj = recorderobj,filterer=filterer,saveinitializingdata=True)
     
     jpdamot.targetset.addTarget(target)
     
@@ -121,6 +132,7 @@ for t,tk,dt in simtime.iteratetime():
     print (t,tk,dt)
     Uk = None
     jpdamot.propagate(t, dt, Uk)  
+    # after prop, the time is t+dt
     
     # generate a random measurement
     Zkset = clc.defaultdict(list)
@@ -148,7 +160,7 @@ for t,tk,dt in simtime.iteratetime():
     jpdamot.set_DAmat_from_groundtruthDA()
     
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
-    jpdamot.measUpdt(t,dt, Zkset)
+    jpdamot.measUpdt(t+dt,dt, Zkset)
     
     
     
@@ -159,9 +171,48 @@ for i in range(jpdamot.targetset.ntargs):
     ax.plot(xfk[:,0,0],xfk[:,0,1])
 
 plt.show()    
+
+#%% metrics
+Errt=[None]*jpdamot.targetset.ntargs
+Rmse=[None]*jpdamot.targetset.ntargs
+for i in range(jpdamot.targetset.ntargs):
+    xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
+    xf = jpdamot.targetset[i].recorder.getvar_alltimes('xfk')
+    
+    errt,rmse = uqmetrics.getEsterror(xt[:,0,:],xf[::2,0,:],
+                                      stateset={'state':[0,1,2,3],
+                                                'pos':[0,1],
+                                                'vel':[2,3]
+                                                })
+    Errt[i] = errt
+    Rmse[i] = rmse
+    
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(simtime.tvec,Errt[0]['state'])
+plt.show()    
+    
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(simtime.tvec,Errt[0]['pos'])
+plt.pause(0.1)
+
+   
+
+
+simmanger.savefigure(fig,['post','K'],'test.png')
+plt.show() 
 #%% Saving
+simmanger.finalize()
+
+simmanger.save(metalog,mainfile=__file__,
+               simtime=simtime, Errt=Errt,Rmse=Rmse, jpdamot=jpdamot ,simmanger=simmanger )
 
 
-
-
-
+    # dill.dump_session(simmanger.dillsessionpath)
+    
+    
+    
+    
+    

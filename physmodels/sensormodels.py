@@ -18,7 +18,7 @@ class SensorModel:
     The
     """
     sensorName = 'SensorModel'
-    def __init__(self, recordSensorState=False,sensorrecorder=None, **kwargs):
+    def __init__(self, recordSensorState=False,recorderobj=None,sensorrecorder=None, **kwargs):
         self.ID = uuid.uuid4()
         self.recordSensorState = recordSensorState
         
@@ -28,7 +28,7 @@ class SensorModel:
         if recorder is None:
             self.recorder = recorder.StatesRecorder_list(statetypes = {'zk':(None,),'t':(None,),'sensstates':(None,1)} )
         else:
-            self.recorder = recorder
+            self.recorder = recorderobj
             
             
     def updateparam(self, updatetk, **params):
