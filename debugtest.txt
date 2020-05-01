@@ -1,30 +1,23 @@
 ----------                 : ----------
-JPDA ID                    : 6022794c-5455-4738-bc1a-48db8ab0a3f8
+JPDA ID                    : e05b3f5b-359b-4cc4-b9fc-be249eb8a5c7
 ----------                 : ----------
 Current time               : 109
 Record Mesurementsets      : True
-Dynamical Model idx        : 0
-GMM comp idx               : 0
-Sensor model idx           : 0
 	----------                : ----------
-	Targetset                 : c5275ac8-7759-4f2b-bfd5-3fa8f291ff13
+	Targetset                 : f692cb40-aa6f-4287-a9a9-7eca1c6636fd
 	----------                : ----------
 	ntargs                    : 5
 	ntargs_active             : 5
 	ntargs_inactive           : 0
 		----------               : ----------
-		Target                   : 2e961974-b934-400c-81d8-bf52d8a85e42
+		Target                   : 8516f185-cc47-4d18-b97d-59379e6beefd
 		----------               : ----------
 		filterer                 : Target Kalman Filter
-		xfk                      : [array([33.90429432, 92.54382699,  0.56956956,  1.62682078])]
-		Pfk                      : [array([[ 1.02619695e+04, -1.11460121e+03,  2.66985215e+02,
-        -1.92570667e+01],
-       [-1.11460121e+03,  1.78077832e+04, -2.00377769e+01,
-         4.04537354e+02],
-       [ 2.66985215e+02, -2.00377769e+01,  9.24958346e+00,
-        -3.46176408e-01],
-       [-1.92570667e+01,  4.04537354e+02, -3.46176408e-01,
-         1.17576661e+01]])]
+		xfk                      : [103.08829172 111.41574065   1.72870869   1.9012377 ]
+		Pfk                      : [[ 4.05211777e+04 -1.58986396e+03  8.26087767e+02 -3.65658810e+01]
+ [-1.58986396e+03  1.61462062e+04 -2.92459977e+01  3.76811731e+02]
+ [ 8.26087767e+02 -2.92459977e+01  1.95811149e+01 -6.72144808e-01]
+ [-3.65658810e+01  3.76811731e+02 -6.72144808e-01  1.13011440e+01]]
 		recordfilterstate        : True
 		filterstage              : None
 		currtk                   : 109
@@ -32,34 +25,41 @@ Sensor model idx           : 0
 		status                   : active
 		State Recorder           : 
 			----------              : ----------
-			Recorder                : c3d2d975-506d-4918-b1d2-57ecfb538e45
+			Recorder                : e99a41b2-3e85-429d-b0ce-0c5eecfccb67
 			----------              : ----------
-			statetypes              : {'t': (1,), 'xfk': (1, 4), 'Pfk': (1, 4, 4)}
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
 			idx                     : 110
 			currN                   : 200
 			endid                   : 110
-			recorder_datatype       : fixed numpy dims
-			t.shape                 : (200, 1)
-			xfk.shape               : (200, 1, 4)
-			Pfk.shape               : (200, 1, 4, 4)
+			t.shape                 : (200,)
+			xfk.shape               : (200, 4)
+			Pfk.shape               : (200, 4, 4)
 			----------              : ----------
-			MotionModel:            : 1f37d7e4-da2b-4c6b-9f6f-ff1a717fe0db
+			Recorder                : e99f510e-1677-442f-835e-035c4e55179b
+			----------              : ----------
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
+			idx                     : 1
+			currN                   : 100
+			endid                   : 1
+			t.shape                 : (100,)
+			xfk.shape               : (100, 4)
+			Pfk.shape               : (100, 4, 4)
+			----------              : ----------
+			MotionModel:            : 465ed36f-2fe8-4c13-a01e-c4d84a8d5ee3
 			----------              : ----------
 			ModelName:              : KinematicModel_UM
 			fn                      : 4
 		----------               : ----------
-		Target                   : 604477a3-9946-49f2-8e55-a1b163e17bb1
+		Target                   : 443b781c-770e-4201-b216-1e2101408b01
 		----------               : ----------
 		filterer                 : Target Kalman Filter
-		xfk                      : [array([36.4232244 , 62.11061841,  0.63748142,  1.13547903])]
-		Pfk                      : [array([[ 2.19751774e+04, -4.96602741e+03,  4.80211360e+02,
-        -9.10652252e+01],
-       [-4.96602741e+03,  1.67205524e+04, -9.19768137e+01,
-         3.85981465e+02],
-       [ 4.80211360e+02, -9.19768137e+01,  1.31325973e+01,
-        -1.68681041e+00],
-       [-9.10652252e+01,  3.85981465e+02, -1.68681041e+00,
-         1.14418442e+01]])]
+		xfk                      : [107.99699289  92.08212211   1.80257005   1.67327813]
+		Pfk                      : [[1.44568682e+04 4.15510776e+03 3.45121714e+02 7.48319713e+01]
+ [4.15510776e+03 1.43781881e+04 7.62178793e+01 3.40000337e+02]
+ [3.45121714e+02 7.62178793e+01 1.07046266e+01 1.37294432e+00]
+ [7.48319713e+01 3.40000337e+02 1.37294432e+00 1.05462544e+01]]
 		recordfilterstate        : True
 		filterstage              : None
 		currtk                   : 109
@@ -67,30 +67,41 @@ Sensor model idx           : 0
 		status                   : active
 		State Recorder           : 
 			----------              : ----------
-			Recorder                : 9eb42dd3-ac01-4e4a-960c-e8f1c30f8354
+			Recorder                : aca2db33-79a6-4e88-be80-a0553703d0a5
 			----------              : ----------
-			statetypes              : {'t': (1,), 'xfk': (1, 4), 'Pfk': (1, 4, 4)}
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
 			idx                     : 110
 			currN                   : 200
 			endid                   : 110
-			recorder_datatype       : fixed numpy dims
-			t.shape                 : (200, 1)
-			xfk.shape               : (200, 1, 4)
-			Pfk.shape               : (200, 1, 4, 4)
+			t.shape                 : (200,)
+			xfk.shape               : (200, 4)
+			Pfk.shape               : (200, 4, 4)
 			----------              : ----------
-			MotionModel:            : 6cae23d4-9487-4def-a26f-80f5899e1acf
+			Recorder                : 6c35701b-93f3-4ed5-9d11-95a624b1ef60
+			----------              : ----------
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
+			idx                     : 1
+			currN                   : 100
+			endid                   : 1
+			t.shape                 : (100,)
+			xfk.shape               : (100, 4)
+			Pfk.shape               : (100, 4, 4)
+			----------              : ----------
+			MotionModel:            : 8d4e8402-5aa3-487e-bc1f-d6e00a18dedf
 			----------              : ----------
 			ModelName:              : KinematicModel_UM
 			fn                      : 4
 		----------               : ----------
-		Target                   : ae9a6524-5c5a-4499-9b56-0a70cce9ef32
+		Target                   : a7206195-489e-4d47-82e4-5640e755403e
 		----------               : ----------
 		filterer                 : Target Kalman Filter
-		xfk                      : [array([72.84380639, 56.02214247,  1.23862027,  0.96508527])]
-		Pfk                      : [array([[5.71220252e+04, 1.37513905e+04, 1.13102829e+03, 2.49090632e+02],
-       [1.37513905e+04, 2.85287509e+04, 2.55430506e+02, 6.00867770e+02],
-       [1.13102829e+03, 2.55430506e+02, 2.51817185e+01, 4.62697800e+00],
-       [2.49090632e+02, 6.00867770e+02, 4.62697800e+00, 1.53524916e+01]])]
+		xfk                      : [36.59890232 54.54066648  0.63046466  0.97440211]
+		Pfk                      : [[1.72377767e+04 5.72288026e+02 3.97353040e+02 9.83257132e+00]
+ [5.72288026e+02 2.15419321e+04 9.48998931e+00 4.75388489e+02]
+ [3.97353040e+02 9.48998931e+00 1.16859835e+01 1.61632453e-01]
+ [9.83257132e+00 4.75388489e+02 1.61632453e-01 1.30996939e+01]]
 		recordfilterstate        : True
 		filterstage              : None
 		currtk                   : 109
@@ -98,30 +109,41 @@ Sensor model idx           : 0
 		status                   : active
 		State Recorder           : 
 			----------              : ----------
-			Recorder                : 443d1725-ac35-42ae-88c1-8012ffe48aa8
+			Recorder                : 204e1344-a76a-4171-92d6-62895bed7da8
 			----------              : ----------
-			statetypes              : {'t': (1,), 'xfk': (1, 4), 'Pfk': (1, 4, 4)}
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
 			idx                     : 110
 			currN                   : 200
 			endid                   : 110
-			recorder_datatype       : fixed numpy dims
-			t.shape                 : (200, 1)
-			xfk.shape               : (200, 1, 4)
-			Pfk.shape               : (200, 1, 4, 4)
+			t.shape                 : (200,)
+			xfk.shape               : (200, 4)
+			Pfk.shape               : (200, 4, 4)
 			----------              : ----------
-			MotionModel:            : 5ad1beea-fd26-43bc-a40d-ebdd9d379299
+			Recorder                : f5a8cd61-7c1b-4620-ab65-15a347c5e9e5
+			----------              : ----------
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
+			idx                     : 1
+			currN                   : 100
+			endid                   : 1
+			t.shape                 : (100,)
+			xfk.shape               : (100, 4)
+			Pfk.shape               : (100, 4, 4)
+			----------              : ----------
+			MotionModel:            : af17d256-f8fd-4171-b743-10b7419de3c1
 			----------              : ----------
 			ModelName:              : KinematicModel_UM
 			fn                      : 4
 		----------               : ----------
-		Target                   : d6a3990e-e330-4ab2-96a5-2f3b4e166231
+		Target                   : 14f577a3-09df-4d13-a014-be3de163213e
 		----------               : ----------
 		filterer                 : Target Kalman Filter
-		xfk                      : [array([58.0887411 , 42.76136068,  1.02243204,  0.60668873])]
-		Pfk                      : [array([[1.39503170e+04, 1.20101198e+02, 3.34117354e+02, 1.57317714e+00],
-       [1.20101198e+02, 1.54115445e+04, 1.59166501e+00, 3.62783575e+02],
-       [3.34117354e+02, 1.59166501e+00, 1.04734156e+01, 1.69928517e-02],
-       [1.57317714e+00, 3.62783575e+02, 1.69928517e-02, 1.10318006e+01]])]
+		xfk                      : [103.08987952  56.81957965   1.87157266   0.93272957]
+		Pfk                      : [[1.10075217e+04 5.87608311e+01 2.81120975e+02 2.68081823e-01]
+ [5.87608311e+01 1.00797946e+04 2.40537955e+00 2.64411311e+02]
+ [2.81120975e+02 2.40537955e+00 9.51963910e+00 2.99957935e-02]
+ [2.68081823e-01 2.64411311e+02 2.99957935e-02 9.21718955e+00]]
 		recordfilterstate        : True
 		filterstage              : None
 		currtk                   : 109
@@ -129,30 +151,41 @@ Sensor model idx           : 0
 		status                   : active
 		State Recorder           : 
 			----------              : ----------
-			Recorder                : f688e87f-08e4-4796-96ae-56be119a6685
+			Recorder                : ee971d04-d5a2-46ff-9d7f-07bf1db45538
 			----------              : ----------
-			statetypes              : {'t': (1,), 'xfk': (1, 4), 'Pfk': (1, 4, 4)}
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
 			idx                     : 110
 			currN                   : 200
 			endid                   : 110
-			recorder_datatype       : fixed numpy dims
-			t.shape                 : (200, 1)
-			xfk.shape               : (200, 1, 4)
-			Pfk.shape               : (200, 1, 4, 4)
+			t.shape                 : (200,)
+			xfk.shape               : (200, 4)
+			Pfk.shape               : (200, 4, 4)
 			----------              : ----------
-			MotionModel:            : 1004d2ca-5616-4ff3-9674-4e6ab573ecba
+			Recorder                : 3694f375-33f9-46a2-8109-faa119bda022
+			----------              : ----------
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
+			idx                     : 1
+			currN                   : 100
+			endid                   : 1
+			t.shape                 : (100,)
+			xfk.shape               : (100, 4)
+			Pfk.shape               : (100, 4, 4)
+			----------              : ----------
+			MotionModel:            : 1fc901d1-30ad-403a-91f1-fbc000061a06
 			----------              : ----------
 			ModelName:              : KinematicModel_UM
 			fn                      : 4
 		----------               : ----------
-		Target                   : ec2e64d3-44f0-4b5b-bdd8-c9c6ffe52baa
+		Target                   : 0f75e8a0-5c54-4151-888e-7e835671c41d
 		----------               : ----------
 		filterer                 : Target Kalman Filter
-		xfk                      : [array([ 66.69773619, 109.2971547 ,   1.16870355,   1.97438268])]
-		Pfk                      : [array([[1.69591127e+04, 9.40485545e+02, 3.93252269e+02, 1.68251397e+01],
-       [9.40485545e+02, 2.23030137e+04, 1.73385123e+01, 4.94006397e+02],
-       [3.93252269e+02, 1.73385123e+01, 1.16301258e+01, 3.10082137e-01],
-       [1.68251397e+01, 4.94006397e+02, 3.10082137e-01, 1.35294811e+01]])]
+		xfk                      : [83.19717943 51.02491409  1.42212391  0.75406752]
+		Pfk                      : [[3.35879925e+04 1.06571245e+04 6.97234705e+02 1.90353794e+02]
+ [1.06571245e+04 2.69605163e+04 1.96118309e+02 5.70489443e+02]
+ [6.97234705e+02 1.96118309e+02 1.71858612e+01 3.50378636e+00]
+ [1.90353794e+02 5.70489443e+02 3.50378636e+00 1.47682815e+01]]
 		recordfilterstate        : True
 		filterstage              : None
 		currtk                   : 109
@@ -160,30 +193,41 @@ Sensor model idx           : 0
 		status                   : active
 		State Recorder           : 
 			----------              : ----------
-			Recorder                : 1ade3d83-cb1a-4383-a2a8-f56bfd99cf88
+			Recorder                : a311efef-b331-4c3a-a5f3-77a9bb38e109
 			----------              : ----------
-			statetypes              : {'t': (1,), 'xfk': (1, 4), 'Pfk': (1, 4, 4)}
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
 			idx                     : 110
 			currN                   : 200
 			endid                   : 110
-			recorder_datatype       : fixed numpy dims
-			t.shape                 : (200, 1)
-			xfk.shape               : (200, 1, 4)
-			Pfk.shape               : (200, 1, 4, 4)
+			t.shape                 : (200,)
+			xfk.shape               : (200, 4)
+			Pfk.shape               : (200, 4, 4)
 			----------              : ----------
-			MotionModel:            : 522f6456-c65e-4ca5-a01b-575e945c6052
+			Recorder                : f2c3e50b-d58a-49eb-b79e-1c3adb802b47
+			----------              : ----------
+			recorder_datatype       : fixed numpy dims
+			statetypes              : {'xfk': (4,), 'Pfk': (4, 4)}
+			idx                     : 1
+			currN                   : 100
+			endid                   : 1
+			t.shape                 : (100,)
+			xfk.shape               : (100, 4)
+			Pfk.shape               : (100, 4, 4)
+			----------              : ----------
+			MotionModel:            : 6b564ba5-767c-47af-ab8f-7f19d887115d
 			----------              : ----------
 			ModelName:              : KinematicModel_UM
 			fn                      : 4
 	----------                : ----------
-	SensorSet                 : 0c23aa38-17e1-48fd-bbed-5d15f0ca780b
+	SensorSet                 : bee82d5f-2c67-4250-840e-6fea116e7c1a
 	----------                : ----------
 	nsensors                  : 1
 		----------               : ----------
 		SensorModel              : DiscLTSensorModel
 		----------               : ----------
-		ID                       : 4c7f35fa-3948-47d6-bafa-bdcc1e94612e
-		recordSensorState        : False
+		ID                       : 74a4f00a-fbb9-4a77-820a-80d72da008c3
+		recordSensorState        : True
 		currtk                   : 0
 		hn                       : 2
 	----------                : ----------

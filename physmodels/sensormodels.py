@@ -21,16 +21,17 @@ class SensorModel:
     def __init__(self, recordSensorState=False,recorderobj=None,sensorrecorder=None, **kwargs):
         self.ID = uuid.uuid4()
         self.recordSensorState = recordSensorState
-        
-        self.sensstates = []
+
+        self.sensStateStrs = [] #states-str of the sensor measurment ['r','th']
+        self.sensstates = [] # states required to make the measurement as time time t
         self.currtk = 0
-        
-        if recorder is None:
-            self.recorder = recorder.StatesRecorder_list(statetypes = {'zk':(None,),'t':(None,),'sensstates':(None,1)} )
+
+        if recorderobj is None:
+            self.recorder = recorder.StatesRecorder_list(statetypes = ['zk','sensstates'] )
         else:
             self.recorder = recorderobj
-            
-            
+
+
     def updateparam(self, updatetk, **params):
         if updatetk:
             self.currtk += 1
@@ -44,7 +45,7 @@ class SensorModel:
     def recordHistory(self, z,t):
         raise NotImplementedError("ToDo")
         n = len(self.sensstates)
-        SensorState = clc.namedtuple('SensorState', ['tk', 'zk'] 
+        SensorState = clc.namedtuple('SensorState', ['tk', 'zk']
                                      + self.sensstates)
         ss = []
         for i in range(n):
@@ -56,13 +57,19 @@ class SensorModel:
     def __call__(self,t, dt, xk):
         raise NotImplementedError('implement the __Call__ here in subclass')
 
-    def generateRndMeas(self, t, dt, xk):
+    def dynstate(self):
+        ss={}
+        for st in self.sensstates:
+            ss['st'] = getattr(self,st,None)
+        return ss
+
+    def generateRndMeas(self, t, dt, xk,useRecord=False):
         R = self.measNoise(t, dt, xk)
         zk,isinsidek,Lk = self.__call__(t, dt, xk)
         zk = zk + np.matmul(sclg.sqrtm(R), np.random.randn(self.hn))
-        
+
         if self.recordSensorState is True:
-            self.recordHistory(zk,t)
+            self.recorder.record(t,zk=zk,sensstates=self.dynstate())
 
         return zk,isinsidek,Lk
 
@@ -81,11 +88,11 @@ class SensorModel:
 
 class SensorSet:
     """
-    Measurement set is generated as 
+    Measurement set is generated as
     ZZ={
-            sensID1:{'zk':z1,'isinsidek':i1,'Lk':l1, } 
-            sensID2:{'zk':z1,'isinsidek':i1,'Lk':l1, } 
-            
+            sensID1:{'zk':z1,'isinsidek':i1,'Lk':l1, }
+            sensID2:{'zk':z1,'isinsidek':i1,'Lk':l1, }
+
         }
     only one measurement for each sensor
     """
@@ -106,68 +113,68 @@ class SensorSet:
 
         return ss
 
-        
+
     def sensorIDs(self):
         return [ss.ID for ss in self.sensormodels]
-    
+
     @property
     def nsensors(self):
         return len(self.sensormodels)
 
-    
+
     def __getitem__(self,i):
         return self.sensormodels[i]
-    
-    
+
+
     def addSensor(self, sensormodel):
         self.sensormodels.append(sensormodel)
-        
+
         for i in range(len(self.sensormodels)):
             self.ID2model[self.sensormodels[i].ID] = i
-            
+
     def __call__(self,t, dt, xk,sensorIDs=None):
         if sensorIDs is None:
             sensorIDs = [x.ID for x in self.sensormodels]
-        
+
         ZZ={ID:{'zk':[],'isinsidek':[],'Lk':[]} for ID in sensorIDs}
-        
+
         for sensID in sensorIDs:
             senidx = self.ID2model[sensID]
             zk,isinsidek,Lk = self.sensormodels[senidx].__call__(t, dt, xk)
             ZZ[sensID]['zk'] = zk
             ZZ[sensID]['isinsidek'] = isinsidek
             ZZ[sensID]['Lk'] = Lk
-            
-            
+
+
 
         return ZZ
-    
-    
+
+
     def deleteSensor(self, sensorIDs):
         self.sensormodels = filter(lambda x: x.ID not in sensorIDs, self.sensormodels)
-        
+
         for i in range(len(self.sensormodels)):
             self.ID2model[self.sensormodels[i].ID] = i
-            
+
     def getStackedSensorSubset(self,sensorIDs):
         sensormodelsubset = [ss for ss in self.sensormodels if ss.ID in sensorIDs]
         return StackedSensorModel(sensormodelsubset)
-        
-        
+
+
     def generateRndMeasSet(self,t, dt, xk,sensorIDs=None):
-        
+
         if sensorIDs is None:
             sensorIDs = [x.ID for x in self.sensormodels]
-            
+
         ZZ={ID:{'zk':[],'isinsidek':[],'Lk':[]} for ID in sensorIDs}
-        
+
         for sensID in sensorIDs:
             idx = self.ID2model[sensID]
             zk,isinsidek,Lk = self.sensormodels[idx].generateRndMeas(t, dt, xk)
             ZZ[sensID]['zk'] = zk
             ZZ[sensID]['isinsidek'] = isinsidek
             ZZ[sensID]['Lk'] = Lk
-            
+
 
         return ZZ
 
@@ -177,18 +184,18 @@ class StackedSensorModel:
     sensorName = 'StackedSensorModel'
     def __init__(self,sensormodels,recordSensorState=False):
         self.sensormodels = sensormodels
-        
+
         self.ID = uuid.uuid4()
         self.recordSensorState = recordSensorState
         self.sensorHistory = []
         self.sensstates = []
         self.currtk = 0
-        
+
         self.hn=np.sum([sensormodel.hn for sensormodel in self.sensormodels])
-        
+
         for i in range(len(self.sensormodels)):
-            self.sensstates.extend( self.sensormodels[i].sensstates  )    
-    
+            self.sensstates.extend( self.sensormodels[i].sensstates  )
+
     def debugStatus(self):
         ss=[]
         ss.append(['----------','----------'])
@@ -197,7 +204,7 @@ class StackedSensorModel:
         ss.append(['ID',self.ID])
         ss.append(['recordSensorState',self.recordSensorState])
         ss.append(['currtk',self.currtk])
-        
+
         ss.append(['hn',self.hn])
 
         return ss
@@ -206,9 +213,9 @@ class StackedSensorModel:
         R = []
         for i in range(len(self.sensormodels)):
             R.append(self.sensormodels[i].measNoise(t, dt, xk, **params))
-        
+
         return block_diag(R)
-    
+
     def __call__(self,t, dt, xk):
         raise NotImplementedError("ToDo")
         zk=[]
@@ -216,24 +223,24 @@ class StackedSensorModel:
         Lk=[]
         for i in range(len(self.sensormodels)):
             siD = self.sensormodels[i].ID
-            D = self.sensormodels[i].__call__(t, dt, xk) 
+            D = self.sensormodels[i].__call__(t, dt, xk)
             zk.append(D[siD][0])
             isinsidek.append(D[siD][1])
             Lk.append(D[siD][2])
-        
+
         if zk.ndim ==1:
             zk = np.hstack(zk)
-            
+
         try:
             zk = np.stack(zk,axis=0)
         except:
             print("all zks are not the same size in StackedSensorModel")
-            
+
         isinsidek = np.hstack(isinsidek)
         Lk = np.hstack(Lk)
-        
+
         return {self.ID: [zk, isinsidek, Lk]}
-    
+
     def updateparam(self, updatetk, **params):
         if updatetk:
             self.currtk += 1
@@ -243,46 +250,47 @@ class StackedSensorModel:
         else:
             for i in range(len(self.sensormodels)):
                 self.sensormodels[i].updateparam( updatetk, params[i])
-                
+
     def generateRndMeas(self, t, dt, xk):
         raise NotImplementedError("ToDo")
         zk=[]
         for i in range(len(self.sensormodels)):
             siD = self.sensormodels[i].ID
-            z = self.sensormodels[i].__call__(t, dt, xk) 
+            z = self.sensormodels[i].__call__(t, dt, xk)
             zk.append(z)
-        
+
         zk = np.hstack(zk)
-        
+
         R = self.measNoise(t, dt, xk)
-        
+
         zk = zk + np.matmul(sclg.sqrtm(R), np.random.randn(self.hn))
-        
+
         if self.recordSensorState is True:
             self.recordHistory(zk)
 
         return zk
-    
-    
+
+
     def recordHistory(self, z):
         for i in range(len(self.sensormodels)):
             self.sensormodels[i].recordHistory(None)
-            
+
         n = len(self.sensstates)
         SensorState = clc.namedtuple('SensorState', ['tk', 'zk'] )
-        
+
         self.sensorHistory.append(SensorState(self.currtk,z))
-        
-    
+
+
 class DiscLTSensorModel(SensorModel):
     sensorName = 'DiscLTSensorModel'
     def __init__(self, H, R, recordSensorState=False,**kwargs):
         self.Hmat = H
         self.R = R
         self.hn = self.Hmat.shape[0]
-        self.sensstates = ['x','y']
-        
-        super().__init__(recordSensorState=False,**kwargs)
+        self.sensStateStrs = ['x','y']
+        self.sensstates = [] # states required to make the measurement as time time t
+
+        super().__init__(recordSensorState=recordSensorState,**kwargs)
 
     def measNoise(self, t, dt, xk, **params):
         return self.R
@@ -293,7 +301,7 @@ class DiscLTSensorModel(SensorModel):
     def __call__(self,t, dt, xk):
         zk = np.matmul(self.Hmat, xk)
         return [zk, 1, 0]
-        
+
 
 
 class PlanarSensorModel(SensorModel):
@@ -312,7 +320,8 @@ class PlanarSensorModel(SensorModel):
         self.ltg = xc
         self.enforceConstraint = enforceConstraint
 
-        self.sensstates = ['lRg', 'ltg', 'rmax', 'alpha']
+        self.sensStateStrs = ['x','y']
+        self.sensstates = ['lRg', 'ltg', 'rmax', 'alpha'] # states required to make the measurement as time time t
 
         super().__init__(recordSensorState=False,**kwargs)
 
@@ -323,11 +332,11 @@ class PlanarSensorModel(SensorModel):
         self.R = params.get('R', self.R)
         self.phi = params.get('phi', self.phi)
 
-        self.lRg = np.array([[np.cos(phi), -np.sin(phi)],
-                             [np.sin(phi), np.cos(phi)]])
-        self.ltg = xc
+        self.lRg = np.array([[np.cos(self.phi), -np.sin(self.phi)],
+                             [np.sin(self.phi), np.cos(self.phi)]])
+        self.ltg = self.xc
 
-        super(PlanarSensorModel, self).updateparam(updatetk, **kwargs)
+        super(PlanarSensorModel, self).updateparam(updatetk, **params)
 
 
 class RcircularFOVsensor(PlanarSensorModel):
@@ -346,7 +355,10 @@ class RcircularFOVsensor(PlanarSensorModel):
         super().__init__(xc, R, posstates=None, enforceConstraint=False,
                          rmax=1, alpha=1, phi=1, recordSensorState=False,**kwargs)
 
-    def penaltyFOV(z, angFOVdev, rFOVdev):
+        self.sensStateStrs = ['r']
+
+
+    def penaltyFOV(self,z, angFOVdev, rFOVdev):
         L = 0
         isinFOV = 1
         if rFOVdev > 0 or np.abs(angFOVdev) > self.alpha:
@@ -363,10 +375,10 @@ class RcircularFOVsensor(PlanarSensorModel):
         else:
             xkp = xk[self.posstate]
 
-        r = np.sqrt((xkp[0] - xc[0])**2 + (xkp[1] - xc[1])**2)
-        th = np.atan2(xkp[1] - xc[1], xkp[0] - xc[0])
+        r = np.sqrt((xkp[0] - self.xc[0])**2 + (xkp[1] - self.xc[1])**2)
+        th = np.atan2(xkp[1] - self.xc[1], xkp[0] - self.xc[0])
 
-        angFOVdev = phi - th
+        angFOVdev = self.phi - th
         rFOVdev = r - self.rmax
 
         z = r
@@ -394,7 +406,10 @@ class THcircularFOVsensor(PlanarSensorModel):
         super().__init__(xc, R, posstates=None, enforceConstraint=False,
                          rmax=1, alpha=1, phi=1,recordSensorState=False, **kwargs)
 
-    def penaltyFOV(z, angFOVdev, rFOVdev):
+        self.sensStateStrs = ['th']
+
+
+    def penaltyFOV(self,z, angFOVdev, rFOVdev):
         L = 0
         isinFOV = 1
         if rFOVdev > 0 or np.abs(angFOVdev) > self.alpha:
@@ -411,10 +426,10 @@ class THcircularFOVsensor(PlanarSensorModel):
         else:
             xkp = xk[self.posstate]
 
-        r = np.sqrt((xkp[0] - xc[0])**2 + (xkp[1] - xc[1])**2)
-        th = np.atan2(xkp[1] - xc[1], xkp[0] - xc[0])
+        r = np.sqrt((xkp[0] - self.xc[0])**2 + (xkp[1] - self.xc[1])**2)
+        th = np.atan2(xkp[1] - self.xc[1], xkp[0] - self.xc[0])
 
-        angFOVdev = phi - th
+        angFOVdev = self.phi - th
         rFOVdev = r - self.rmax
 
         z = th
@@ -422,9 +437,9 @@ class THcircularFOVsensor(PlanarSensorModel):
         L = 0
         if self.enforceConstraint:
             isinFOV, L = self.penaltyFOV(z, angFOVdev, rFOVdev)
-        
+
         return [z, isinFOV, L]
-        
+
 
 
 class RTHcircularFOVsensor(PlanarSensorModel):
@@ -442,8 +457,9 @@ class RTHcircularFOVsensor(PlanarSensorModel):
         self.hn = 2
         super().__init__(xc, R, posstates=None, enforceConstraint=False,
                          rmax=1, alpha=1, phi=1,recordSensorState=False, **kwargs)
+        self.sensStateStrs = ['r','th']
 
-    def penaltyFOV(z, angFOVdev, rFOVdev):
+    def penaltyFOV(self,z, angFOVdev, rFOVdev):
         L = 0
         isinFOV = 1
         if rFOVdev > 0 or np.abs(angFOVdev) > self.alpha:
@@ -460,10 +476,10 @@ class RTHcircularFOVsensor(PlanarSensorModel):
         else:
             xkp = xk[self.posstate]
 
-        r = np.sqrt((xkp[0] - xc[0])**2 + (xkp[1] - xc[1])**2)
-        th = np.atan2(xkp[1] - xc[1], xkp[0] - xc[0])
+        r = np.sqrt((xkp[0] - self.xc[0])**2 + (xkp[1] - self.xc[1])**2)
+        th = np.atan2(xkp[1] - self.xc[1], xkp[0] - self.xc[0])
 
-        angFOVdev = phi - th
+        angFOVdev = self.phi - th
         rFOVdev = r - self.rmax
 
         z = np.array([r, th])
@@ -471,8 +487,8 @@ class RTHcircularFOVsensor(PlanarSensorModel):
         L = 0
         if self.enforceConstraint:
             isinFOV, L = self.penaltyFOV(z, angFOVdev, rFOVdev)
-        
+
         return [z, isinFOV, L]
-        
+
 
 
