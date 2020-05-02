@@ -12,6 +12,14 @@ import pandas as pd
 import os
 import dill,pickle
 
+import pykitti
+import time
+import cv2
+import datetime as dt
+import glob
+import os
+from mpl_toolkits.mplot3d import Axes3D
+#%%
 logger = logging.getLogger(__name__)
 
 logger.info('Info log message')
@@ -62,6 +70,8 @@ simmanger = uqsimmanager.SimManager(t0=0,tf=55,dt=0.5,dtplot=0.1,
 simmanger.initialize()
 
 
+
+
 #%%
 
 filterer = TargetKF()
@@ -69,8 +79,9 @@ filterer = TargetKF()
 H = np.hstack((np.eye(2),np.zeros((2,2))))
 R = block_diag((1e-1)**2,(1e-1)**2)
 
-recorderobj = uqrecorder.StatesRecorder_list(statetypes = ['zk'])
-sensormodel = DiscLTSensorModel(H,R,recorderobj=recorderobj,recordSensorState=True)
+
+
+sensormodel = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=True)
 
 jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True)
 jpdamot.sensorset.addSensor(sensormodel)
@@ -91,11 +102,14 @@ for i in range(5):
 
     dynmodel = KinematicModel_UM()
 
-    recorderobj = uqrecorder.StatesRecorder_fixedDim(statetypes = {
-            'xfkprior':(dynmodel.fn,),'Pfkprior':(dynmodel.fn,dynmodel.fn),
-            'xfkpost':(dynmodel.fn,),'Pfkpost':(dynmodel.fn,dynmodel.fn)})
+
+    recorderobjprior = uqrecorder.StatesRecorder_fixedDim(statetypes = {
+            'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
+    recorderobjpost = uqrecorder.StatesRecorder_fixedDim(statetypes = {
+            'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
     target = uqtargets.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currtk = 0, recordfilterstate=True,
-            status='active', recorderobj = recorderobj,filterer=filterer,saveinitializingdata=True)
+            status='active', recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost,
+            filterer=filterer,saveinitializingdata=True)
 
     jpdamot.targetset.addTarget(target)
 
@@ -111,26 +125,27 @@ for t,tk,dt in simmanger.iteratetimesteps():
 
 # jpdamot.filterer.debugStatus()
 debugStatuslist = jpdamot.debugStatus()
-uqutilhelp.DebugStatus().writestatus(debugStatuslist,'debugtest.txt')
+uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 for i in range(jpdamot.targetset.ntargs):
-    xfk = jpdamot.targetset[i].recorder.getvar_alltimes('xfk')
+    xfk = jpdamot.targetset[i].recorderprior.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1])
 
 plt.show()
 #%% Save ground truth and reset filters to new intiial conditions
 for i in range(jpdamot.targetset.ntargs):
-    jpdamot.targetset[i].groundtruthrecorder=  jpdamot.targetset[i].recorder.makecopy()
-    jpdamot.targetset[i].recorder.cleardata(keepInitial = False)
+    jpdamot.targetset[i].groundtruthrecorder=  jpdamot.targetset[i].recorderprior.makecopy()
+    jpdamot.targetset[i].recorderprior.cleardata(keepInitial = False)
+    jpdamot.targetset[i].recorderpost.cleardata(keepInitial = False)
     jpdamot.targetset[i].reset2initialstate()
 
     xf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('xfk',0)
     Pf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('Pfk',0)
 
     xf0,_ = genRandomMeanCov(xf0,Pf0,1,np.eye(len(xf0)))
-    jpdamot.targetset[i].setInitialdata(xf0, Pf0, currtk = 0,currt=0)
+    jpdamot.targetset[i].setInitialdata(xf0, Pf0, currt0 = 0,currt=0)
 
 #%% Run the filter
 for t,tk,dt in simmanger.iteratetimesteps():
@@ -157,6 +172,9 @@ for t,tk,dt in simmanger.iteratetimesteps():
             n=len(Zkset[sensID])-1
             grounttruthDA[sensID].at[jpdamot.targetset[i].ID,n]=1
 
+    for sensID in Zkset:
+        jpdamot.sensorset.getbyID(sensID).recorder.record(t+dt,zk=Zkset[sensID])
+
     for sensID in jpdamot.sensorset.sensorIDs():
         if sensID in grounttruthDA:
             grounttruthDA[sensID].fillna(0,inplace=True)
@@ -172,7 +190,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
 fig = plt.figure()
 ax = fig.add_subplot(111)
 for i in range(jpdamot.targetset.ntargs):
-    xfk = jpdamot.targetset[i].recorder.getvar_alltimes('xfk')
+    xfk = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1])
 
 plt.show()
@@ -182,9 +200,9 @@ Errt=[None]*jpdamot.targetset.ntargs
 Rmse=[None]*jpdamot.targetset.ntargs
 for i in range(jpdamot.targetset.ntargs):
     xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
-    xf = jpdamot.targetset[i].recorder.getvar_alltimes('xfk')
+    xf = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
 
-    errt,rmse = uqmetrics.getEsterror(xt,xf[::2,:],
+    errt,rmse = uqmetrics.getEsterror(xt,xf,
                                       stateset={'state':[0,1,2,3],
                                                 'pos':[0,1],
                                                 'vel':[2,3]
@@ -211,8 +229,10 @@ plt.show()
 #%% Saving
 simmanger.finalize()
 
-simmanger.save(metalog,mainfile=__file__, Errt=Errt,Rmse=Rmse, jpdamot=jpdamot ,simmanger=simmanger )
+simmanger.save(metalog,mainfile=__file__, Errt=Errt,Rmse=Rmse, jpdamot=jpdamot )
 
+debugStatuslist = jpdamot.debugStatus()
+uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
 
 
 

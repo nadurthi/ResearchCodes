@@ -68,8 +68,8 @@ class SensorModel:
         zk,isinsidek,Lk = self.__call__(t, dt, xk)
         zk = zk + np.matmul(sclg.sqrtm(R), np.random.randn(self.hn))
 
-        if self.recordSensorState is True:
-            self.recorder.record(t,zk=zk,sensstates=self.dynstate())
+#        if self.recordSensorState is True:
+#            self.recorder.record(t,zk=zk,sensstates=self.dynstate())
 
         return zk,isinsidek,Lk
 
@@ -121,6 +121,8 @@ class SensorSet:
     def nsensors(self):
         return len(self.sensormodels)
 
+    def getbyID(self,ID):
+        return self.__getitem__( self.ID2model[ID] )
 
     def __getitem__(self,i):
         return self.sensormodels[i]

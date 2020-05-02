@@ -164,6 +164,9 @@ for t,tk,dt in simmanger.iteratetimesteps():
             n=len(Zkset[sensID])-1
             grounttruthDA[sensID].at[jpdamot.targetset[i].ID,n]=1
 
+    for sensID in Zkset:
+        jpdamot.sensorset.getbyID(sensID).recorder.record(t+dt,zk=Zkset[sensID])
+
     for sensID in jpdamot.sensorset.sensorIDs():
         if sensID in grounttruthDA:
             grounttruthDA[sensID].fillna(0,inplace=True)

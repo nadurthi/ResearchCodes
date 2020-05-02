@@ -81,6 +81,24 @@ def read_calib_file(filepath):
 
     return data
 
+def read_calib_file2(filepath):
+    """Read in a calibration file and parse into a dictionary."""
+    data = {}
+
+    with open(filepath, 'r') as f:
+        for line in f.readlines():
+            L = line.split(' ')
+            L[0] = L[0].replace(':','')
+            # The only non-float values in these files are dates, which
+            # we don't care about anyway
+            key = L[0]
+            value =L[1:]
+            try:
+                data[key] = np.array([float(x) for x in value.split()])
+            except ValueError:
+                pass
+
+    return data
 
 def pose_from_oxts_packet(packet, scale):
     """Helper method to compute a SE(3) pose matrix from an OXTS packet.
