@@ -4,6 +4,8 @@ from collections import namedtuple
 
 import numpy as np
 from PIL import Image
+import cv2
+
 
 __author__ = "Lee Clement"
 __email__ = "lee.clement@robotics.utias.utoronto.ca"
@@ -162,7 +164,8 @@ def load_oxts_packets_and_poses(oxts_files):
 
 def load_image(file, mode):
     """Load an image from file."""
-    return Image.open(file).convert(mode)
+#    return Image.open(file).convert(mode)
+    return cv2.imread(file)
 
 
 def yield_images(imfiles, mode):
