@@ -37,7 +37,7 @@ class KittiTracking:
         self._get_file_lists()
         print('files', len(self.cam2_files))
         # Pre-load data that isn't returned as a generator
-        # self._load_calib()
+        self._load_calib()
         self.oxtsdata = None
 
     @property
@@ -100,7 +100,7 @@ class KittiTracking:
     def get_oxts(self, idx):
         """read"""
         if self.oxtsdata is None:
-            self.oxtsdata= utils.load_velo_scan([self.oxts_files])
+            self.oxtsdata= utils.load_oxts_packets_and_poses([self.oxts_files])
         return self.oxtsdata[idx]
 
     def _get_file_lists(self):
@@ -145,8 +145,9 @@ class KittiTracking:
 
         # Load the calibration file
         calib_filepath = os.path.join(self.base_path,'calib',self.sequence + '.txt')
+#        print(calib_filepath)
         filedata = utils.read_calib_file2(calib_filepath)
-
+#        print(filedata)
         # Create 3x4 projection matrices: 0 to 0, 0 to 1, 0 to 2, 0 to 3
         P_rect_00 = np.reshape(filedata['P0'], (3, 4))
         P_rect_10 = np.reshape(filedata['P1'], (3, 4))
@@ -158,12 +159,13 @@ class KittiTracking:
         data['P_rect_20'] = P_rect_20
         data['P_rect_30'] = P_rect_30
 
-        data['R_0rect'] = filedata['R_rect']
-        data['Tr_velo_to_cam'] = filedata['Tr_velo_cam'] # to cam0
-        data['Tr_imu_to_velo'] = filedata['Tr_imu_velo']
+        data['R_0rect'] = np.reshape(filedata['R_rect'], (3, 3))
+        data['Tr_velo_to_cam'] = np.reshape(filedata['Tr_velo_cam'], (3, 4)) # to cam0
+        data['Tr_imu_to_velo'] = np.reshape(filedata['Tr_imu_velo'], (3, 4))
 
         data['Tr_velo_to_cam'] = np.vstack([data['Tr_velo_to_cam'], [0, 0, 0, 1]])
         data['Tr_imu_to_velo'] = np.vstack([data['Tr_imu_to_velo'], [0, 0, 0, 1]])
+        data['R_0rect'] = np.hstack([data['R_0rect'], [[0],[0],[0]] ])
         data['R_0rect'] = np.vstack([data['R_0rect'], [0, 0, 0, 1]])
 
         # Compute the rectified extrinsics from cam0 to camN
@@ -313,11 +315,11 @@ def computeBox3D(obj,P):
                  [2,3,7,6],#   % left face
                  [3,4,8,7],#   % back face
                  [4,1,5,8]]) # % right face
-
+    face_idx=face_idx-1
 #    % compute rotational matrix around yaw axis
-    R = np.array([[+np.cos(obj.ry), 0, +np.sin(obj.ry)],
+    R = np.array([[+np.cos(obj.roty), 0, +np.sin(obj.roty)],
                       [ 0, 1,               0],
-         [-np.sin(obj.ry), 0, +np.cos(obj.ry)]])
+         [-np.sin(obj.roty), 0, +np.cos(obj.roty)]])
 
 #    % 3D bounding box dimensions
     l = obj.l
@@ -331,9 +333,9 @@ def computeBox3D(obj,P):
 
 #    % rotate and translate 3D bounding box
     corners_3D = np.matmul( R,np.vstack([x_corners,y_corners,z_corners]) )
-    corners_3D[0,:] = corners_3D[0,:] + obj.t(0)
-    corners_3D[1,:] = corners_3D[1,:] + obj.t(1)
-    corners_3D[2,:] = corners_3D[2,:] + obj.t(2)
+    corners_3D[0,:] = corners_3D[0,:] + obj.tx
+    corners_3D[1,:] = corners_3D[1,:] + obj.ty
+    corners_3D[2,:] = corners_3D[2,:] + obj.tz
 
 #    % only draw 3D bounding box for objs in front of the camera
     if any(corners_3D[2,:]<0.1):
@@ -364,7 +366,7 @@ def projectToImage(pts_3D, P):
 #    % scale projected points
     pts_2D[0,:] = np.divide( pts_2D[0,:], pts_2D[2,:] )
     pts_2D[1,:] = np.divide( pts_2D[1,:],pts_2D[2,:] )
-    pts_2D[2,:] = []
+#    pts_2D[2,:] = []
     return pts_2D[0:2,:]
 
 
@@ -373,9 +375,9 @@ def computeOrientation3D(obj,P):
 #    % obj orientation vector into the image plane.
 
 #    % compute rotational matrix around yaw axis
-    R = np.array([[cos(obj.ry),  0, sin(obj.ry)],
+    R = np.array([[np.cos(obj.roty),  0, np.sin(obj.roty)],
          [0,               1,              0],
-         [-sin(obj.ry), 0, cos(obj.ry)]])
+         [-np.sin(obj.roty), 0, np.cos(obj.roty)]])
 
 #    % orientation in obj coordinate system
     orientation_3D = np.array( [[0.0, obj.l],
@@ -384,9 +386,9 @@ def computeOrientation3D(obj,P):
 
 #    % rotate and translate in camera coordinate system, project in image
     orientation_3D      = np.matmul(R,orientation_3D)
-    orientation_3D[0,:] = orientation_3D[0,:] + obj.t[0]
-    orientation_3D[1,:] = orientation_3D[1,:] + obj.t[1]
-    orientation_3D[2,:] = orientation_3D[2,:] + obj.t[2]
+    orientation_3D[0,:] = orientation_3D[0,:] + obj.tx
+    orientation_3D[1,:] = orientation_3D[1,:] + obj.ty
+    orientation_3D[2,:] = orientation_3D[2,:] + obj.tz
 
 #    % vector behind image plane?
     if any(orientation_3D[2,:]<0.1):
@@ -402,17 +404,17 @@ def drawBox3D(ax,obj,corners,face_idx,orientation):
     #% set styles for occlusion and truncation
     occ_col    = ['g','y','r','w']
     trun_style = ['-','--']
-    trc        = int(obj.truncation>0.1)
+    trc        = int(obj.truncated>0.1)
 
 #  % draw projected 3D bounding boxes
     if len(corners)>0:
         for f in range(4):
-            ax.plot([corners[0,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1],
-                     [corners[1,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1],
+            ax.plot(np.hstack([corners[0,face_idx[f,:]],corners[0,face_idx[f,0]]])+1,
+                     np.hstack([corners[1,face_idx[f,:]],corners[1,face_idx[f,0]]])+1,
                      color=occ_col[obj.occluded],linewidth=3,linestyle=trun_style[trc]
                      )
-            ax.plot([corners[0,face_idx[f,:]]+1,corners[0,face_idx[f,0]]+1],
-                     [corners[1,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1],
+            ax.plot(np.hstack([corners[0,face_idx[f,:]]+1,corners[0,face_idx[f,0]]+1]),
+                     np.hstack([corners[1,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1]),
                      color='b',linewidth=1
                      )
 
@@ -428,11 +430,11 @@ def drawBox3D(ax,obj,corners,face_idx,orientation):
 
 #  % draw orientation vector
     if len(orientation)>0:
-        ax.plot([orientation[0,:]+1,orientation[0,:]+1],...
-         [orientation[1,:]+1,orientation[1,:]+1],color='w',lineWidth=4)
+        ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
+         np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='w',lineWidth=4)
 
-        ax.plot([orientation[0,:]+1,orientation[0,:]+1],...
-         [orientation[1,:]+1,orientation[1,:]+1],color='k',lineWidth=2)
+        ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
+         np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='k',lineWidth=2)
 
 
 
@@ -472,7 +474,7 @@ def to_array_list(df, length=None, by_id=True):
 
 
 # TODO: Acknowledge this is from HART
-class KittiTrackingLabels(obj):
+class KittiTrackingLabels:
     """Kitt Tracking Label parser. It can limit the maximum number of objs per track,
     filter out objs with class "DontCare", or retain only those objs present
     in a given frame.

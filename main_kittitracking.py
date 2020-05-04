@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import uq.quadratures.cubatures as uqcb
 from loggerconfig import *
 import numpy as np
+import numpy.linalg as nplg
 from scipy.linalg import block_diag
 import collections as clc
 import pandas as pd
@@ -21,6 +22,8 @@ import datetime as dt
 import glob
 import os
 from mpl_toolkits.mplot3d import Axes3D
+
+pd.set_option('display.max_columns', None)
 #%%
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,8 @@ root_dir = '/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitt
 seq = '0000';
 ktrk = pykcustracking.KittiTracking(root_dir,seq)
 dflabel = ktrk.readlabel()
+dflabel['beta'] = (dflabel['roty']-dflabel['alpha'])*180/np.pi
+dflabel['beta2'] = np.arctan(dflabel['tx']/dflabel['tz'])*180/np.pi
 print(ktrk.classlabels)
 
 #    cv2.imshow('Window', img)
@@ -77,10 +82,25 @@ print(ktrk.classlabels)
 
 
 #%%
+
+
+
+rad2deg = 180/np.pi
 fig= plt.figure(1)
 ax = fig.add_subplot(111)
+
+fig2= plt.figure(2)
+ax2 = fig2.add_subplot(111)
+
+fig3= plt.figure(3)
+ax3 = fig3.add_subplot(111)
+Ximu=np.zeros((200,3))
+
 for i in range(ktrk.nframes):
     ax.cla()
+    ax2.cla()
+    ax3.cla()
+
     imgL = ktrk.get_cam2(i)
     imgL_rgb = cv2.cvtColor(imgL, cv2.COLOR_BGR2RGB)
 
@@ -90,19 +110,34 @@ for i in range(ktrk.nframes):
     ax.imshow(imgL_rgb)
 
     tracklets = dflabel[dflabel['frame']==i]
+    print(tracklets[['classtype','roty','alpha','beta','beta2','tx','ty','tz']])
     for ind in tracklets.index:
         pykcustracking.drawBox2D(ax,tracklets.loc[ind,:] )
+        corners,face_idx = pykcustracking.computeBox3D(tracklets.loc[ind,:],ktrk.calib.P_rect_20)
+        orientation = pykcustracking.computeOrientation3D(tracklets.loc[ind,:],ktrk.calib.P_rect_20)
+        pykcustracking.drawBox3D(ax, tracklets.loc[ind,:],corners,face_idx,orientation)
+
+
+        if tracklets.loc[ind,'classtype'] != 'DontCare':
+            ax2.plot([0,tracklets.loc[ind,'tx']],[0,tracklets.loc[ind,'tz']])
+
+    oxts = ktrk.get_oxts(i)
+#    timu = np.matmul(nplg.inv(oxts.T_w_imu),np.array([0,0,0,1]) )
+    timu = np.matmul(oxts.T_w_imu,np.array([0,0,0,1]) )
+#    Ximu[i,:] = np.matmul(np.array([[0,-1,0],[1,0,0],[0,0,1]]),timu[:3])
+    Ximu[i,:] = timu[:3]
+    ax3.plot(Ximu[:i,0],Ximu[:i,1])
+    ax3.plot(Ximu[i-1,0],Ximu[i-1,1],'ro')
 
 #    % plot 3D bounding box
-#    corners,face_idx = pykcustracking.computeBox3D(tracklets{img_idx+1}(obj_idx),P);
-#    orientation = pykcustracking.computeOrientation3D(tracklets{img_idx+1}(obj_idx),P);
-#    pykcustracking.drawBox3D(ax, tracklets{img_idx+1}(obj_idx),corners,face_idx,orientation);
 
 #    img = np.hstack([imgL,imgR])
 #    img_rgb = np.hstack([imgL_rgb,imgR_rgb])
 #    ax.imshow(img_rgb)
     plt.show()
-    plt.pause(0.3)
+#    plt.pause(0.2)
+    plt.waitforbuttonpress()
 
+#    break
 
 

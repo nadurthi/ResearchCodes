@@ -89,15 +89,17 @@ def read_calib_file2(filepath):
 
     with open(filepath, 'r') as f:
         for line in f.readlines():
-            L = line.split(' ')
+            L = line.strip("".join([' ','\n','\t','\r',','])).split(' ')
             L[0] = L[0].replace(':','')
             # The only non-float values in these files are dates, which
             # we don't care about anyway
             key = L[0]
             value =L[1:]
             try:
-                data[key] = np.array([float(x) for x in value.split()])
+                data[key] = np.array([float(x) for x in value])
             except ValueError:
+                print(key)
+                print(value)
                 pass
 
     return data
@@ -155,6 +157,7 @@ def load_oxts_packets_and_poses(oxts_files):
                 if origin is None:
                     origin = t
 
+                # imu to world
                 T_w_imu = transform_from_rot_trans(R, t - origin)
 
                 oxts.append(OxtsData(packet, T_w_imu))
