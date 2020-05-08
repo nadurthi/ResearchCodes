@@ -22,7 +22,7 @@ OxtsPacket = namedtuple('OxtsPacket',
                         'posmode, velmode, orimode')
 
 # Bundle into an easy-to-access structure
-OxtsData = namedtuple('OxtsData', 'packet, T_w_imu')
+OxtsData = namedtuple('OxtsData', 'packet, T_imu_to_w')
 
 
 def subselect_files(files, indices):
@@ -158,9 +158,9 @@ def load_oxts_packets_and_poses(oxts_files):
                     origin = t
 
                 # imu to world
-                T_w_imu = transform_from_rot_trans(R, t - origin)
+                T_imu_to_w = transform_from_rot_trans(R, t - origin)
 
-                oxts.append(OxtsData(packet, T_w_imu))
+                oxts.append(OxtsData(packet, T_imu_to_w))
 
     return oxts
 

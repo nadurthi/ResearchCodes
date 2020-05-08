@@ -121,10 +121,9 @@ for i in range(ktrk.nframes):
         if tracklets.loc[ind,'classtype'] != 'DontCare':
             ax2.plot([0,tracklets.loc[ind,'tx']],[0,tracklets.loc[ind,'tz']])
 
+
     oxts = ktrk.get_oxts(i)
-#    timu = np.matmul(nplg.inv(oxts.T_w_imu),np.array([0,0,0,1]) )
-    timu = np.matmul(oxts.T_w_imu,np.array([0,0,0,1]) )
-#    Ximu[i,:] = np.matmul(np.array([[0,-1,0],[1,0,0],[0,0,1]]),timu[:3])
+    timu = np.matmul(oxts.T_imu_to_w,np.array([0,0,0,1]) )
     Ximu[i,:] = timu[:3]
     ax3.plot(Ximu[:i,0],Ximu[:i,1])
     ax3.plot(Ximu[i-1,0],Ximu[i-1,1],'ro')
