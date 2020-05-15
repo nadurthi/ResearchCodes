@@ -49,8 +49,13 @@ from uq.uqutils import helper as uqutilhelp
 from uq.uqutils import metrics as uqmetrics
 from uq.uqutils import simmanager as uqsimmanager
 
+
+plt.close('all')
 # if __name__=='__main__':
 #%%
+
+simname = "IMM_test"
+
 metalog="""
 IMM test on tracking 1 target and 1 sensor
 
@@ -60,21 +65,21 @@ Author: Venkat
 """
 
 
-simmanger = uqsimmanager.SimManager(t0=0,tf=100,dt=1,dtplot=0.1,
-                                  simname="JPDA_test",savepath="simulations",
+simmanger = uqsimmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
+                                  simname=simname,savepath="simulations",
                                   workdir=os.getcwd())
 
-simmanger.initialize()
+simmanger.initialize(repocheck=True)
 
 
 
 
 #%%
 
-filterer = KFfilterer()
+modefilterer = KFfilterer()
 
 H = np.hstack((np.eye(2),np.zeros((2,3))))
-R = block_diag((0.1)**2,(0.1)**2)
+R = block_diag((0.5)**2,(0.5)**2)
 
 
 
@@ -96,7 +101,7 @@ Pfk = np.matmul(Pfk,Pfk.T)
 gmm0 = uqfgmm.GMM.fromlist([xfk,xfk],[Pfk,Pfk],[0.5,0.5],0)
 modelprob=np.array([0.5,0.5])
 
-immf = immfilter.IntegratedIMM(dynMultiModels,modelprob, sensormodel, filterer,
+immf = immfilter.IntegratedIMM(dynMultiModels,modelprob, sensormodel, modefilterer,
                  recorderobjprior=None, recorderobjpost=None,
                  recordfilterstate=True,currt=0,gmm=gmm0)
 
@@ -121,11 +126,11 @@ for t,tk,dt in simmanger.iteratetimesteps():
     if 30<=tk<50:
         xk[4]=0
     if 50<=tk<60:
-        xk[4]=-0.3
+        xk[4]=-0.2
     if 60<=tk<80:
         xk[4]=0
     if 80<=tk<100:
-        xk[4]=0.3
+        xk[4]=0.2
 
     _,xk = ct2.propforward( t, dt, xk, uk=0)
     immf.groundtruthrecorder.record(t+dt,xfk=xk)
@@ -180,43 +185,43 @@ plt.show()
 
 
 #%% metrics
-Errt=[None]*jpdamot.targetset.ntargs
-Rmse=[None]*jpdamot.targetset.ntargs
-for i in range(jpdamot.targetset.ntargs):
-    xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
-    xf = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
-
-    errt,rmse = uqmetrics.getEsterror(xt,xf,
-                                      stateset={'state':[0,1,2,3],
-                                                'pos':[0,1],
-                                                'vel':[2,3]
-                                                })
-    Errt[i] = errt
-    Rmse[i] = rmse
-
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec,Errt[0]['state'])
-plt.show()
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec,Errt[0]['pos'])
-plt.pause(0.1)
-
-
-
-
-simmanger.savefigure(fig,['post','K'],'test.png')
-plt.show()
+#Errt=[None]*jpdamot.targetset.ntargs
+#Rmse=[None]*jpdamot.targetset.ntargs
+#for i in range(jpdamot.targetset.ntargs):
+#    xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
+#    xf = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
+#
+#    errt,rmse = uqmetrics.getEsterror(xt,xf,
+#                                      stateset={'state':[0,1,2,3],
+#                                                'pos':[0,1],
+#                                                'vel':[2,3]
+#                                                })
+#    Errt[i] = errt
+#    Rmse[i] = rmse
+#
+#
+#fig = plt.figure()
+#ax = fig.add_subplot(111)
+#ax.plot(simmanger.tvec,Errt[0]['state'])
+#plt.show()
+#
+#fig = plt.figure()
+#ax = fig.add_subplot(111)
+#ax.plot(simmanger.tvec,Errt[0]['pos'])
+#plt.pause(0.1)
+#
+#
+#
+#
+#simmanger.savefigure(fig,['post','K'],'test.png')
+#plt.show()
 #%% Saving
 simmanger.finalize()
 
-simmanger.save(metalog,mainfile=__file__, Errt=Errt,Rmse=Rmse, jpdamot=jpdamot )
+simmanger.save(metalog,mainfile=__file__, immf=immf )
 
-debugStatuslist = jpdamot.debugStatus()
-uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
+#debugStatuslist = jpdamot.debugStatus()
+#uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
 
 
 

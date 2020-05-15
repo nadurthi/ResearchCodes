@@ -101,7 +101,7 @@ for i in range(5):
             'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
     target = uqtargets.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currtk = 0, recordfilterstate=True,
             status='active', recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost,
-            filterer=filterer,saveinitializingdata=True)
+            saveinitializingdata=True)
 
     jpdamot.targetset.addTarget(target)
 

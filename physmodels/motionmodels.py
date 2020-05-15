@@ -29,7 +29,7 @@ class MotionModel:
 		ss.append(['fn',self.fn])
 
 		return ss
-# autopep8 --in-place --aggressive --aggressive -v -r .
+
 
 class MultipleMarkovMotionModel:
     def __init__(self,models,p):
@@ -41,7 +41,8 @@ class MultipleMarkovMotionModel:
 #        self.Nmodels = len(models)
         self.models = models
         self.p = p
-
+        
+        
     @property
     def Nmodels(self):
         return len(self.models)
@@ -115,7 +116,7 @@ class KinematicModel_CT(MotionModel):
         T = dt;
         omg = xk[-1] + 1e-10
 
-        if np.abs(omg) >1e-2:
+        if np.abs(omg) >1e-3:
 
             f=[ np.cos(omg*T)*T*xk[2]/omg - np.sin(omg*T)*xk[2]/omg**2 - np.sin(omg*T)*T*xk[3]/omg - (-1+np.cos(omg*T))*xk[3]/omg**2,
             np.sin(omg*T)*T*xk[2]/omg - (1-np.cos(omg*T))*xk[2]/omg**2 + np.cos(omg*T)*T*xk[3]/omg - np.sin(omg*T)*xk[3]/omg**2,
