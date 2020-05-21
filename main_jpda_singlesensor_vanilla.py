@@ -12,6 +12,8 @@ import pandas as pd
 import os
 import dill,pickle
 
+plt.close('all')
+
 logger = logging.getLogger(__name__)
 
 logger.info('Info log message')
@@ -35,10 +37,10 @@ logger.critical('critical message')
 from uq.motfilter import mot as uqmot
 from uq.motfilter import jpda
 from uq.filters.kalmanfilter import TargetKF
-from uq.motfilter import targets as uqtargets
 from uq.uqutils.random import genRandomMeanCov
 from physmodels.motionmodels import KinematicModel_UM
 from physmodels.sensormodels import DiscLTSensorModel
+from physmodels import targets as phytarg
 import uq.motfilter.measurements as motmeas
 from uq.uqutils import recorder as uqrecorder
 from uq.uqutils import helper as uqutilhelp
@@ -75,7 +77,7 @@ R = block_diag((1e-1)**2,(1e-1)**2)
 
 sensormodel = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=True)
 
-jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True)
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.8,V=100,uf=None, Gamma=5 )
 jpdamot.sensorset.addSensor(sensormodel)
 
 
@@ -99,10 +101,9 @@ for i in range(5):
             'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
     recorderobjpost = uqrecorder.StatesRecorder_fixedDim(statetypes = {
             'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
-    target = uqtargets.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currtk = 0, recordfilterstate=True,
-            status='active', recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost,
-            saveinitializingdata=True)
-
+    target = phytarg.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currt = 0, recordfilterstate=True,
+             recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost)
+    target.freeze(recorderobj=False)
     jpdamot.targetset.addTarget(target)
 
 
@@ -128,16 +129,16 @@ for i in range(jpdamot.targetset.ntargs):
 plt.show()
 #%% Save ground truth and reset filters to new intiial conditions
 for i in range(jpdamot.targetset.ntargs):
-    jpdamot.targetset[i].groundtruthrecorder=  jpdamot.targetset[i].recorderprior.makecopy()
+    jpdamot.targetset[i].groundtruthrecorder =  jpdamot.targetset[i].recorderprior.makecopy()
     jpdamot.targetset[i].recorderprior.cleardata(keepInitial = False)
     jpdamot.targetset[i].recorderpost.cleardata(keepInitial = False)
-    jpdamot.targetset[i].reset2initialstate()
+    jpdamot.targetset[i].defrost(recorderobj=False)
 
     xf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('xfk',0)
     Pf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('Pfk',0)
 
     xf0,_ = genRandomMeanCov(xf0,Pf0,1,np.eye(len(xf0)))
-    jpdamot.targetset[i].setInitialdata(xf0, Pf0, currt0 = 0,currt=0)
+    jpdamot.targetset[i].setInitialdata(0,xf0, Pf0)
 
 #%% Run the filter
 for t,tk,dt in simmanger.iteratetimesteps():
@@ -160,7 +161,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
         for sensID in ZZ:
             Zkset[sensID].append( ZZ[sensID]['zk'] )
             if sensID not in grounttruthDA:
-                grounttruthDA[sensID] = pd.DataFrame(index =targetIDlist )
+                grounttruthDA[sensID] = pd.DataFrame(index =targetIDlist ,columns=['None']+list(range(len(Zkset[sensID]))) )
             n=len(Zkset[sensID])-1
             grounttruthDA[sensID].at[jpdamot.targetset[i].ID,n]=1
 
@@ -172,10 +173,11 @@ for t,tk,dt in simmanger.iteratetimesteps():
             grounttruthDA[sensID].fillna(0,inplace=True)
 
     jpdamot.setgrounttruthDA( grounttruthDA )
-    jpdamot.set_DAmat_from_groundtruthDA()
+#    jpdamot.set_DAmat_from_groundtruthDA()
+    jpdamot.compute_DAmat(t,dt,Zkset)
 
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
-    jpdamot.measUpdt(t+dt,dt, Zkset)
+    jpdamot.measUpdate(t+dt,dt, Zkset)
 
 
 
