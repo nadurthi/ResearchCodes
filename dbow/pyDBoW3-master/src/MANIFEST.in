@@ -1,3 +1,0 @@
-include ../../README.rst
-include pyDBoW3/*.pyd
-include pyDBoW3/*.dll

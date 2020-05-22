@@ -3,8 +3,10 @@ sudo apt-get install mesa-utils
 sudo apt-get install python3.8 python3.8-venv python3.8-distutils
 pip3 install pytest
 sudo apt-get install python3.8-dev
+sudo apt-get install flex
+sudo apt-get install bison
 
-# when install pybind11 wrappers for your c++, run this to get 
+# when install pybind11 wrappers for your c++, run this to get
 git submodule update --init --recursive
 
 /usr/bin/python3.8 -m pip install pytest

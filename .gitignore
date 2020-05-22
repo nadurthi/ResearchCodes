@@ -1,6 +1,8 @@
-build
-devel
-install
+build/
+devel/
+install/
+docs/
+doc/
 
 checkpoints/
 trainedmodels/

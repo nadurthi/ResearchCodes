@@ -68,19 +68,31 @@ simmanger.initialize()
 
 #%%
 
-filterer = TargetKF()
+
 
 H = np.hstack((np.eye(2),np.zeros((2,2))))
 R = block_diag((1e-1)**2,(1e-1)**2)
 
 
+filterer = TargetKF()
+sensormodel = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=False)
 
-sensormodel = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=True)
+jpdamotlist={}
 
+filterer = TargetKF()
 jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.8,V=100,uf=None, Gamma=5 )
 jpdamot.sensorset.addSensor(sensormodel)
+jpdamotlist['KFJPDA_GroundTruthDA']=jpdamot
 
+filterer = TargetKF()
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.8,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset.addSensor(sensormodel)
+jpdamotlist['KFJPDA']=jpdamot
 
+filterer = TargetKF()
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.8,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset.addSensor(sensormodel)
+jpdamotlist['IMMKFJPDA']=jpdamot
 
 
 
@@ -96,15 +108,15 @@ for i in range(5):
 
     dynmodel = KinematicModel_UM()
 
-
-    recorderobjprior = uqrecorder.StatesRecorder_fixedDim(statetypes = {
-            'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
-    recorderobjpost = uqrecorder.StatesRecorder_fixedDim(statetypes = {
-            'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
-    target = phytarg.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currt = 0, recordfilterstate=True,
-             recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost)
-    target.freeze(recorderobj=False)
-    jpdamot.targetset.addTarget(target)
+    for jn in jpdamotlist.keys():
+        recorderobjprior = uqrecorder.StatesRecorder_fixedDim(statetypes = {
+                'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
+        recorderobjpost = uqrecorder.StatesRecorder_fixedDim(statetypes = {
+                'xfk':(dynmodel.fn,),'Pfk':(dynmodel.fn,dynmodel.fn)})
+        target = phytarg.Target(dynModel=dynmodel, xfk=xfk, Pfk=Pfk, currt = 0, recordfilterstate=True,
+                 recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost)
+        target.freeze(recorderobj=False)
+        jpdamotlist[jn].targetset.addTarget(target)
 
 
 
@@ -114,116 +126,139 @@ for i in range(5):
 for t,tk,dt in simmanger.iteratetimesteps():
     print (t,tk,dt)
     Uk = None
-    jpdamot.propagate(t, dt, Uk)
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].propagate(t, dt, Uk)
 
-# jpdamot.filterer.debugStatus()
-debugStatuslist = jpdamot.debugStatus()
-uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-for i in range(jpdamot.targetset.ntargs):
-    xfk = jpdamot.targetset[i].recorderprior.getvar_alltimes('xfk')
+for i in range(jpdamotlist['KFJPDA_GroundTruthDA'].targetset.ntargs):
+    xfk = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].recorderprior.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1])
 
 plt.show()
 #%% Save ground truth and reset filters to new intiial conditions
 for i in range(jpdamot.targetset.ntargs):
-    jpdamot.targetset[i].groundtruthrecorder =  jpdamot.targetset[i].recorderprior.makecopy()
-    jpdamot.targetset[i].recorderprior.cleardata(keepInitial = False)
-    jpdamot.targetset[i].recorderpost.cleardata(keepInitial = False)
-    jpdamot.targetset[i].defrost(recorderobj=False)
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].targetset[i].groundtruthrecorder =  jpdamotlist[jn].targetset[i].recorderprior.makecopy()
+        jpdamotlist[jn].targetset[i].recorderprior.cleardata(keepInitial = False)
+        jpdamotlist[jn].targetset[i].recorderpost.cleardata(keepInitial = False)
+        jpdamotlist[jn].targetset[i].defrost(recorderobj=False)
 
-    xf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('xfk',0)
-    Pf0 = jpdamot.targetset[i].groundtruthrecorder.getvar_byidx('Pfk',0)
-
+    xf0 = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].groundtruthrecorder.getvar_byidx('xfk',0)
+    Pf0 = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].groundtruthrecorder.getvar_byidx('Pfk',0)
     xf0,_ = genRandomMeanCov(xf0,Pf0,1,np.eye(len(xf0)))
-    jpdamot.targetset[i].setInitialdata(0,xf0, Pf0)
+
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].targetset[i].setInitialdata(0,xf0, Pf0)
 
 #%% Run the filter
 for t,tk,dt in simmanger.iteratetimesteps():
     print (t,tk,dt)
     Uk = None
-    jpdamot.propagate(t, dt, Uk)
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].propagate(t, dt, Uk)
     # after prop, the time is t+dt
 
     # generate a random measurement
     Zkset = clc.defaultdict(list)
 
-    targetIDlist = jpdamot.targetset.targetIDs()
 
     grounttruthDA= {}
 
-    for i in range(jpdamot.targetset.ntargs):
-        xk = jpdamot.targetset[i].groundtruthrecorder.getvar_bytime('xfk',t+dt)[0]
-        ZZ = jpdamot.sensorset.generateRndMeasSet(t+dt,dt,xk)
+    # generate measurements and ground truth
+    for i in range(jpdamotlist['KFJPDA_GroundTruthDA'].targetset.ntargs):
+        xk = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].groundtruthrecorder.getvar_bytime('xfk',t+dt)[0]
+        ZZ = jpdamotlist['KFJPDA_GroundTruthDA'].sensorset.generateRndMeasSet(t+dt,dt,xk)
         # ZZ = {'ID': {'zk': zk, 'isinsidek':isinsidek, 'Lk': Lk   } }
         for sensID in ZZ:
             Zkset[sensID].append( ZZ[sensID]['zk'] )
             if sensID not in grounttruthDA:
-                grounttruthDA[sensID] = pd.DataFrame(index =targetIDlist ,columns=['None']+list(range(len(Zkset[sensID]))) )
-            n=len(Zkset[sensID])-1
-            grounttruthDA[sensID].at[jpdamot.targetset[i].ID,n]=1
+                grounttruthDA[sensID] = np.zeros((jpdamot.targetset.ntargs,1))
+            n=len(Zkset[sensID])
+            grounttruthDA[sensID]=np.hstack([grounttruthDA[sensID], np.zeros((jpdamot.targetset.ntargs,1))])
+            grounttruthDA[sensID][i,n]=1
 
-    for sensID in Zkset:
-        jpdamot.sensorset.getbyID(sensID).recorder.record(t+dt,zk=Zkset[sensID])
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].recordermeas.record(t+dt,Zk=Zkset)
 
-    for sensID in jpdamot.sensorset.sensorIDs():
-        if sensID in grounttruthDA:
-            grounttruthDA[sensID].fillna(0,inplace=True)
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].setgrounttruthDA(t+dt,dt, grounttruthDA )
 
-    jpdamot.setgrounttruthDA( grounttruthDA )
-#    jpdamot.set_DAmat_from_groundtruthDA()
-    jpdamot.compute_DAmat(t,dt,Zkset)
+    jpdamotlist['KFJPDA_GroundTruthDA'].set_DAmat_from_groundtruthDA(t+dt,dt)
+    jpdamotlist['KFJPDA'].compute_DAmat(t+dt,dt,Zkset)
+    jpdamotlist['IMMKFJPDA'].compute_DAmat(t+dt,dt,Zkset)
 
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
-    jpdamot.measUpdate(t+dt,dt, Zkset)
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].measUpdate(t+dt,dt, Zkset)
 
 
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-for i in range(jpdamot.targetset.ntargs):
-    xfk = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
+for i in range(jpdamotlist['KFJPDA_GroundTruthDA'].targetset.ntargs):
+    xfk = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
+    ax.plot(xfk[:,0],xfk[:,1],'--')
+    xfk = jpdamotlist['KFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1])
+    xfk = jpdamotlist['IMMKFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
+    ax.plot(xfk[:,0],xfk[:,1],'o-')
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+for i in range(jpdamotlist['KFJPDA'].targetset.ntargs):
+    xfk = jpdamotlist['KFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
+    ax.plot(xfk[:,0],xfk[:,1])
+
 
 plt.show()
 
 #%% metrics
-Errt=[None]*jpdamot.targetset.ntargs
-Rmse=[None]*jpdamot.targetset.ntargs
-for i in range(jpdamot.targetset.ntargs):
-    xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
-    xf = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
 
-    errt,rmse = uqmetrics.getEsterror(xt,xf,
-                                      stateset={'state':[0,1,2,3],
-                                                'pos':[0,1],
-                                                'vel':[2,3]
-                                                })
-    Errt[i] = errt
-    Rmse[i] = rmse
+jpdametrics = uqmetrics.Metrics()
+
+jpdametrics.Errt=clc.defaultdict(list)
+jpdametrics.Rmse=clc.defaultdict(list)
+
+for i in range(jpdamotlist['KFJPDA_GroundTruthDA'].targetset.ntargs):
+    for jn in jpdamotlist.keys():
+        xt = jpdamotlist[jn].targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
+        xf = jpdamotlist[jn].targetset[i].recorderpost.getvar_alltimes('xfk')
+
+        errt,rmse = uqmetrics.getEsterror(xt,xf,
+                                          stateset={'state':[0,1,2,3],
+                                                    'pos':[0,1],
+                                                    'vel':[2,3]
+                                                    })
+        jpdametrics.Errt[jn].append( errt )
+        jpdametrics.Rmse[jn].append( rmse )
 
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec,Errt[0]['state'])
+ax.plot(simmanger.tvec,jpdametrics.Errt['KFJPDA_GroundTruthDA'][0]['state'],label='GTDA')
+ax.plot(simmanger.tvec,jpdametrics.Errt['KFJPDA'][0]['state'],label='KFJPDA')
+ax.plot(simmanger.tvec,jpdametrics.Errt['IMMKFJPDA'][0]['state'],label='IMMKFJPDA')
+ax.legend()
 plt.show()
+plt.pause(0.1)
+simmanger.savefigure(fig,['post','K'],'state.png')
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec,Errt[0]['pos'])
+ax.plot(simmanger.tvec,jpdametrics.Errt['KFJPDA_GroundTruthDA'][0]['pos'])
 plt.pause(0.1)
+simmanger.savefigure(fig,['post','K'],'pos.png')
 
 
 
 
-simmanger.savefigure(fig,['post','K'],'test.png')
 plt.show()
 #%% Saving
 simmanger.finalize()
 
-simmanger.save(metalog,mainfile=__file__, Errt=Errt,Rmse=Rmse, jpdamot=jpdamot )
+simmanger.save(metalog,mainfile=__file__, jpdametrics=jpdametrics, jpdamot=jpdamot )
 
 debugStatuslist = jpdamot.debugStatus()
 uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)

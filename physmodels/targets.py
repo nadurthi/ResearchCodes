@@ -16,11 +16,20 @@ from uq.uqutils import constants as uqutilconst
 from enum import Enum, auto
 
 
-
+# active or deactive is to remove the target from computations and save resources
 class TargetStatus(Enum):
     Active = auto()
     Deactive = auto()
 
+class TargetTrack(Enum):
+    Maintained = auto()
+    Lost = auto()
+    Recovered = auto()
+
+class TargetObservability(Enum):
+    NotObservable = auto()
+    Observable = auto()
+    Occluded = auto()
 
 
 class Target:
@@ -70,12 +79,12 @@ class Target:
 
 
         if recorderobjprior is None:
-            self.recorderprior = uqrecorder.StatesRecorder_list(statetypes = {'xfk':(None,),'Pfk':(None,None)} )
+            self.recorderprior = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk'] )
         else:
             self.recorderprior = recorderobjprior
 
         if recorderobjpost is None:
-            self.recorderpost = uqrecorder.StatesRecorder_list(statetypes = {'xfk':(None,),'Pfk':(None,None)} )
+            self.recorderpost = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk'] )
         else:
             self.recorderpost = recorderobjpost
 
