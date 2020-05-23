@@ -52,7 +52,7 @@ class Target:
         - car model, volume etc anyt other features
     """
 
-    def __init__(self, dynModel=None,dynModelset=None,gmmfk=None, modelprob = None, xfk=None, Pfk=None, currt=0,recordfilterstate=False,
+    def __init__(self, dynModel=None,dynModelset=None,gmmfk=None, modelprobfk = None, xfk=None, Pfk=None, currt=0,recordfilterstate=False,
             status=TargetStatus.Active, recorderobjprior=None,recorderobjpost=None):
 
         self.ID = uuid.uuid4()
@@ -64,11 +64,13 @@ class Target:
         self.gmmfk = gmmfk
         self.xfk = xfk
         self.Pfk = Pfk
-        self.modelprob = modelprob
+        self.modelprobfk = modelprobfk
+
         self.currt = currt
         self.context ={}
 
         self.N = 100
+
 
 
         self.recordfilterstate = recordfilterstate
@@ -91,20 +93,37 @@ class Target:
         self.groundtruthrecorder = None
         self.plottingrecorder = None
 
+#
+#        if self.recordfilterstate:
+#            params={}
+#            for recstate in self.recorderprior.states:
+#                params[recstate] = getattr(self,recstate)
+#            self.recorderprior.record(currt,**params)
+#
+#            for recstate in self.recorderpost.states:
+#                params[recstate] = getattr(self,recstate)
+#            self.recorderpost.record(currt,**params)
 
-        if self.recordfilterstate:
-            self.recorderprior.record(currt,xfk=self.xfk,Pfk=self.Pfk)
-            self.recorderpost.record(currt,xfk=self.xfk,Pfk=self.Pfk)
 
 
+    def setInitialdata(self,currt,xfk=None, Pfk=None,gmmfk=None, modelprobfk=None):
+        self.xfk = xfk
+        self.Pfk = Pfk
+        self.gmmfk = gmmfk
+        self.modelprobfk = modelprobfk
 
-    def setInitialdata(self,currt,xf0, Pf0):
-        self.xfk = xf0
-        self.Pfk = Pf0
         self.currt = currt
+
         if self.recordfilterstate:
-            self.recorderprior.record(currt,xfk=self.xfk,Pfk=self.Pfk)
-            self.recorderpost.record(currt,xfk=self.xfk,Pfk=self.Pfk)
+            params={}
+            for recstate in self.recorderprior.states:
+                params[recstate] = getattr(self,recstate)
+            self.recorderprior.record(currt,**params)
+
+            params={}
+            for recstate in self.recorderpost.states:
+                params[recstate] = getattr(self,recstate)
+            self.recorderpost.record(currt,**params)
 
     def setTargetFilterStageAsPrior(self):
         self.filterstage = uqutilconst.FilterStage.Prior
@@ -122,10 +141,16 @@ class Target:
         if self.recordfilterstate:
 
             if self.filterstage == uqutilconst.FilterStage.Prior:
-                self.recorderprior.record(self.currt,xfk=self.xfk,Pfk=self.Pfk)
+                recparams={}
+                for recstate in self.recorderprior.states:
+                    recparams[recstate] = getattr(self,recstate)
+                self.recorderprior.record(self.currt,**recparams)
 
             if self.filterstage == uqutilconst.FilterStage.Posterior:
-                self.recorderpost.record(self.currt,xfk=self.xfk,Pfk=self.Pfk)
+                recparams={}
+                for recstate in self.recorderpost.states:
+                    recparams[recstate] = getattr(self,recstate)
+                self.recorderpost.record(self.currt,**recparams)
 
     def freeze(self,recorderobj=False):
         self.freezer ={}
@@ -134,7 +159,7 @@ class Target:
         self.freezer['xfk'] = copy.deepcopy(self.xfk)
         self.freezer['Pfk'] = copy.deepcopy(self.Pfk)
         self.freezer['gmmfk'] = copy.deepcopy(self.gmmfk)
-        self.freezer['modelprob'] = copy.deepcopy(self.modelprob)
+        self.freezer['modelprobfk'] = copy.deepcopy(self.modelprobfk)
         self.freezer['currt'] = copy.deepcopy(self.currt)
         self.freezer['status'] = self.status
         self.freezer['filterstage'] = self.filterstage
@@ -155,7 +180,7 @@ class Target:
         self.Pfk = copy.deepcopy(self.freezer['Pfk'])
         self.currt = copy.deepcopy(self.freezer['currt'])
         self.gmmfk = copy.deepcopy(self.freezer['gmmfk'])
-        self.modelprob = copy.deepcopy(self.freezer['modelprob'])
+        self.modelprobfk = copy.deepcopy(self.freezer['modelprobfk'])
         self.status = self.freezer['status']
         self.filterstage = self.freezer['filterstage']
 

@@ -37,8 +37,8 @@ from uq.motfilter import mot as uqmot
 from uq.motfilter import jpda
 from uq.filters.kalmanfilter import TargetKF,KFfilterer
 from uq.filters import imm as immfilter
-from uq.filters import gmm as uqfgmm
-from uq.motfilter import targets as uqtargets
+from uq.filters import gmmbase as uqfgmmbase
+from physmodels import targets as phytarg
 from uq.uqutils.random import genRandomMeanCov
 from physmodels import motionmodels as phymm
 from physmodels.motionmodels import KinematicModel_UM,KinematicModel_UM_5state
@@ -69,7 +69,7 @@ simmanger = uqsimmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
                                   simname=simname,savepath="simulations",
                                   workdir=os.getcwd())
 
-simmanger.initialize(repocheck=True)
+simmanger.initialize(repocheck=False)
 
 
 
@@ -98,16 +98,13 @@ xfk[2:4] = xfk[2:4]*vmag/npalg.norm(xfk[2:4])
 Pfk = np.random.randn(5,5)
 Pfk = np.matmul(Pfk,Pfk.T)
 
-gmm0 = uqfgmm.GMM.fromlist([xfk,xfk],[Pfk,Pfk],[0.5,0.5],0)
+gmm0 = uqfgmmbase.GMM.fromlist([xfk,xfk],[Pfk,Pfk],[0.5,0.5],0)
 modelprob=np.array([0.5,0.5])
 
-immf = immfilter.IntegratedIMM(dynMultiModels,modelprob, sensormodel, modefilterer,
+immf = immfilter.IntegratedIMM(dynMultiModels,0,gmm0,modelprob, sensormodel, modefilterer,
                  recorderobjprior=None, recorderobjpost=None,
-                 recordfilterstate=True,currt=0,gmm=gmm0)
+                 recordfilterstate=True)
 
-
-immf.recorderprior.record(0,modelprob=modelprob,gmm=gmm0,xfk = xfk,Pfk = Pfk)
-immf.recorderpost.record(0,modelprob=modelprob,gmm=gmm0,xfk = xfk,Pfk = Pfk)
 
 
 
@@ -156,7 +153,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
     zk,isinsidek,Lk = immf.sensormodel.generateRndMeas(t+dt, dt, xk,useRecord=False)
     immf.sensormodel.recorder.record(t+dt,zk=zk)
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
-    immf.measUpdt(t+dt,dt, zk)
+    immf.measUpdate(t+dt,dt, zk)
 
 
 xfk = immf.recorderpost.getvar_alltimes_stacked('xfk')
@@ -167,7 +164,7 @@ estplot, = ax.plot(xfk[:,0],xfk[:,1],label = 'est')
 plt.legend(handles=[truplot, estplot])
 plt.show()
 
-modelprobk = immf.recorderpost.getvar_alltimes_stacked('modelprob')
+modelprobfk = immf.recorderpost.getvar_alltimes_stacked('modelprobfk')
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -176,49 +173,25 @@ estplot, = ax.plot(simmanger.tvec,xfk[:,4],label = 'est')
 plt.legend(handles=[truplot, estplot])
 plt.show()
 
-fig = plt.figure()
+fig = plt.figure('gg')
 ax = fig.add_subplot(111)
-mp0, = ax.plot(simmanger.tvec,modelprobk[:,0],label = '0')
-mp1, = ax.plot(simmanger.tvec,modelprobk[:,1],label = '1')
+mp0, = ax.plot(simmanger.tvec,modelprobfk[:,0],label = '0')
+mp1, = ax.plot(simmanger.tvec,modelprobfk[:,1],label = '1')
 plt.legend(handles=[mp0, mp1])
 plt.show()
 
 
 #%% metrics
-#Errt=[None]*jpdamot.targetset.ntargs
-#Rmse=[None]*jpdamot.targetset.ntargs
-#for i in range(jpdamot.targetset.ntargs):
-#    xt = jpdamot.targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
-#    xf = jpdamot.targetset[i].recorderpost.getvar_alltimes('xfk')
-#
-#    errt,rmse = uqmetrics.getEsterror(xt,xf,
-#                                      stateset={'state':[0,1,2,3],
-#                                                'pos':[0,1],
-#                                                'vel':[2,3]
-#                                                })
-#    Errt[i] = errt
-#    Rmse[i] = rmse
-#
-#
-#fig = plt.figure()
-#ax = fig.add_subplot(111)
-#ax.plot(simmanger.tvec,Errt[0]['state'])
-#plt.show()
-#
-#fig = plt.figure()
-#ax = fig.add_subplot(111)
-#ax.plot(simmanger.tvec,Errt[0]['pos'])
-#plt.pause(0.1)
-#
-#
-#
-#
-#simmanger.savefigure(fig,['post','K'],'test.png')
-#plt.show()
+
+IMMmetrics = uqmetrics.Metrics()
+
+IMMmetrics.Errt=clc.defaultdict(list)
+IMMmetrics.Rmse=clc.defaultdict(list)
+
 #%% Saving
 simmanger.finalize()
 
-simmanger.save(metalog,mainfile=__file__, immf=immf )
+simmanger.save(metalog,mainfile=__file__, immf=immf,IMMmetrics=IMMmetrics )
 
 #debugStatuslist = jpdamot.debugStatus()
 #uqutilhelp.DebugStatus().writestatus(debugStatuslist,simmanger.debugstatusfilepath)
