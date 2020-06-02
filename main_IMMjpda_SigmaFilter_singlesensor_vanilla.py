@@ -37,6 +37,7 @@ logger.critical('critical message')
 from uq.motfilter import mot as uqmot
 from uq.motfilter import jpda
 from uq.filters.kalmanfilter import TargetKF,KFfilterer
+from uq.filters import sigmafilter as uqsigf
 from uq.uqutils.random import genRandomMeanCov
 from physmodels.motionmodels import KinematicModel_UM
 from physmodels import motionmodels as phymm
@@ -49,19 +50,19 @@ from uq.uqutils import recorder as uqrecorder
 from uq.uqutils import helper as uqutilhelp
 from uq.uqutils import metrics as uqmetrics
 from uq.uqutils import simmanager as uqsimmanager
-
+from uq.quadratures import cubatures as quadcub
 # if __name__=='__main__':
 #%%
 metalog="""
 JPDA+IMM test on tracking 5 targets using 1 sensor
 this is the initial testing code to see if everything works
-
+But now this code has Sigma filter code for testing
 Author: Venkat
 """
 
 
 simmanger = uqsimmanager.SimManager(t0=0,tf=55,dt=0.5,dtplot=0.1,
-                                  simname="JPDA_IMM_test",savepath="simulations",
+                                  simname="JPDA_IMM_SIGMA_test",savepath="simulations",
                                   workdir=os.getcwd())
 
 simmanger.initialize()
@@ -103,6 +104,11 @@ jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=Non
 jpdamot.sensorset.addSensor(sensormodel5d)
 jpdamotlist['IMMKFJPDA']=jpdamot
 
+modefilterer = uqsigf.Sigmafilterer(sigmamethod = quadcub.SigmaMethod.UT)
+filterer = immfilter.TargetIMM(modefilterer)
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset.addSensor(sensormodel5d)
+jpdamotlist['IMMKFJPDA_SIGMA']=jpdamot
 
 um1 = phymm.KinematicModel_UM_5state()
 ct2 = phymm.KinematicModel_CT()
@@ -115,7 +121,7 @@ vmag = 2
 for i in range(5):
 
     xfk = np.random.rand(4)
-    xfk[0:2] = 10*xfk[0:2]
+    xfk[0:2] = 50*xfk[0:2]
     xfk[2:4] = vmag*xfk[2:4]
     Pfk = np.random.randn(4,4)
     Pfk = np.matmul(Pfk,Pfk.T)
@@ -123,7 +129,7 @@ for i in range(5):
     dynmodel = KinematicModel_UM()
 
     for jn in jpdamotlist.keys():
-        if jn == 'IMMKFJPDA':
+        if jn == 'IMMKFJPDA' or jn=='IMMKFJPDA_SIGMA':
             xfk5 = np.hstack([xfk,0])
             Pfk5 = block_diag(Pfk,0.1**2)
             gmm0 = uqfgmmbase.GMM.fromlist([xfk5,xfk5],[Pfk5,Pfk5],[0.5,0.5],0)
@@ -196,7 +202,7 @@ for i in range(jpdamot.targetset.ntargs):
     xf0,_ = genRandomMeanCov(xf0,Pf0,0.8,np.eye(len(xf0)))
 
     for jn in jpdamotlist.keys():
-        if jn == 'IMMKFJPDA':
+        if jn == 'IMMKFJPDA' or jn=='IMMKFJPDA_SIGMA':
             gmm0 = uqfgmmbase.GMM.fromlist([xf0,xf0],[Pf0,Pf0],[0.5,0.5],0)
             modelprobf0 = np.array([0.5,0.5])
             m,P=gmm0.weightedest(modelprob0)
@@ -242,7 +248,8 @@ for t,tk,dt in simmanger.iteratetimesteps():
     jpdamotlist['KFJPDA'].compute_DAmat(t+dt,dt,Zkset)
 #    jpdamotlist['IMMKFJPDA'].set_DAmat_from_groundtruthDA(t+dt,dt)
     jpdamotlist['IMMKFJPDA'].compute_DAmat(t+dt,dt,Zkset)
-
+    jpdamotlist['IMMKFJPDA_SIGMA'].compute_DAmat(t+dt,dt,Zkset)
+    
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
     for jn in jpdamotlist.keys():
         jpdamotlist[jn].measUpdate(t+dt,dt, Zkset)
@@ -258,7 +265,9 @@ for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
     ax.plot(xfk[:,0],xfk[:,1])
     xfk = jpdamotlist['IMMKFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1],'o-')
-
+    xfk = jpdamotlist['IMMKFJPDA_SIGMA'].targetset[i].recorderpost.getvar_alltimes('xfk')
+    ax.plot(xfk[:,0],xfk[:,1],'s-')
+    
     xfk = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1],'k')
 
@@ -290,6 +299,7 @@ ax = fig.add_subplot(111)
 ax.plot(simmanger.tvec, jpdametrics.Errt['KFJPDA_GroundTruthDA'][0]['state'], label='GTDA')
 ax.plot(simmanger.tvec, jpdametrics.Errt['KFJPDA'][0]['state'], label='KFJPDA')
 ax.plot(simmanger.tvec, jpdametrics.Errt['IMMKFJPDA'][0]['state'], label='IMMKFJPDA')
+ax.plot(simmanger.tvec, jpdametrics.Errt['IMMKFJPDA_SIGMA'][0]['state'], label='IMMKFJPDA_SIGMA')
 ax.legend()
 plt.show()
 plt.pause(0.1)

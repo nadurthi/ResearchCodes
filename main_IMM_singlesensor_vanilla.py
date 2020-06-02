@@ -1,19 +1,25 @@
-# -*- coding: utf-8 -*-
+"""IMM single sensor code."""
 
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-import uq.quadratures.cubatures as uqcb
-from loggerconfig import *
+import loggerconfig
 import numpy as np
 from scipy.linalg import block_diag
 import collections as clc
-import pandas as pd
 import os
-import dill,pickle
 import numpy.linalg as npalg
+from uq.filters.kalmanfilter import KFfilterer
+from uq.filters import imm as immfilter
+from uq.filters import gmmbase as uqfgmmbase
+from physmodels import motionmodels as phymm
+from physmodels.sensormodels import DiscLTSensorModel
+from uq.uqutils import metrics as uqmetrics
+from uq.uqutils import simmanager as uqsimmanager
 
-logger = logging.getLogger(__name__)
+matplotlib.use('TkAgg')
+plt.close('all')
+
+logger = loggerconfig.logging.getLogger(__name__)
 
 logger.info('Info log message')
 logger.debug('debug message')
@@ -25,38 +31,15 @@ logger.verbose('verbose log message')
 # except:
 #     logger.exception('error occured')
 
-
 logger.debug('debug message')
 logger.info('info message')
 logger.warning('warn message')
 logger.error('error message')
 logger.critical('critical message')
-# %%
-
-from uq.motfilter import mot as uqmot
-from uq.motfilter import jpda
-from uq.filters.kalmanfilter import TargetKF,KFfilterer
-from uq.filters import imm as immfilter
-from uq.filters import gmmbase as uqfgmmbase
-from physmodels import targets as phytarg
-from uq.uqutils.random import genRandomMeanCov
-from physmodels import motionmodels as phymm
-from physmodels.motionmodels import KinematicModel_UM,KinematicModel_UM_5state
-from physmodels.sensormodels import DiscLTSensorModel
-import uq.motfilter.measurements as motmeas
-from uq.uqutils import recorder as uqrecorder
-from uq.uqutils import helper as uqutilhelp
-from uq.uqutils import metrics as uqmetrics
-from uq.uqutils import simmanager as uqsimmanager
-
-
-plt.close('all')
-# if __name__=='__main__':
-#%%
 
 simname = "IMM_test"
 
-metalog="""
+metalog = """
 IMM test on tracking 1 target and 1 sensor
 
 IMM integrated simmulator
@@ -65,32 +48,28 @@ Author: Venkat
 """
 
 
-simmanger = uqsimmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
-                                  simname=simname,savepath="simulations",
-                                  workdir=os.getcwd())
+simmanger = uqsimmanager.SimManager(t0=0, tf=200, dt=2, dtplot=0.1,
+                                    simname=simname,
+                                    savepath="simulations",
+                                    workdir=os.getcwd())
 
 simmanger.initialize(repocheck=False)
 
-
-
-
-#%%
+# %%
 
 modefilterer = KFfilterer()
 
-H = np.hstack((np.eye(2),np.zeros((2,3))))
-R = block_diag((0.5)**2,(0.5)**2)
+H = np.hstack((np.eye(2), np.zeros((2, 3))))
+R = block_diag((0.5)**2, (0.5)**2)
 
-
-
-sensormodel = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=False)
+sensormodel = DiscLTSensorModel(H, R, recorderobj=None, recordSensorState=False)
 
 um1 = phymm.KinematicModel_UM_5state()
 ct2 = phymm.KinematicModel_CT()
-p=np.array([[0.95,0.05],[0.05,0.95]])
-dynMultiModels = phymm.MultipleMarkovMotionModel([um1,ct2],p)
+p = np.array([[0.95, 0.05], [0.05, 0.95]])
+dynMultiModels = phymm.MultipleMarkovMotionModel([um1, ct2], p)
 
-vmag=2
+vmag = 2
 xfk = np.random.rand(5)
 xfk[4] = 0.1
 xfk[2:4] = xfk[2:4]*vmag/npalg.norm(xfk[2:4])
@@ -105,13 +84,7 @@ immf = immfilter.IntegratedIMM(dynMultiModels,0,gmm0,modelprob, sensormodel, mod
                  recorderobjprior=None, recorderobjpost=None,
                  recordfilterstate=True)
 
-
-
-
-
-
-
-#% get ground truth
+# % get ground truth
 xk = xfk.copy()
 immf.groundtruthrecorder.record(0,xfk=xk)
 nt = simmanger.ntimesteps
