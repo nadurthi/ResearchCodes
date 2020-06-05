@@ -1,16 +1,28 @@
 """IMM+JPDA main function for testinf and simulation."""
 
 import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-import uq.quadratures.cubatures as uqcb
-from loggerconfig import *
 import numpy as np
 from scipy.linalg import block_diag
 import collections as clc
-import pandas as pd
 import os
-import dill,pickle
+from uq.motfilter import jpda
+import uq.filters.kalmanfilter as uqkf
+from uq.filters import sigmafilter as uqsigf
+from uq.uqutils.random import genRandomMeanCov
+from physmodels import motionmodels as phymm
+from physmodels import sensormodels as physm
+from physmodels import targets as phytarg
+from uq.filters import imm as immfilter
+from uq.filters import gmmbase as uqfgmmbase
+from uq.uqutils import recorder as uqrecorder
+from uq.uqutils import metrics as uqmetrics
+from uq.uqutils import simmanager as uqsimmanager
+from uq.quadratures import cubatures as quadcub
+import uq.quadratures.cubatures as uqcb
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+from loggerconfig import *
+
 
 plt.close('all')
 
@@ -32,37 +44,19 @@ logger.info('info message')
 logger.warning('warn message')
 logger.error('error message')
 logger.critical('critical message')
-# %%
 
-from uq.motfilter import mot as uqmot
-from uq.motfilter import jpda
-from uq.filters.kalmanfilter import TargetKF,KFfilterer
-from uq.filters import sigmafilter as uqsigf
-from uq.uqutils.random import genRandomMeanCov
-from physmodels.motionmodels import KinematicModel_UM
-from physmodels import motionmodels as phymm
-from physmodels.sensormodels import DiscLTSensorModel
-from physmodels import targets as phytarg
-from uq.filters import imm as immfilter
-from uq.filters import gmmbase as uqfgmmbase
-import uq.motfilter.measurements as motmeas
-from uq.uqutils import recorder as uqrecorder
-from uq.uqutils import helper as uqutilhelp
-from uq.uqutils import metrics as uqmetrics
-from uq.uqutils import simmanager as uqsimmanager
-from uq.quadratures import cubatures as quadcub
-# if __name__=='__main__':
 #%%
 metalog="""
-JPDA+IMM test on tracking 5 targets using 1 sensor
-this is the initial testing code to see if everything works
-But now this code has Sigma filter code for testing
+AIAA SCITECH 2020 IMM+JPDA paper simulations
 Author: Venkat
+Date: June 4 2020
+
+Comparing the IMM+JPDA filter using EKF and UT and CUT points
 """
 
 
 simmanger = uqsimmanager.SimManager(t0=0,tf=55,dt=0.5,dtplot=0.1,
-                                  simname="JPDA_IMM_SIGMA_test",savepath="simulations",
+                                  simname="AIAA-SCITECH-2020-JPDA-IMM",savepath="simulations",
                                   workdir=os.getcwd())
 
 simmanger.initialize()
@@ -74,46 +68,46 @@ simmanger.initialize()
 
 
 
-H = np.hstack((np.eye(2),np.zeros((2,2))))
-R = block_diag((0.5)**2,(0.5)**2)
-sensormodel4d = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=False)
+# H = np.hstack((np.eye(2),np.zeros((2,2))))
+# R = block_diag((0.5)**2,(0.5)**2)
+# sensormodel4d = physm.DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=False)
 
-H = np.hstack((np.eye(2),np.zeros((2,3))))
-R = block_diag((0.5)**2,(0.5)**2)
-sensormodel5d = DiscLTSensorModel(H,R,recorderobj=None,recordSensorState=False)
+H = np.hstack((np.eye(2), np.zeros((2, 3))))
+R = block_diag((0.5)**2, (0.5)**2)
+sensormodel5d = physm.DiscLTSensorModel(H, R, recorderobj=None, recordSensorState=False)
+sensorset = physm.SensorSet()
+sensorset.addSensor(sensormodel5d)
+jpdamotlist = {}
 
-# make both the sensors the same
-sensormodel5d.ID = sensormodel4d.ID
+# filterer = TargetKF()
+# jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=5 )
+# jpdamot.sensorset.addSensor(sensormodel4d)
+# jpdamotlist['EKFJPDA_GroundTruthDA']=jpdamot
 
-jpdamotlist={}
+filterer = uqkf.TargetKF()
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=False,PD = 0.7,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset = sensorset
+jpdamotlist['EKFJPDA']=jpdamot
 
-filterer = TargetKF()
-jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=5 )
-jpdamot.sensorset.addSensor(sensormodel4d)
-jpdamotlist['KFJPDA_GroundTruthDA']=jpdamot
+filterer = uqsigf.TargetSigmaKF(sigmamethod = quadcub.SigmaMethod.UT)
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=False,PD = 0.7,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset = sensorset
+jpdamotlist['UKFJPDA']=jpdamot
 
-filterer = TargetKF()
-jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=15 )
-jpdamot.sensorset.addSensor(sensormodel4d)
-jpdamotlist['KFJPDA']=jpdamot
-
-
-modefilterer = KFfilterer()
+modefilterer = uqkf.KFfilterer()
 filterer = immfilter.TargetIMM(modefilterer)
-jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=15 )
-jpdamot.sensorset.addSensor(sensormodel5d)
-jpdamotlist['IMMKFJPDA']=jpdamot
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=False,PD = 0.7,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset = sensorset
+jpdamotlist['EKFIMMJPDA']=jpdamot
 
 modefilterer = uqsigf.Sigmafilterer(sigmamethod = quadcub.SigmaMethod.UT)
 filterer = immfilter.TargetIMM(modefilterer)
-jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=True,PD = 0.7,V=100,uf=None, Gamma=15 )
-jpdamot.sensorset.addSensor(sensormodel5d)
-jpdamotlist['IMMKFJPDA_SIGMA']=jpdamot
+jpdamot = jpda.JPDAMOT(filterer,recordMeasurementSets=False,PD = 0.7,V=100,uf=None, Gamma=15 )
+jpdamot.sensorset = sensorset
+jpdamotlist['UKFIMMJPDA']=jpdamot
 
-um1 = phymm.KinematicModel_UM_5state()
-ct2 = phymm.KinematicModel_CT()
-p=np.array([[0.95,0.05],[0.05,0.95]])
-dynMultiModels = phymm.MultipleMarkovMotionModel([um1,ct2],p)
+
+groundTruthTargets = phytarg.TargetSet()
 
 vmag = 2
 
@@ -121,17 +115,30 @@ vmag = 2
 for i in range(5):
 
     xfk = np.random.rand(4)
-    xfk[0:2] = 50*xfk[0:2]
+    xfk[0:2] = 25*xfk[0:2]
     xfk[2:4] = vmag*xfk[2:4]
     Pfk = np.random.randn(4,4)
     Pfk = np.matmul(Pfk,Pfk.T)
-
-    dynmodel = KinematicModel_UM()
-
+    xfk5 = np.hstack([xfk,np.random.rand()])
+    Pfk5 = block_diag(Pfk,0.1**2)
+            
+    dynmodel = phymm.KinematicModel_UM_5state()
+    
+    um1 = phymm.KinematicModel_UM_5state()
+    ct2 = phymm.KinematicModel_CT()
+    p=np.array([[0.90,0.1],[0.1,0.90]])
+    dynMultiModels = phymm.MultipleMarkovMotionModel([um1,ct2],p)
+    
+    target = phytarg.Target(dynModel=dynmodel, xfk=xfk5, Pfk=Pfk5, currt = 0, recordfilterstate=True,
+             recorderobjprior = None,recorderobjpost=None)
+    target.groundtruthrecorder = uqrecorder.StatesRecorder_fixedDim(statetypes = {
+            'xfk':(dynmodel.fn,)})
+        
+    groundTruthTargets.addTarget(target)
+    
     for jn in jpdamotlist.keys():
-        if jn == 'IMMKFJPDA' or jn=='IMMKFJPDA_SIGMA':
-            xfk5 = np.hstack([xfk,0])
-            Pfk5 = block_diag(Pfk,0.1**2)
+        if 'IMM' in jn:
+            
             gmm0 = uqfgmmbase.GMM.fromlist([xfk5,xfk5],[Pfk5,Pfk5],[0.5,0.5],0)
             modelprob0=np.array([0.5,0.5])
             recorderobjprior = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk','gmmfk','modelprobfk'] )
@@ -162,9 +169,9 @@ for i in range(5):
 
 #%% get ground truth
 
-for n in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
-    xk = jpdamotlist['IMMKFJPDA'].targetset[n].gmmfk.m(0).copy()
-    jpdamotlist['IMMKFJPDA'].targetset[n].groundtruthrecorder.record(0,xfk=xk)
+for n in range(groundTruthTargets.ntargs):
+    xk = groundTruthTargets[n].xfk.copy()
+    groundTruthTargets[n].groundtruthrecorder.record(0,xfk=xk)
     ss = np.sign(np.random.randn(1)[0])
     nt = simmanger.ntimesteps
     for t,tk,dt in simmanger.iteratetimesteps():
@@ -182,33 +189,33 @@ for n in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
             xk[4]=0.3*ss
 
         _,xk = ct2.propforward( t, dt, xk, uk=0)
-        jpdamotlist['IMMKFJPDA'].targetset[n].groundtruthrecorder.record(t+dt,xfk=xk)
+        groundTruthTargets[n].groundtruthrecorder.record(t+dt,xfk=xk)
 
 
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
-    xfk = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
+for i in range(groundTruthTargets.ntargs):
+    xfk = groundTruthTargets[i].groundtruthrecorder.getvar_alltimes('xfk')
     ax.plot(xfk[:,0],xfk[:,1])
 
 plt.show()
 #%% Save ground truth and reset filters to new intiial conditions
-for i in range(jpdamot.targetset.ntargs):
+for i in range(groundTruthTargets.ntargs):
 
-    xf0 = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_byidx('xfk',0)
+    xf0 = groundTruthTargets[i].groundtruthrecorder.getvar_byidx('xfk',0)
 #    Pf0 = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_byidx('Pfk',0)
-    Pf0 = jpdamotlist['IMMKFJPDA'].targetset[i].gmmfk.P(0).copy()
+    Pf0 = groundTruthTargets[i].Pfk.copy()
     xf0,_ = genRandomMeanCov(xf0,Pf0,0.8,np.eye(len(xf0)))
 
     for jn in jpdamotlist.keys():
-        if jn == 'IMMKFJPDA' or jn=='IMMKFJPDA_SIGMA':
+        if 'IMM' in jn:
             gmm0 = uqfgmmbase.GMM.fromlist([xf0,xf0],[Pf0,Pf0],[0.5,0.5],0)
             modelprobf0 = np.array([0.5,0.5])
             m,P=gmm0.weightedest(modelprob0)
             jpdamotlist[jn].targetset[i].setInitialdata(0,gmmfk=gmm0, modelprobfk=modelprobf0,xfk=m,Pfk=P)
         else:
-            jpdamotlist[jn].targetset[i].setInitialdata(0,xfk=xf0[:4], Pfk=Pf0[:4,:4])
+            jpdamotlist[jn].targetset[i].setInitialdata(0,xfk=xf0, Pfk=Pf0)
 
 
 #%% Run the filter
@@ -226,9 +233,9 @@ for t,tk,dt in simmanger.iteratetimesteps():
     grounttruthDA= {}
 
     # generate measurements and ground truth
-    for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
-        xk = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_bytime('xfk',t+dt)[0]
-        ZZ = jpdamotlist['IMMKFJPDA'].sensorset.generateRndMeasSet(t+dt,dt,xk)
+    for i in range(groundTruthTargets.ntargs):
+        xk = groundTruthTargets[i].groundtruthrecorder.getvar_bytime('xfk',t+dt)[0]
+        ZZ = sensorset.generateRndMeasSet(t+dt,dt,xk)
         # ZZ = {'ID': {'zk': zk, 'isinsidek':isinsidek, 'Lk': Lk   } }
         for sensID in ZZ:
             Zkset[sensID].append( ZZ[sensID]['zk'] )
@@ -243,33 +250,22 @@ for t,tk,dt in simmanger.iteratetimesteps():
 
     for jn in jpdamotlist.keys():
         jpdamotlist[jn].setgrounttruthDA(t+dt,dt, grounttruthDA )
+        
+    for jn in jpdamotlist.keys():
+        jpdamotlist[jn].compute_DAmat(t+dt,dt,Zkset)
 
-    jpdamotlist['KFJPDA_GroundTruthDA'].set_DAmat_from_groundtruthDA(t+dt,dt)
-    jpdamotlist['KFJPDA'].compute_DAmat(t+dt,dt,Zkset)
-#    jpdamotlist['IMMKFJPDA'].set_DAmat_from_groundtruthDA(t+dt,dt)
-    jpdamotlist['IMMKFJPDA'].compute_DAmat(t+dt,dt,Zkset)
-    jpdamotlist['IMMKFJPDA_SIGMA'].compute_DAmat(t+dt,dt,Zkset)
-    
     # Zkset should be {'sensID1':[zk1,zk2], 'sensID2':[zk1,zk2,zk3],}
     for jn in jpdamotlist.keys():
         jpdamotlist[jn].measUpdate(t+dt,dt, Zkset)
 
 
-
+markers = ['--','-','o-','s-','k']
 fig = plt.figure()
 ax = fig.add_subplot(111)
-for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
-    xfk = jpdamotlist['KFJPDA_GroundTruthDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
-    ax.plot(xfk[:,0],xfk[:,1],'--')
-    xfk = jpdamotlist['KFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
-    ax.plot(xfk[:,0],xfk[:,1])
-    xfk = jpdamotlist['IMMKFJPDA'].targetset[i].recorderpost.getvar_alltimes('xfk')
-    ax.plot(xfk[:,0],xfk[:,1],'o-')
-    xfk = jpdamotlist['IMMKFJPDA_SIGMA'].targetset[i].recorderpost.getvar_alltimes('xfk')
-    ax.plot(xfk[:,0],xfk[:,1],'s-')
-    
-    xfk = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
-    ax.plot(xfk[:,0],xfk[:,1],'k')
+for i in range(groundTruthTargets.ntargs):
+    for idx,jn in enumerate(jpdamotlist.keys()):
+        xfk = jpdamotlist[jn].targetset[i].recorderpost.getvar_alltimes('xfk')
+        ax.plot(xfk[:,0],xfk[:,1],markers[idx])
 
 
 plt.show()
@@ -281,8 +277,8 @@ jpdametrics = uqmetrics.Metrics()
 jpdametrics.Errt = clc.defaultdict(list)
 jpdametrics.Rmse = clc.defaultdict(list)
 
-for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
-    xt = jpdamotlist['IMMKFJPDA'].targetset[i].groundtruthrecorder.getvar_alltimes('xfk')
+for i in range(groundTruthTargets.ntargs):
+    xt = groundTruthTargets[i].groundtruthrecorder.getvar_alltimes('xfk')
     for jn in jpdamotlist.keys():
         xf = jpdamotlist[jn].targetset[i].recorderpost.getvar_alltimes('xfk')
         errt, rmse = uqmetrics.getEsterror(xt, xf, stateset={
@@ -296,10 +292,9 @@ for i in range(jpdamotlist['IMMKFJPDA'].targetset.ntargs):
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec, jpdametrics.Errt['KFJPDA_GroundTruthDA'][0]['state'], label='GTDA')
-ax.plot(simmanger.tvec, jpdametrics.Errt['KFJPDA'][0]['state'], label='KFJPDA')
-ax.plot(simmanger.tvec, jpdametrics.Errt['IMMKFJPDA'][0]['state'], label='IMMKFJPDA')
-ax.plot(simmanger.tvec, jpdametrics.Errt['IMMKFJPDA_SIGMA'][0]['state'], label='IMMKFJPDA_SIGMA')
+for idx,jn in enumerate(jpdamotlist.keys()):
+    ax.plot(simmanger.tvec, jpdametrics.Errt[jn][0]['state'], label=jn)
+
 ax.legend()
 plt.show()
 plt.pause(0.1)
@@ -307,7 +302,9 @@ simmanger.savefigure(fig, ['post', 'K'], 'state.png')
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.plot(simmanger.tvec, jpdametrics.Errt['KFJPDA_GroundTruthDA'][0]['pos'])
+for idx,jn in enumerate(jpdamotlist.keys()):
+    ax.plot(simmanger.tvec, jpdametrics.Errt[jn][0]['state'], label=jn)
+    
 plt.pause(0.1)
 simmanger.savefigure(fig, ['post', 'K'], 'pos.png')
 
