@@ -27,6 +27,17 @@
 				"buffer_size": 1166,
 				"line_ending": "Unix"
 			}
+		},
+		{
+			"contents": "\n\n\n\n\n\n\n\n\n",
+			"file": "/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd42_2369.bib",
+			"file_size": 1171,
+			"file_write_time": 132359377810873812,
+			"settings":
+			{
+				"buffer_size": 9,
+				"line_ending": "Unix"
+			}
 		}
 	],
 	"build_system": "",
@@ -118,7 +129,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 2,
 			"sheets":
 			[
 				{
@@ -148,7 +159,7 @@
 						"translation.y": 1464.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -171,6 +182,34 @@
 						"settings":
 						{
 							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd42_2369.bib",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6,
+								6
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/LaTeX/Bibtex.sublime-syntax"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,
