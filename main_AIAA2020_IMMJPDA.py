@@ -14,7 +14,7 @@ from physmodels import motionmodels as phymm
 from physmodels import sensormodels as physm
 from physmodels import targets as phytarg
 from uq.filters import imm as immfilter
-from uq.filters import gmmbase as uqfgmmbase
+from uq.gmm import gmmbase as uqfgmmbase
 from uq.uqutils import recorder as uqrecorder
 from uq.uqutils import metrics as uqmetrics
 from uq.uqutils import simmanager as uqsimmanager
