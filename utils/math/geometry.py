@@ -6,7 +6,10 @@ import scipy.linalg as sclnalg
 from numpy.linalg import multi_dot
 
 def isinside_points_circle(X,xc,r):
-    y = nplg.norm(X-xc,axis=1)<r
+    if X.ndim==1:
+        y = nplg.norm(X-xc)<r
+    else:
+        y = nplg.norm(X-xc,axis=1)<r
     return y #.astype(int)
 
 def isinside_points_nsigcov(X,m,P,n):
@@ -149,6 +152,10 @@ def isIntersect_circle_cov(xc,r,m,P,n2):
         y[i] = np.matmul(np.matmul(Xcircle[i,:]-m,A),Xcircle[i,:]-m)
 
     return not (np.all(y<1) or np.all(y>1))
+
+
+
+
 
 
 def isIntersect_cov_cov(m1,P1,n1,m2,P2,n2):

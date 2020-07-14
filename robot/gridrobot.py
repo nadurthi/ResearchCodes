@@ -1,76 +1,183 @@
 # -*- coding: utf-8 -*-
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 import numpy as np
 from uq.uqutils import recorder as uqrecorder
-import logging
-import uuid
 import copy
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+import uuid
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+import pdb
+import matplotlib
+# try:
+#     matplotlib.use('TkAgg')
+# except:
+#     matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
+import collections as clc
+import utils.plotting.geometryshapes as utpltgeom
+
 
 class _baseRobot:
     def __init__(self):
         self.ID = uuid.uuid4()
 
-class Robot2DRegGridMap(_baseRobot):
+class Robot2DRegGrid(_baseRobot):
     def __init__(self,mapobj=None):
+        super().__init__()
+        self.robotName = 1
+        
         self.mapobj = mapobj
-        self.xk = [None,None,None] # x,y,dirn
-        self.headingdirections = {0:'up',1:'right',2:'down',3:'left'}
-        self.reachradius = 11
-        self.color = 'r'
+        self.xk = np.array([np.nan,np.nan,np.nan]) # x,y,th
+        self.shape={'a':5,'w':3}
+        self.robotColor = 'r'
+        self.robotAlpha = 0.4
         self.sensormodel = None
+        self.dynModel = None
+        self.recorder = uqrecorder.StatesRecorder_list(statetypes = ['xk','uk'] )
+        self.ax=None
+        self.controltemplates={}
+        self.currt = 0
+        self.controllerhistory={}
+        self.statehistory={}
+        
+        
+        self.x0=None # some intiial time from which states are propagated 
+        self.t0=None # some intiial time from which states are propagated
+    
+    def freezeState(self):
+        self.currt_freeze = np.copy(self.currt).astype(float)
+        self.xk_freeze = self.xk.copy().astype(float)
 
-        self.recorder = uqrecorder.StatesRecorder_list(statetypes = {'xfk':(None,),'Pfk':(None,None)} )
+    def defrostState(self):
+        self.currt = np.copy(self.currt_freeze).astype(float)
+        self.xk = self.xk_freeze.copy().astype(float)
+        
+        
+    def setinitialState(self):
+        self.x0 = self.xk
+        self.t0 = self.currt
+        
+    def resetIntialState(self):
+        self.xk = self.x0
+        self.currt = self.t0
+        
+    def updateTime(self,currt):
+        self.currt = currt
+        
+    def updateSensorModel(self,**params):
+        params['xc'] = self.xk[0:2]
+        params['dirn'] = self.xk[2]
+        
+        
+        self.sensormodel.updateparam( self.currt, **params)
+    
+    def makeNewRobotfromCopy(self):
+        robot = copy.deepcopy(self)
+        robot.ID = uuid.uuid4()
+        
+        return robot
+    
+    def addTemplateTraj(self,uk_key=None,val=None):
+        """
+        key=(idx0,idth0,idxf,idthf)
 
+        """
+        if uk_key in self.controltemplates:
+            print("uk_key already in: ",uk_key )
+        else:
+            self.controltemplates[uk_key]=val
+    
+    def iterateControls(self,xnode0,th0):
+        idx0 = self.mapobj.getNodeIdx(xnode0)
+        idth0 = self.mapobj.getNodeDirnIdx(xnode0,th0)
+        for idxf,xfpos in self.mapobj.iteratenodes():
+            for idthf,thf in self.mapobj.iteratedirn(xfpos):
+                key = (idx0,idth0,idxf,idthf)
+                if key in self.controltemplates:
+                    yield self.controltemplates[key]
+                # else:
+                #     print("key not in: ",key)
+    
+    def iterateControlsKeys(self,xnode0,th0):
+        idx0 = self.mapobj.getNodeIdx(xnode0)
+        idth0 = self.mapobj.getNodeDirnIdx(xnode0,th0)
+        for idxf,xfpos in self.mapobj.iteratenodes():
+            for idthf,thf in self.mapobj.iteratedirn(xfpos):
+                key = (idx0,idth0,idxf,idthf)
+                if key in self.controltemplates:
+                    yield key
+                # else:
+                #     print("key not in: ",key)
+                    
+    def gettemplate(self,uk_key):
+        return self.controltemplates.get(uk_key,None)
+    
+    def gettemplateCost(self,uk_key):
+        contrval = self.controltemplates.get(uk_key,None)
+        if contrval is None:
+            return None
+        else:
+            return contrval['cost']
+    
+    def getcontrol(self,t):
+        return self.controllerhistory[t]
+    
+    def propforward(self, t, dt, uk, **params):
+        # first get current state and see if it is compatible with control
+        x0idx = self.mapobj.getNodeIdx(self.xk[0:2])
+        th0idx = self.mapobj.getNodeDirnIdx(self.xk[0:2],self.xk[2])
+        if uk[0] == x0idx and uk[1] == th0idx:
+            xfidx = uk[2]
+            thfidx = uk[3]
+            xf = self.mapobj.getNodefromIdx(xfidx)
+            dirn = self.mapobj.getthfromIdx(thfidx)
+            self.xk = np.hstack([xf,dirn])
+            self.currt = t+dt
+        else:
+            raise LookupError("control ", uk," is not valid for current state ",x0idx," ",th0idx)
+            
+        
+    def plotrobot(self,ax):
+        self.sensormodel.plotsensorFOV(ax)
+        
+        triag = utpltgeom.getIsoTriangle(self.xk[0:2],self.shape['a'],self.shape['w'],self.xk[2])
+        ax.plot(triag[:,0],triag[:,1],self.robotColor,alpha=self.robotAlpha)
+        
+        ax.plot([self.xk[0]],[self.xk[1]],c=self.robotColor,marker='o')
+        ax.annotate(self.robotName,self.xk[0:2],self.xk[0:2]+2,color=self.robotColor,fontsize='x-small')
+        
+    def plotrobotTraj(self,ax,tvec):
+        """
+        Plot robot trajectory from 0 to time t
+        """
+        for t in tvec:
+            uk_key = self.getcontrol(t)
+            contval = self.gettemplate(uk_key)
+            ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor )
+            
 
-    def setfov(self):
-        self.rmax = 30
-        self.fovshape = 'circular'
-
-    def plotstate(self,ax):
-        triag = np.array([[0,2],[1,-2],[-1,-2],[0,2]])
-        if self.xk[2]==0:
-            th=np.pi/2
-        if self.xk[2]==1:
-            th=0
-        if self.xk[2]==2:
-            th=-np.pi/2
-        if self.xk[2]==3:
-            th=np.pi
-
-        R=np.array([[np.cos(th),-np.sin(th)],[np.sin(th),np.cos(th)]])
-        for i in range(triag.shape[0]):
-            triag[i] = np.matmul(R,triag[i])
-
-        triag[:,0]=triag[:,0]+self.xk[0]
-        triag[:,1]=triag[:,1]+self.xk[1]
-
-
-        ax.plot(triag[:,0],triag[:,1],self.color)
-        ax.plot(self.xk[0],self.xk[1],self.color+'o')
-
-        if self.fovshape == 'circular':
-            Xfov=[]
-            for th in np.linspace(0,2*np.pi,100):
-                Xfov.append( [self.rmax*np.cos(th),self.rmax*np.sin(th)] )
-
-            Xfov = np.array(Xfov)
-
-            Xfov[:,0]=Xfov[:,0]+self.xk[0]
-            Xfov[:,1]=Xfov[:,1]+self.xk[1]
-
-        ax.fill(Xfov[:,0],Xfov[:,1],self.color,alpha=0.4,
-                edgecolor=self.color,facecolor=self.color)
+        
+    def plotdebugTemplate(self,uk_key):
+        contval = self.gettemplate(uk_key)
+        
+        fig = plt.figure(str(uk_key[0:2]))
+        ax = fig.add_subplot(111)
+        
+        # self.ax.cla()    
+        self.mapobj.plotmap(ax)
+        ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],'r' )
+        M = np.min(contval['Xtraj'],axis=0)
+        ax.set_xlim(M[0]-20, M[0]+20)
+        ax.set_ylim(M[1]-20, M[1]+20)
+        
+        plt.pause(0.1)
 
 if __name__=="__main__":
-    robot = Robot2DRegGridMap()
-    robot.xk=[5,5,1]
-    robot.setfov()
+    robot = Robot2DRegGrid()
+    robot.xk=np.array([5,5,np.pi/2])
+
 
     fig = plt.figure()
     ax = fig.add_subplot(111)

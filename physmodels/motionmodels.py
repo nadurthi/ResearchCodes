@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+import numpy.linalg as nplnalg
 import uuid
 from scipy.linalg import block_diag
 logger = logging.getLogger(__name__)
@@ -140,7 +141,43 @@ class KinematicModel_CT(MotionModel):
 
         return F
 
-
+class KinematicModel_CT_control(KinematicModel_CT):
+    """ velocity and turn-rate control"""
+    def propforward(self, t, dt, xk, uk, **params):
+        """
+        uk = [vmag,Omega]
+        """
+        maxturnrate = getattr(self, 'maxturnrate',None)
+        if maxturnrate is None:
+            maxturnrate = 0.25
+        maxvmag = getattr(self, 'maxvmag',None)
+        if maxvmag is None:
+            maxvmag = 1.5
+        currvmag = nplnalg.norm(xk[2:4])    
+        if uk is not None:
+            vmag = uk[0]
+            Omega = uk[1]
+            vmag = np.clip(vmag, 0, maxvmag)
+            
+            if currvmag>0:
+                xk[2:4] = vmag*xk[2:4]/currvmag
+            else:
+                xk[2:4] = vmag*(xk[2:4]+0.001)
+            xk[4] = np.clip(Omega, -maxturnrate, maxturnrate)
+        else:
+            vmag = np.clip(currvmag, 0, maxvmag)
+            if currvmag>0:
+                xk[2:4] = vmag*xk[2:4]/currvmag
+            else:
+                xk[2:4] = xk[2:4]
+            xk[4] = np.clip(xk[4], -maxturnrate, maxturnrate)
+        tt,xk1 = super().propforward(t, dt, xk, uk=0)
+        return (tt, xk1)
+        
+    # def processNoise(self,t,dt,xk,uk=0,**params):
+    #     Q_CT = super().processNoise(t,dt,xk,uk=uk,**params)
+    #     return 0*Q_CT
+    
 class KinematicModel_UM(MotionModel):
 	motionModelName = 'KinematicModel_UM'
 	def __init__(self, L1=0.16,L2=0.001,**kwargs):

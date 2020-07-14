@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 import matplotlib
 try:
     matplotlib.use('TkAgg')
@@ -18,8 +18,8 @@ from utils.plotting import geometryshapes as utpltshp
 from utils.plotting import surface as utpltsurf
 plt.close('all')
 from sklearn import mixture
-
-
+import time
+import utils.timers as utltm
 # %%
 fovr=1
 fovc = np.array([0,0])
@@ -57,42 +57,39 @@ flg= True
 for idx in range(gmm.Ncomp):
     if utmthgeom.isIntersect_circle_cov(fovc,fovr,gmm.m(idx),gmm.P(idx),1):
         # gmm1=uqgmmsplit.splitGaussianUT(gmm.m(idx),gmm.P(idx),w=gmm.w(idx),alpha=5)
-        Xs = np.random.multivariate_normal(gmm.m(idx),gmm.P(idx), 500)
-        y = utmthgeom.isinside_points_circle(Xs,fovc,fovr)
-        Xsinside = Xs[y,:]
-        Xsoutside = Xs[~y,:]
-        
-        pdfC = multivariate_normal(gmm.m(idx),gmm.P(idx))
-        gmmC = uqgmmbase.GMM(None,None,None,0)
-        if gmmC.mu is None:
-            print("gmmC 1 shaoe ", None)
-        else:
-            print("gmmC 1 shaoe ", gmmC.mu.shape)
+        with utltm.TimingContext():
+            Xs = np.random.multivariate_normal(gmm.m(idx),gmm.P(idx), 1000)
+            y = utmthgeom.isinside_points_circle(Xs,fovc,fovr)
+            Xsinside = Xs[y,:]
+            Xsoutside = Xs[~y,:]
             
-        clf = mixture.GaussianMixture(n_components=5, covariance_type='full')
-        clf.fit(Xsinside)
-        gmmC.appendCompArray(clf.means_,clf.covariances_,clf.weights_,renormalize = True)
-        print("gmmC 2 shaoe ", gmmC.mu.shape)
-        
-        clf2 = mixture.GaussianMixture(n_components=5, covariance_type='full')
-        clf2.fit(Xsoutside)
-        gmmC.appendCompArray(clf2.means_,clf2.covariances_,clf2.weights_,renormalize = True)
-        print("gmmC 3 shaoe ", gmmC.mu.shape)
-        
-        gmmC.normalizeWts()
-        print("gmmC shaoe ", gmmC.mu.shape)
-        pt=pdfC.pdf(Xs)
-        gmmC.resetwts()
-        w=uqgmmbase.optimizeWts(gmmC,Xs,pt)
-        gmmC.setwts(gmm.w(idx)*w)
-
-        # pestc = gmmC.evalcomp(Xs,gmmC.idxs)
-        # W = nplg.lstsq(pestc.T, pt)
-        
-        # w = W[0]/np.sum(W[0])
-        # w = w*gmm.w(idx)
-        # gmmC.setwts(w)
-        
+            pdfC = multivariate_normal(gmm.m(idx),gmm.P(idx))
+            gmmC = uqgmmbase.GMM(None,None,None,0)
+            if gmmC.mu is None:
+                print("gmmC 1 shaoe ", None)
+            else:
+                print("gmmC 1 shaoe ", gmmC.mu.shape)
+            
+            with utltm.TimingContext():
+                clf = mixture.GaussianMixture(n_components=5, covariance_type='full')
+                clf.fit(Xsinside)
+                gmmC.appendCompArray(clf.means_,clf.covariances_,clf.weights_,renormalize = True)
+                print("gmmC 2 shaoe ", gmmC.mu.shape)
+            
+            with utltm.TimingContext():
+                clf2 = mixture.GaussianMixture(n_components=5, covariance_type='full')
+                clf2.fit(Xsoutside)
+                gmmC.appendCompArray(clf2.means_,clf2.covariances_,clf2.weights_,renormalize = True)
+                print("gmmC 3 shaoe ", gmmC.mu.shape)
+            
+            with utltm.TimingContext():
+                gmmC.normalizeWts()
+                print("gmmC shaoe ", gmmC.mu.shape)
+                pt=pdfC.pdf(Xs)
+                gmmC.resetwts()
+                w=uqgmmbase.optimizeWts(gmmC,Xs,pt)
+                gmmC.setwts(gmm.w(idx)*w)
+                gmmC.normalizeWts()
         
                             
         gmmN.appendGMM(gmmC)
@@ -100,11 +97,7 @@ for idx in range(gmm.Ncomp):
     else:
         gmmN.appendComp(gmm.m(idx),gmm.P(idx),gmm.w(idx),renormalize = False)
 
-# gmmN.resetwts()
-# Xs = gmmN.random(2000)
-# pt = gmmN.pdf(Xs)
-# w=uqgmmbase.optimizeWts(gmmN,Xs,pt)
-# gmmN.setwts(w)
+
 
 
 for ii in range(gmmN.Ncomp):
@@ -119,11 +112,22 @@ gmmN.pruneByWts(wtthresh=1e-4)
 gmmN.normalizeWts()
 print("#comp-prunes = ",gmmN.Ncomp)
 
-gmmNmerged = uqgmmmerg.merge1(gmmN,meanthresfrac=0.5)
-print("Merged #comp = ",gmmNmerged.Ncomp)
+with utltm.TimingContext():
+    gmmNmerged = uqgmmmerg.merge1(gmmN,meanabs=0.5,meanthresfrac=0.5,dh=0.5)
+    print("Merged #comp = ",gmmNmerged.Ncomp)
 
+with utltm.TimingContext():
+    gmmNmerged = uqgmmmerg.merge1(gmmNmerged,meanabs=0.5,meanthresfrac=0.5,dh=0.5)
+    print("Merged #comp = ",gmmNmerged.Ncomp)
 
-    
+with utltm.TimingContext():
+    gmmNmerged = uqgmmmerg.merge1(gmmNmerged,meanabs=0.5,meanthresfrac=0.5,dh=0.5)
+    print("Merged #comp = ",gmmNmerged.Ncomp)
+# Xs = gmmNmerged.random(2000)
+# pt = gmmNmerged.pdf(Xs)
+# w=uqgmmbase.optimizeWts(gmmNmerged,Xs,pt)
+# gmmNmerged.setwts(w)
+
 # Contour Plot of original
 fig = plt.figure("original-cont")
 ax = fig.add_subplot(111)

@@ -1,5 +1,6 @@
 import numpy as np
 import os
 
-def cache2file(folder=None):
-    pass
+class Cache2file:
+    def __init__(filepath=None):
+        pass

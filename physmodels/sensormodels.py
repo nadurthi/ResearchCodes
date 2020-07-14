@@ -6,6 +6,7 @@ import scipy.linalg as sclg
 import uuid
 import collections as clc
 from scipy.linalg import block_diag
+import pdb
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -24,17 +25,18 @@ class SensorModel:
 
         self.sensStateStrs = [] #states-str of the sensor measurment ['r','th']
         self.sensstates = [] # states required to make the measurement as time time t
-        self.currtk = 0
+        self.currt = 0
 
         if recorderobj is None:
-            self.recorder = recorder.StatesRecorder_list(statetypes = ['zk','sensstates'] )
+            self.recorder = recorder.StatesRecorder_list(statetypes = ['zk']+self.sensstates )
         else:
             self.recorder = recorderobj
 
-
-    def updateparam(self, updatetk, **params):
-        if updatetk:
-            self.currtk += 1
+    def getSenStateDict(self):
+        return {}
+    
+    def updateparam(self, currt, **params):
+        self.currt = currt
 
     def measNoise(self, t, dt, xk, **params):
         return self.R
@@ -51,7 +53,7 @@ class SensorModel:
         for i in range(n):
             ss.append(getattr(self, self.sensstates[i]))
 
-        ss = [self.currtk, z] + ss
+        ss = [self.currt, z] + ss
         self.sensorHistory.append(SensorState(**ss))
 
     def __call__(self,t, dt, xk):
@@ -66,10 +68,11 @@ class SensorModel:
     def generateRndMeas(self, t, dt, xk,useRecord=False):
         R = self.measNoise(t, dt, xk)
         zk,isinsidek,Lk = self.__call__(t, dt, xk)
+        # pdb.set_trace()
         zk = zk + np.matmul(sclg.sqrtm(R), np.random.randn(self.hn))
 
-#        if self.recordSensorState is True:
-#            self.recorder.record(t,zk=zk,sensstates=self.dynstate())
+        if self.recordSensorState is True:
+            self.recorder.record(t,zk=zk,**self.getSenStateDict())
 
         return zk,isinsidek,Lk
 
@@ -80,7 +83,7 @@ class SensorModel:
         ss.append(['----------','----------'])
         ss.append(['ID',self.ID])
         ss.append(['recordSensorState',self.recordSensorState])
-        ss.append(['currtk',self.currtk])
+        ss.append(['currt',self.currt])
         ss.append(['hn',self.hn])
 
         return ss
@@ -182,6 +185,8 @@ class SensorSet:
 
 
 
+    
+
 class StackedSensorModel:
     sensorName = 'StackedSensorModel'
     def __init__(self,sensormodels,recordSensorState=False):
@@ -191,7 +196,7 @@ class StackedSensorModel:
         self.recordSensorState = recordSensorState
         self.sensorHistory = []
         self.sensstates = []
-        self.currtk = 0
+        self.currt = 0
 
         self.hn=np.sum([sensormodel.hn for sensormodel in self.sensormodels])
 
@@ -205,7 +210,7 @@ class StackedSensorModel:
         ss.append(['----------','----------'])
         ss.append(['ID',self.ID])
         ss.append(['recordSensorState',self.recordSensorState])
-        ss.append(['currtk',self.currtk])
+        ss.append(['currt',self.currt])
 
         ss.append(['hn',self.hn])
 
@@ -241,17 +246,11 @@ class StackedSensorModel:
         isinsidek = np.hstack(isinsidek)
         Lk = np.hstack(Lk)
 
-        return {self.ID: [zk, isinsidek, Lk]}
+        return zk, isinsidek, Lk
 
-    def updateparam(self, updatetk, **params):
-        if updatetk:
-            self.currtk += 1
-        if len(params) == 0:
-            for i in range(len(self.sensormodels)):
-                self.sensormodels[i].updateparam( updatetk)
-        else:
-            for i in range(len(self.sensormodels)):
-                self.sensormodels[i].updateparam( updatetk, params[i])
+    def updateparam(self, currt, sensidx,**params):
+        self.currt = currt
+        self.sensormodels[sensidx].updateparam( currt, **params)
 
     def generateRndMeas(self, t, dt, xk):
         raise NotImplementedError("ToDo")
@@ -280,7 +279,7 @@ class StackedSensorModel:
         n = len(self.sensstates)
         SensorState = clc.namedtuple('SensorState', ['tk', 'zk'] )
 
-        self.sensorHistory.append(SensorState(self.currtk,z))
+        self.sensorHistory.append(SensorState(self.currt,z))
 
 
 class DiscLTSensorModel(SensorModel):

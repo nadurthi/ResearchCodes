@@ -56,7 +56,8 @@ class Target:
             status=TargetStatus.Active, recorderobjprior=None,recorderobjpost=None):
 
         self.ID = uuid.uuid4()
-
+        self.targetName = 1
+        
 
         self.dynModelset = dynModelset # multiple models are possible
         self.dynModel = dynModel
@@ -65,7 +66,13 @@ class Target:
         self.xfk = xfk
         self.Pfk = Pfk
         self.modelprobfk = modelprobfk
-
+        
+        self.gmmtk = None  # truth
+        self.xtk = None  # truth
+        self.Ptk = None  # truth
+        self.modelprobtk = None  # truth
+        self.posstates=np.array([0,1])
+        
         self.currt = currt
         self.context ={}
 
@@ -90,7 +97,7 @@ class Target:
         else:
             self.recorderpost = recorderobjpost
 
-        self.groundtruthrecorder = None
+        self.groundtruthrecorder = uqrecorder.StatesRecorder_list(statetypes = ['xtk'] )
         self.plottingrecorder = None
 
 #
@@ -104,8 +111,75 @@ class Target:
 #                params[recstate] = getattr(self,recstate)
 #            self.recorderpost.record(currt,**params)
 
-
-
+    def freezeState(self):
+        if self.gmmfk is not None:
+            self.gmmfk_freezer = self.gmmfk.makeCopy()
+        else:
+            self.gmmfk_freezer = None
+            
+        if self.xfk is not None:
+            self.xfk_freezer = self.xfk.copy()
+        else:
+            self.xfk_freezer = None
+            
+        if self.Pfk is not None:
+            self.Pfk_freezer = self.Pfk.copy()
+        else:
+            self.Pfk_freezer = None
+            
+        if self.modelprobfk is not None:
+            self.modelprobfk_freezer = self.modelprobfk.copy()
+        else:
+            self.modelprobfk_freezer = None
+            
+        if self.currt is not None:
+            self.currt_freezer = np.copy(self.currt).astype(float)
+        else:
+            self.currt_freezer = None
+            
+    def defrostState(self):
+        if self.gmmfk_freezer is None:
+            self.gmmfk = self.gmmfk_freezer
+        else:
+            self.gmmfk = self.gmmfk_freezer.makeCopy()
+        
+        if self.xfk_freezer is None:
+            self.xfk = self.xfk_freezer
+        else:
+            self.xfk = self.xfk_freezer.copy()
+        
+        if self.Pfk_freezer is None:
+            self.Pfk = self.Pfk_freezer
+        else:
+            self.Pfk = self.Pfk_freezer.copy()
+        
+        if self.modelprobfk_freezer is None:
+            self.modelprobfk = self.modelprobfk_freezer
+        else:
+            self.modelprobfk = self.modelprobfk_freezer.copy()
+        
+        if self.currt_freezer is None:
+            self.currt = self.currt_freezer
+        else:
+            self.currt = np.copy(self.currt_freezer).astype(float)
+        
+        
+    def setStateFromPrior(self,t,statevars):
+        for var in statevars:
+            v = self.recorderprior.getvar_bytime(var,t)
+            if v is None:
+                raise Exception("setStateFromPrior: ",var," not in recorderprior at time ",t)
+            setattr(self,var,v)
+        self.currt=t
+        
+    def setStateFromPost(self,t,statevars):
+        for var in statevars:
+            v = self.recorderpost.getvar_bytime(var,t)
+            if v is None:
+                raise Exception("setStateFromPost: ",var," not in recorderpost at time ",t)
+            setattr(self,var,v)
+        self.currt=t
+        
     def setInitialdata(self,currt,xfk=None, Pfk=None,gmmfk=None, modelprobfk=None):
         self.xfk = xfk
         self.Pfk = Pfk
@@ -236,7 +310,11 @@ class TargetSet:
         self.targets = []
         self.ID = uuid.uuid4()
 
-
+    def asserteqtimes(self):
+        T=[]
+        for i in range(self.ntargs):
+            T.append(self.targets[i].currt)
+        np.testing.assert_approx_equal(np.max(T),np.min(T))
 
     def targetIDs(self):
         return [ss.ID for ss in self.targets]

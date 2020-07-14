@@ -16,4 +16,4 @@ torch==1.4.0
 torchfile==0.1.0
 torchnet==0.0.5.1
 torchvision==0.5.0
-
+nuscenes-devkit
