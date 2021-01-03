@@ -52,7 +52,7 @@ class Target:
         - car model, volume etc anyt other features
     """
 
-    def __init__(self, dynModel=None,dynModelset=None,gmmfk=None, modelprobfk = None, xfk=None, Pfk=None, currt=0,recordfilterstate=False,
+    def __init__(self, dynModel=None,dynModelset=None,gmmfk=None, modelprobfk = None, xfk=None, Pfk=None,particlesfk=None, currt=0,recordfilterstate=False,
             status=TargetStatus.Active, recorderobjprior=None,recorderobjpost=None):
 
         self.ID = uuid.uuid4()
@@ -61,7 +61,8 @@ class Target:
 
         self.dynModelset = dynModelset # multiple models are possible
         self.dynModel = dynModel
-
+        
+        self.particlesfk = particlesfk
         self.gmmfk = gmmfk
         self.xfk = xfk
         self.Pfk = Pfk
@@ -180,12 +181,13 @@ class Target:
             setattr(self,var,v)
         self.currt=t
         
-    def setInitialdata(self,currt,xfk=None, Pfk=None,gmmfk=None, modelprobfk=None):
+    def setInitialdata(self,currt,xfk=None, Pfk=None,gmmfk=None, modelprobfk=None,particlesfk=None):
         self.xfk = xfk
         self.Pfk = Pfk
         self.gmmfk = gmmfk
         self.modelprobfk = modelprobfk
-
+        self.particlesfk = particlesfk
+        
         self.currt = currt
 
         if self.recordfilterstate:

@@ -65,6 +65,9 @@ from maps import gridmap
 import copy
 import robot.filters.robot2Dfilters as rbf2df
 from sensortasking import robotdp as robdb
+from sensortasking import robotinfo as robinfo
+
+
 # %% script-level properties
 
 runfilename = __file__
@@ -334,16 +337,9 @@ splitterConfigMeasUpdt = uqgmmsplit.SplitterConfig(alphaSpread=2,Ngh=5,nsig=2,Nm
                                            wtthreshprune=1e-3)
 
 
-class InfoConfig:
-    def __init__(self):
-        self.bins = (tuple(np.linspace(0,100,30)),
-                     tuple(np.linspace(0,100,30)),
-                     tuple(np.linspace(-5,5,20)),
-                     tuple(np.linspace(-5,5,20)),
-                     tuple(np.linspace(-1,1,20)))
-        self.binmaxwidth = [3,3,1,1,0.5]
+
         
-infoconfig = InfoConfig()
+infoconfig = robinfo.infoconfigDefault
 
 axCont = {}
         

@@ -27,18 +27,18 @@ class PlanetConstants:
             self._R = 6378.137
             self._g = 9.8065
     
-    @property
+    
     def getTrue(self):
-        prop  =clc.namedtuple("Properties","radii","mu",'R',"g")(self._radii,
+        prop  =clc.namedtuple("Properties",["radii","mu",'R',"g"])(self._radii,
                                                                  self._mu,
                                                                  self._R,
                                                                  self._g)
         return prop
         
-    @property
+    
     def getCanonical(self):
         radiican = np.array(self._radii)/self._R
-        prop  =clc.namedtuple("Properties","radii","mu",'R',"g")(self._radii,
+        prop  =clc.namedtuple("Properties",["radii","mu",'R',"g"])(self._radii,
                                                                  1,
                                                                  1,
                                                                  None)

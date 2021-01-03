@@ -115,7 +115,20 @@ def generateTemplates(robotobj,dt,T):
                     # mapobj.plotdebugTemplate(uk_key)
                     
     
-
+    
+    
+    while True:
+        isalldone = []
+        for uk_key in Djob:
+            if Djob[uk_key]['job'].result is None: 
+                time.sleep(5)
+                isalldone.append(False)
+            else:
+                isalldone.append(True)
+        if np.all(isalldone):
+            break
+        
+        
     for uk_key in Djob:
         if Djob[uk_key]['job'].result is None: 
             time.sleep(5)

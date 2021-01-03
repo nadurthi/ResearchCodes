@@ -76,27 +76,39 @@ import multiprocessing as mp
 import matplotlib.pyplot as plt
 from utils.math import geometry as utmthgeom
 import pickle as pkl
+
+
+import numpy as np
+import robot.gridrobot as robgrid
+from uq.information import distance as uqinfodis
+import collections as clc
+import copy
+from utils.math import geometry as utmthgeom
+from uq.gmm import gmmbase as uqgmmbase
+from sensortasking import robotinfo as sensrbinfo
 # %% script-level properties
-fname = "debug-info-tvec-8.pkl"
-with open(fname,'rb') as FF:
-    rid,ridstates,robots,targetset,tvec,Targetfilterer,splitterConfig,mergerConfig = pkl.load(FF)
 
-# %%
-targetset[0].recorderprior
-targetset[0].recorderprior.data['t']
-targetset[0].recorderpost.data['t']
 
-# %%
-colmap = plt.get_cmap('gist_rainbow')
-NUM_COLORS = 20
-colors = [colmap(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
-shuffle(colors)
+class InfoConfig:
+    def __init__(self):
+        self.bins = (tuple(np.linspace(0,100,30)),
+                     tuple(np.linspace(0,100,30)),
+                     tuple(np.linspace(-5,5,20)),
+                     tuple(np.linspace(-5,5,20)),
+                     tuple(np.linspace(-1,1,20)))
+        self.binmaxwidth = [3,3,1,1,0.5]
+
+infoconfigDefault = InfoConfig()
 
 def plotinfomap(targetset,robots,infocost,ridstates,t):
-    
+    import matplotlib
+    import matplotlib.pyplot as plt
     fig = plt.figure("Info-Surf: %f"%t)
-
-    
+    print("working")
+    colmap = plt.get_cmap('gist_rainbow')
+    NUM_COLORS = 20
+    colors = [colmap(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
+    shuffle(colors)
 
     
     ax_list = fig.axes
@@ -113,7 +125,7 @@ def plotinfomap(targetset,robots,infocost,ridstates,t):
         #     gmmu = targetset[i].recorderprior.getvar_bytime('gmmfk',t+dt)
             
         gmmupos = uqgmmbase.marginalizeGMM(gmmu,targetset[i].posstates)
-        XX = uqgmmbase.plotGMM2Dcontour(gmmupos,nsig=1,N=100,rettype='list')
+        XX = uqgmmbase.plotGMM2Dcontour(gmmupos,nsig=2,N=100,rettype='list')
         for cc in range(gmmupos.Ncomp):
             ax.plot(XX[cc][:,0],XX[cc][:,1],c=colors[i])
             # ax.annotate("wt: "+str(gmmupos.w(cc))[:5],gmmupos.m(cc)[0:2],gmmupos.m(cc)[0:2]-3,color=colors[i],fontsize='x-small')
@@ -138,168 +150,258 @@ def plotinfomap(targetset,robots,infocost,ridstates,t):
     # plt.show(block=True)
     plt.show()
     plt.pause(0.1)
+    # k = f'{t:06.2f}'.replace('.','-')
+    # simmanager.savefigure(fig, ['SimSnapshot', 'InfoMap'], k+'.png',data=[targetset,robots,infocost,ridstates,t])
 
-
-# %%
-Nmc = 10000
-i=1
-gmmfk = targetset[i].gmmfk.makeCopy()
-# mu = np.zeros(5)
-# P0 = 0.1**2*np.identity(5)
-# gmmfk = uqgmmbase.GMM(None,None,None,0)
-# gmmfk.appendCompArray(np.array([mu]),np.array([P0]),np.array([1]),renormalize = True)
-
-Xmc = gmmfk.random(Nmc)
-# Xmc,_ = quadcub.GH_points(mu,P0,5)
-pt = gmmfk.pdf(Xmc)
-clf = mixture.GaussianMixture(n_components=5, covariance_type='full')
-clf.fit(Xmc)
-gmmuk = uqgmmbase.GMM(None,None,None,0)
-gmmuk.appendCompArray(clf.means_,clf.covariances_,clf.weights_,renormalize = True)
-wtsopt=uqgmmbase.optimizeWts(gmmuk,Xmc,pt)
-wtsopt=wtsopt/np.sum(wtsopt)
-gmmuk2=gmmuk.makeCopy()
-gmmuk2.wts = wtsopt
-pt2 = gmmuk2.pdf(Xmc)
-dd1=uqinfodis.hellingerDistGMM(gmmfk,gmmuk)
-dd2=uqinfodis.hellingerDistGMM(gmmfk,gmmuk2)
-dd3=uqinfodis.hellingerDistGMM(gmmuk,gmmuk2)
-print(dd1)
-print(dd2)
-print(dd3)
-fig = plt.figure("original-surf")
-ax = fig.add_subplot(111, projection='3d')
-xx,yy,p = uqgmmbase.plotGMM2Dsurf(uqgmmbase.marginalizeGMM(gmmfk,[0,1]),Ng=50)
-ax.plot_surface(xx,yy,p,alpha=0.7,linewidth=1)
-xx,yy,p = uqgmmbase.plotGMM2Dsurf(uqgmmbase.marginalizeGMM(gmmuk2,[0,1]),Ng=50)
-ax.plot_surface(xx,yy,p,alpha=0.7,linewidth=1)
-
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-
-dd=100*np.abs(pt-pt2)/pt
-print(np.percentile(dd,75))
-
-# %%
-class InfoConfig:
-    def __init__(self):
-        self.bins = (tuple(np.linspace(0,100,75)),
-                     tuple(np.linspace(0,100,75)),
-                     tuple(np.linspace(-5,5,20)),
-                     tuple(np.linspace(-5,5,20)),
-                     tuple(np.linspace(-1,1,20)))
-        self.binmaxwidth = [3,3,1,1,0.5]
-        
-infoconfig = InfoConfig()
-
-for i in range(targetset.ntargs):
-    targetset[i].freezeState()
-for r in range(rid+1):
-    robots[r].freezeState()    
-
-D=clc.defaultdict(dict)
-for n in range(ridstates.shape[0]):
-    D[tvec[0]][n]=0
-    
-for j in range(0,1):
-    # for n in range(ridstates.shape[0]):
+def getinfotimestep(j,rid,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig):
+    D={}
+    for n in range(ridstates.shape[0]):
         # with utltm.TimingContext("robot pos: "):
-    n=45  # 53 45 63
-    It=0
-    robots[rid].xk[0:2] = ridstates[n] 
-    robots[rid].updateSensorModel()
-    for r in range(rid):
-        robots[r].xk = robots[r].statehistory[tvec[j]]
-        robots[r].updateSensorModel()
         
-    for i in range(targetset.ntargs):
-        dt = tvec[j]-tvec[j-1]
-        # gmmfk = targetset[i].recorderprior.getvar_bytime('gmmfk',tvec[j])
-        targetset[i].setStateFromPrior(tvec[j],['gmmfk','xfk','Pfk'])
+        robots[rid].xk[0:2] = ridstates[n] 
+        robots[rid].updateSensorModel()
+        for r in range(rid):
+            robots[r].xk = robots[r].statehistory[tvec[j]]
+            robots[r].updateSensorModel()
         
-        gmmfkpos = uqgmmbase.marginalizeGMM(targetset[i].gmmfk,targetset[i].posstates)
-        Nz = 1000
-        X = gmmfkpos.random(Nz)
-        w = np.ones(Nz)/Nz
-        # X,w = gmmfkpos.generateUTpts()
-        
-        
-        I=[]
-        cache={}
-        for s in range(X.shape[0]):
-            Zk=clc.defaultdict(list)
-            for r in range(rid+1):
-                zij,isinsidek,Lk = robots[r].sensormodel.generateRndMeas(tvec[j], dt, X[s],useRecord=False)     
-                if isinsidek == 0:
-                    Zk[i].append(None)
-                else:
-                    Zk[i].append(zij)
+        It=[]   
+        for i in range(targetset.ntargs):
+            dt = tvec[j]-tvec[j-1]
+            # gmmfk = targetset[i].recorderprior.getvar_bytime('gmmfk',tvec[j])
+            targetset[i].setStateFromPrior(tvec[j],['gmmfk','xfk','Pfk'])
             
+            gmmfkpos = uqgmmbase.marginalizeGMM(targetset[i].gmmfk,targetset[i].posstates)
+            Nz = 1000
+            X = gmmfkpos.random(Nz)
+            w = np.ones(Nz)/Nz
+            # X,w = gmmfkpos.generateUTpts()
 
-            ykey = tuple([1 if zz is not None else 0 for zz in Zk[i]])
-            if ykey not in cache:
+            
+            I=[]
+            cache={}
+            for s in range(X.shape[0]):
+                Zk=clc.defaultdict(list)
+                for r in range(rid+1):
+                    zij,isinsidek,Lk = robots[r].sensormodel.generateRndMeas(tvec[j], dt, X[s],useRecord=False)     
+                    if isinsidek == 0:
+                        Zk[i].append(None)
+                    else:
+                        Zk[i].append(zij)
+                
                 # measUpdateFOV_PFGMM
                 # measUpdateFOV_randomsplitter
-                # kk = tuple([1 if zz is not None else 0 for zz in Zk[i]])
-                # if kk not in cache:
-                print(Zk[i])
-                splitterConfig.NcompIN = 5
-                splitterConfig.NcompOUT = 5
-                mergerConfig.fixedComps = 5
-                gmmuk=rbf2df.measUpdateFOV_PFGMM(tvec[j],dt,robots[:(rid+1)],targetset[i],Zk[i],Targetfilterer,infoconfig,
-                                                updttarget=False,
-                                                splitterConfig = splitterConfig,
-                                                mergerConfig = mergerConfig,
-                                                computePriorPostDist=True)
-               
-                fig = plt.figure("Debug Info-Surf: %f"%tvec[j])
-                ax_list = fig.axes
-                if len(ax_list)==0:     
-                    ax = fig.add_subplot(111) #, projection='3d'
-                else:
-                    ax = ax_list[0]
-                ax.cla()
-                ax.plot(X[s,0],X[s,1],'k*')                    
-                gmmfkpos = uqgmmbase.marginalizeGMM(targetset[i].gmmfk,targetset[i].posstates)
-                gmmukpos = uqgmmbase.marginalizeGMM(gmmuk,targetset[i].posstates)
-                XX = uqgmmbase.plotGMM2Dcontour(gmmfkpos,nsig=2,N=100,rettype='list')
-                for cc in range(gmmfkpos.Ncomp):
-                    ax.plot(XX[cc][:,0],XX[cc][:,1],c=colors[i])
-                XX = uqgmmbase.plotGMM2Dcontour(gmmukpos,nsig=2,N=100,rettype='list')
-                for cc in range(gmmukpos.Ncomp):
-                    ax.plot(XX[cc][:,0],XX[cc][:,1],c=colors[i],linestyle='--')
-                
-                robots[0].mapobj.plotmap(ax)
-                for r in range(rid+1):
-                    robots[r].plotrobot(ax)  
+                ykey = tuple([1 if zz is not None else 0 for zz in Zk[i]])
+                if ykey not in cache:
+                    dm = mergerConfig.doMerge
+                    mergerConfig.doMerge = False
+                    gmmuk = rbf2df.measUpdateFOV_randomsplitter(tvec[j],dt,robots[:(rid+1)],targetset[i],Zk[i],Targetfilterer,infoconfig,
+                                                    updttarget=False,
+                                                    splitterConfig = splitterConfig,
+                                                    mergerConfig = mergerConfig,
+                                                    computePriorPostDist=True)
+                    mergerConfig.doMerge = dm
                     
-                # dd=uqinfodis.hellingerDistGMM(targetset[i].gmmfk,gmmuk)
-                dd = targetset[i].context[tvec[j]]['info']
-                cache[ykey] = dd
-                print(dd)
-                ax.set_title("Info = %f, target %d, time: %f"%(dd,i,tvec[j]))
-                plt.pause(1)
-                plt.ion()
-                plt.show()
-                plt.pause(0.5)
-            else:
-                dd = cache[ykey]
-            # I=I+w[s]*dd
-                I.append(dd)
-        I=np.min(I)
-            
-        print("Info I = ",I, " target = ",i )
-        It = It + I
-    print("total info = ",It)
-    #     print("Done info grid for %d/%d at timestep %d/%d"%(n,ridstates.shape[0],j,len(tvec)))
-    #     D[tvec[j]][n] = It
-        
-    # plotinfomap(targetset,robots[:(rid+1)],D,ridstates,tvec[j])
-    # break
 
-# for i in range(targetset.ntargs):
-#     targetset[i].defrostState()
-# for r in range(rid+1):
-#     robots[r].freezeState()  
-#     robots[r].updateSensorModel()
+                    dd = targetset[i].context[tvec[j]]['info']
+                    cache[ykey] = dd
+                else:
+                    dd = cache[ykey]
+                    
+                # I=I+w[s]*dd
+                I.append(dd)
+            
+            I = np.min(I)
+            
+            It.append( I )
         
+        print("Done info grid for %d/%d at timestep %d/%d"%(n,ridstates.shape[0],j,len(tvec)))
+        D[n] = It[0]
+
+    return D
+
+def robotTargetInfo(rid,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig):
+   
+    for i in range(targetset.ntargs):
+        targetset[i].freezeState()
+    for r in range(rid+1):
+        robots[r].freezeState()    
+
+    D=clc.defaultdict(dict)
+    for n in range(ridstates.shape[0]):
+        D[tvec[0]][n]=0
+    jobs = {} 
+    for j in range(1,len(tvec)):
+        args = (j,rid,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig)
+        # jobs[tvec[j]]= utrq.redisQ.enqueue(getinfotimestep,args=args,result_ttl=86400, job_timeout=1000) 
+        d = getinfotimestep(*args)
+        D[tvec[j]] = d
+        plotinfomap(targetset,robots[:(rid+1)],D,ridstates,tvec[j])
+           
+    for i in range(targetset.ntargs):
+        targetset[i].defrostState()
+    for r in range(rid+1):
+        robots[r].defrostState()  
+        robots[r].updateSensorModel()
+        
+    return D
+
+# %%
+folder= "simulations/DynamicSensorTasking-DP-Template_2020-07-14-12H-40M-52s/debugdata/dynamicProgRobot2Dgrid_SeqRobot"
+fname = "24.pkl"
+with open(os.path.join(folder,fname),'rb') as FF:
+    tvec,robots,targetset,Targetfilterer,infoconfig,splitterConfig,mergerConfig = pkl.load(FF)
+
+tvec = tvec[0:2]
+Ukfilter = [None]*targetset.ntargs
+InfoCosts=[]
+Cost2gos=[]
+
+# propagate targets by one step
+for j in range(len(tvec)-1):
+    for i in range(targetset.ntargs):
+        Targetfilterer.propagate(tvec[j],tvec[j+1]-tvec[j],
+                                      targetset[i],
+                                      Ukfilter[i],
+                                      updttarget=True)
+
+# save the initial states of the robots
+for r in range(len(robots)):
+    for j in range(len(tvec)):
+        robots[r].statehistory.pop(tvec[j],None)
+        robots[r].controllerhistory.pop(tvec[j],None)
+    robots[r].statehistory[tvec[0]] = robots[r].xk.copy()
+    
+# doing DP for robots in seq and from end time
+for r in range(len(robots)):
+    ridstates = robots[r].mapobj.XYgvec
+    infocost = robotTargetInfo(r,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig)
+
+
+
+# %%
+
+NUM_COLORS = 20
+colors = [colmap(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
+shuffle(colors)
+def plotgmmtarget(fig,ax,gmmus,gmmfs,xktruths,t,robots,posstates):
+    plt.figure(fig.number)
+    ax.cla()
+    ax.set_title("time step = %f"%(t,) )
+    robots[0].mapobj.plotmap(ax)
+    for r in robots:
+        r.plotrobot(ax)
+        
+    # xktruth = targetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',t+dt)
+    for i,gmm in enumerate(gmmfs):
+        gmmupos = uqgmmbase.marginalizeGMM(gmm,posstates)
+        XX = uqgmmbase.plotGMM2Dcontour(gmmupos,nsig=2,N=100,rettype='list')
+        for cc in range(gmmupos.Ncomp):
+            ax.plot(XX[cc][:,0],XX[cc][:,1],c=colors[i])
+            ax.annotate("wt: "+str(gmmupos.w(cc))[:5],gmmupos.m(cc)[0:2],gmmupos.m(cc)[0:2]-3,color=colors[i],fontsize='x-small')
+    
+    for i,gmm in enumerate(gmmus):
+        gmmupos = uqgmmbase.marginalizeGMM(gmm,posstates)
+        XX = uqgmmbase.plotGMM2Dcontour(gmmupos,nsig=2,N=100,rettype='list')
+        for cc in range(gmmupos.Ncomp):
+            ax.plot(XX[cc][:,0]+1,XX[cc][:,1]+1,linewidth=2,linestyle='--',c=colors[i])
+            ax.annotate("wt: "+str(gmmupos.w(cc))[:5],gmmupos.m(cc)[0:2],gmmupos.m(cc)[0:2]-3,color=colors[i],fontsize='x-small')
+            
+    for i,xktruth in enumerate(xktruths):
+        ax.plot(xktruth[-1,0],xktruth[-1,1],c=colors[i],marker='*')
+    # ax.annotate(targetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]+2,color=colors[i],fontsize='x-small')
+
+# 
+    ax.axis('equal')
+    ax.set(xlim=(-15, 115), ylim=(-15, 115))
+    plt.pause(0.1)
+    plt.ion()
+    plt.show()
+    
+
+rid = 0
+n = 70
+robots[rid].xk[0:2] = ridstates[n] 
+robots[rid].updateSensorModel()
+for r in range(rid):
+    robots[r].xk = robots[r].statehistory[tvec[j]]
+    robots[r].updateSensorModel()
+
+It=0   
+gmmfs=[]
+gmmus=[] 
+for i in range(targetset.ntargs):
+    dt = tvec[j]-tvec[j-1]
+    # gmmfk = targetset[i].recorderprior.getvar_bytime('gmmfk',tvec[j])
+    targetset[i].setStateFromPrior(tvec[j],['gmmfk','xfk','Pfk'])
+    
+    gmmf = targetset[i].gmmfk.makeCopy()
+    # xktruth = targetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',tvec[j])
+    
+    gmmfkpos = uqgmmbase.marginalizeGMM(targetset[i].gmmfk,targetset[i].posstates)
+    Nz = 1000
+    X = gmmfkpos.random(Nz)
+    w = np.ones(Nz)/Nz
+    # X,w = gmmfkpos.generateUTpts()
+
+    
+    I=[]
+    cache={}
+    cnts={}
+    for s in range(X.shape[0]):
+        Zk=clc.defaultdict(list)
+        for r in range(rid+1):
+            zij,isinsidek,Lk = robots[r].sensormodel.generateRndMeas(tvec[j], dt, X[s],useRecord=False)     
+            if isinsidek == 0:
+                Zk[i].append(None)
+            else:
+                Zk[i].append(zij)
+        
+        # measUpdateFOV_PFGMM
+        # measUpdateFOV_randomsplitter
+        ykey = tuple([1 if zz is not None else 0 for zz in Zk[i]])
+        if ykey not in cnts:
+            cnts[ykey]=1
+        else:
+            cnts[ykey]=cnts[ykey]+1
+            
+        if ykey not in cache:
+            dm = mergerConfig.doMerge
+            mergerConfig.doMerge = False
+            gmmuk = rbf2df.measUpdateFOV_randomsplitter(tvec[j],dt,robots[:(rid+1)],targetset[i],Zk[i],Targetfilterer,infoconfig,
+                                            updttarget=False,
+                                            splitterConfig = splitterConfig,
+                                            mergerConfig = mergerConfig,
+                                            computePriorPostDist=True)
+            mergerConfig.doMerge = dm
+            
+
+            dd = targetset[i].context[tvec[j]]['info']
+            cache[ykey] = dd
+            
+            fig1 = plt.figure("Debug plot target %d,: %d"%(i,s))
+            ax_list = fig1.axes
+            if len(ax_list)==0:
+                ax1 = fig1.add_subplot(111,label='ax1')
+            else:
+                ax1 = ax_list[0]
+            
+            plotgmmtarget(fig1,ax1,[gmmuk],[gmmf],[],tvec[j],robots,targetset[i].posstates)
+            titlt = ax1.get_title()
+            titlt = titlt+"  ..  info = %f, .... key = %s"%(dd,str(ykey))
+            ax1.set_title(titlt)
+            
+        else:
+            dd = cache[ykey]
+            
+        # I=I+w[s]*dd
+        I.append(dd)
+    print("counts for target ",i,"  counts = ",cnts)
+    I = np.min(I)
+    It = It + I
+
+
+
+
+
+
+

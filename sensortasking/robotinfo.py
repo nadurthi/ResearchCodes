@@ -11,6 +11,19 @@ import multiprocessing as mp
 import matplotlib.pyplot as plt
 from utils.math import geometry as utmthgeom
 import pickle as pkl
+from utils import redis as utrq
+import time
+
+class InfoConfig:
+    def __init__(self):
+        self.bins = (tuple(np.linspace(0,100,30)),
+                     tuple(np.linspace(0,100,30)),
+                     tuple(np.linspace(-5,5,20)),
+                     tuple(np.linspace(-5,5,20)),
+                     tuple(np.linspace(-1,1,20)))
+        self.binmaxwidth = [3,3,1,1,0.5]
+
+infoconfigDefault = InfoConfig()
 
 def plotinfomap(simmanager,targetset,robots,infocost,ridstates,t):
     import matplotlib
@@ -143,69 +156,28 @@ def robotTargetInfo(simmanager,rid,ridstates,robots,targetset,tvec,Targetfiltere
     D=clc.defaultdict(dict)
     for n in range(ridstates.shape[0]):
         D[tvec[0]][n]=0
-        
+    jobs = {} 
     for j in range(1,len(tvec)):
-        for n in range(ridstates.shape[0]):
-            # with utltm.TimingContext("robot pos: "):
-            It=0
-            robots[rid].xk[0:2] = ridstates[n] 
-            robots[rid].updateSensorModel()
-            for r in range(rid):
-                robots[r].xk = robots[r].statehistory[tvec[j]]
-                robots[r].updateSensorModel()
-                
-            for i in range(targetset.ntargs):
-                dt = tvec[j]-tvec[j-1]
-                # gmmfk = targetset[i].recorderprior.getvar_bytime('gmmfk',tvec[j])
-                targetset[i].setStateFromPrior(tvec[j],['gmmfk','xfk','Pfk'])
-                
-                gmmfkpos = uqgmmbase.marginalizeGMM(targetset[i].gmmfk,targetset[i].posstates)
-                Nz = 1000
-                X = gmmfkpos.random(Nz)
-                w = np.ones(Nz)/Nz
-                # X,w = gmmfkpos.generateUTpts()
-
-                
-                I=[]
-                cache={}
-                for s in range(X.shape[0]):
-                    Zk=clc.defaultdict(list)
-                    for r in range(rid+1):
-                        zij,isinsidek,Lk = robots[r].sensormodel.generateRndMeas(tvec[j], dt, X[s],useRecord=False)     
-                        if isinsidek == 0:
-                            Zk[i].append(None)
-                        else:
-                            Zk[i].append(zij)
-                    
-                    # measUpdateFOV_PFGMM
-                    # measUpdateFOV_randomsplitter
-                    ykey = tuple([1 if zz is not None else 0 for zz in Zk[i]])
-                    if ykey not in cache:
-                        dm = mergerConfig.doMerge
-                        mergerConfig.doMerge = False
-                        gmmuk = rbf2df.measUpdateFOV_randomsplitter(tvec[j],dt,robots[:(rid+1)],targetset[i],Zk[i],Targetfilterer,infoconfig,
-                                                        updttarget=False,
-                                                        splitterConfig = splitterConfig,
-                                                        mergerConfig = mergerConfig,
-                                                        computePriorPostDist=True)
-                        mergerConfig.doMerge = dm
-                        
-
-                        dd = targetset[i].context[tvec[j]]['info']
-                        cache[ykey] = dd
-                    else:
-                        dd = cache[ykey]
-                        
-                    # I=I+w[s]*dd
-                    I.append(dd)
-                
-                I = np.min(I)
-                It = It + I
-            
-            print("Done info grid for %d/%d at timestep %d/%d"%(n,ridstates.shape[0],j,len(tvec)))
-            D[tvec[j]][n] = It
-            
+        args = (j,rid,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig)
+        # jobs[tvec[j]]= utrq.redisQ.enqueue(getinfotimestep,args=args,result_ttl=86400, job_timeout=1000) 
+        d = getinfotimestep(*args)
+        D[tvec[j]] = d
         plotinfomap(simmanager,targetset,robots[:(rid+1)],D,ridstates,tvec[j])
+        
+    # while True:
+    #     isalldone = []
+    #     for j in range(1,len(tvec)):
+    #         if jobs[tvec[j]].result is None: 
+    #             time.sleep(5)
+    #             isalldone.append(False)
+    #         else:
+    #             isalldone.append(True)
+    #     if np.all(isalldone):
+    #         break
+        
+    # for j in range(1,len(tvec)):
+    #     D[tvec[j]] = jobs[tvec[j]].result      
+    #     plotinfomap(simmanager,targetset,robots[:(rid+1)],D,ridstates,tvec[j])
         
     for i in range(targetset.ntargs):
         targetset[i].defrostState()

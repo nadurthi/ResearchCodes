@@ -7,8 +7,10 @@ Created on Sat Nov 16 23:01:07 2019
 
 from numpy import linalg as LA
 import numpy as np
+import scipy.linalg as sclg
 import sys
 from scipy.integrate import solve_ivp
+from physmodels import motionmodels as phymm
 
 
 def kepler(M, e, tol):
@@ -94,71 +96,100 @@ def twobody2D_ode(t, x, mu):
     return dx
 
 
-class PropTBP_cart2D:
-
-    def __init__(self, mu, tol=1e-12):
+class TBP6DODE(phymm.MotionModel):
+    motionModelName = 'TBP6D_ODE'
+    def __init__(self, mu=1,**kwargs):
         self.mu = mu
-        self.tol = tol
+        self.fn = 6
+        super().__init__(**kwargs)
+        
+    def contModel(self,t,x,mu):
+        r = LA.norm(x[0:2])
+        dx = x.copy()
+        dx[0] = x[2]
+        dx[1] = x[3]
+        dx[2] = -(mu / r**3) * x[0]
+        dx[3] = -(mu / r**3) * x[1]
+    
+        return dx
+        
 
-    def propcart_fwdstep(self, t, x, dt):
-        t_span = (t, t + dt)
-        sol = solve_ivp(lambda ty, y: twobody2D_ode(ty, y, self.mu), t_span, x,
-                        method='RK45', rtol=1e-10, atol=self.tol)
-        return sol.y[:, -1]
-
-    def propcart(self, x0, t0, tf):
-        t_span = (t0, tf)
-        sol = solve_ivp(lambda ty, y: twobody2D_ode(ty, y, self.mu), t_span,
-                        x0, method='RK45', rtol=1e-10, atol=self.tol)
-        return sol.y[:, -1]
-
-    def propcart_fwdvec(self, x, tvec):
-        #        x is at tvec[0]
-        t_span = (tvec[0], tvec[-1])
-        sol = solve_ivp(lambda ty, y: twobody2D_ode(ty, y, self.mu), t_span,
-                        x, method='RK45', t_eval=tvec, rtol=1e-10,
-                        atol=self.tol)
+    def integrate(self,t_eval,x0):
+        sol = solve_ivp(self.contModel, [t_eval[0], t_eval[-1]], x0,t_eval = t_eval,method='RK45',args=(self.mu), rtol=1e-12, atol=1e-12)        
         return sol.y.T
+    
+    def integrate_batch(self,t_eval,X0):
+        S=[]
+        for x0 in X0:
+            sol=solve_ivp(self.contModel, [t_eval[0], t_eval[-1]], x0,t_eval = t_eval,method='RK45',args=(self.mu), rtol=1e-12, atol=1e-12)        
+            S.append(sol.y.T)
+        return np.stack(S,axis=0)
+    
+    
+    def propforward(self, t, dt, xk, uk=0, **params):
+        sol = solve_ivp(self.contModel, [t, t+dt], xk,method='RK45',args=(self.mu), rtol=1e-12, atol=1e-12)        
+        return (t + dt, sol.y.T[-1])
 
-    def propcart_fwdbatch(self, X0, t0, tf):
-        # x is at tvec[0]
-        N, dim = X0.shape
-        X = np.zeros((N, dim))
-        for i in range(N):
-            y = np.array([X0[i, 0], X0[i, 1], 0, X0[i, 2], X0[i, 3], 0])
-            X[i, :] = self.propcart(self, y, t0, tf)
+    def processNoise(self,t,dt,xk,uk=0,**params):
+        
+        Q = dt**2*np.identity(self.fn)
+
+        super().processNoise(**params)
+        return Q
+
+    def F(self, t, dt, xk,uk=0, **params):
+        super().F(t, dt, xk, uk=None, **params)
+        F=None
+
+        return F
+    
+    
+class TBP6DFnG(phymm.MotionModel):
+    motionModelName = 'TBP6DFnG'
+    def __init__(self, mu=1,**kwargs):
+        self.mu = mu
+        self.fn = 6
+        self.tol = 1e-6
+        super().__init__(**kwargs)
+        self.states = ['x','y','z','vx','vy','vz']
+        
+    def contModel(self,t,x,mu):
+           
+        return None
+        
+
+    def integrate(self,t_eval,x0):
+        # sol = solve_ivp(self.contModel, [t_eval[0], t_eval[-1]], x0,t_eval = t_eval,method='RK45',args=(self.mu), rtol=1e-12, atol=1e-12)        
+        X=np.zeros((len(t_eval),len(x0)))
+        X[0,:]=x0
+        for i in range(1,len(t_eval)):
+            X[i,:] = FnG(t_eval[i-1], t_eval[i], X[i-1,:], self.mu, self.tol)
         return X
+    
+    def integrate_batch(self,t_eval,X0):
+        S=[]
+        for x0 in X0:
+            X=np.zeros((len(t_eval),len(x0)))
+            X[0,:]=x0
+            for i in range(1,len(t_eval)):
+                X[i,:] = FnG(t_eval[i-1], t_eval[i], X[i-1,:], self.mu, self.tol)
+            S.append(X)
+        return np.stack(S,axis=0)
+    
+    
+    def propforward(self, t, dt, xk, uk=0, **params):
+        X = FnG(t, t+dt, xk, self.mu, self.tol)
+        return (t + dt, X)
 
-    def propFnG_fwdstep(self, t, x, dt):
-        y = np.array([x[0], x[1], 0, x[2], x[3], 0])
-        yf = FnG(t, t + dt, y, self.mu, self.tol)
-        xf = yf[[0, 1, 3, 4]]
-        return xf
+    def processNoise(self,t,dt,xk,uk=0,**params):
+        
+        Q = sclg.block_diag([0.00001^2,0.00001^2,0.00001^2,0.0000001^2,0.0000001^2,0.0000001^2])
 
-    def propFnG(self, x, t0, tf):
-        y = np.array([x[0], x[1], 0, x[2], x[3], 0])
-        yf = FnG(t0, tf, y, self.mu, self.tol)
-        xf = yf[[0, 1, 3, 4]]
-        return xf
+        super().processNoise(**params)
+        return Q
 
-    def propFnG_fwdvec(self, x, tvec):
-        # x is at tvec[0]
-        N = len(tvec)
-        dim = len(x)
-        X = np.zeros((N, dim))
-        X[0, :] = x
-        for i in range(N - 1):
-            y = np.array([X[i, 0], X[i, 1], 0, X[i, 2], X[i, 3], 0])
-            yf = FnG(tvec[i], tvec[i + 1], y, self.mu, self.tol)
-            X[i + 1, :] = yf[[0, 1, 3, 4]]
-        return X
+    def F(self, t, dt, xk,uk=0, **params):
+        super().F(t, dt, xk, uk=None, **params)
+        F=None
 
-    def propFnG_fwdbatch(self, X0, t0, tf):
-        # x is at tvec[0]
-        N, dim = X0.shape
-        X = np.zeros((N, dim))
-        for i in range(N):
-            y = np.array([X0[i, 0], X0[i, 1], 0, X0[i, 2], X0[i, 3], 0])
-            yf = FnG(t0, tf, y, self.mu, self.tol)
-            X[i, :] = yf[[0, 1, 3, 4]]
-        return X
+        return F    

@@ -9,7 +9,7 @@ from numpy import linalg as LA
 import numpy as np
 import sys
 import pdb
-import twobody.constants as tbpconst
+import physmodels.twobody.constants as tbpconst
 
 
 
