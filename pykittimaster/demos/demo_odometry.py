@@ -10,9 +10,9 @@ __author__ = "Lee Clement"
 __email__ = "lee.clement@robotics.utias.utoronto.ca"
 
 # Change this to the directory where you store KITTI data
-basedir = os.path.join('P:\\','SLAMData','Kitti','visualodo','dataset')
+# basedir = os.path.join('P:\\','SLAMData','Kitti','visualodo','dataset')
 # basedir = 'P:\SLAMData\\Kitti\visualodo\dataset'
-
+basedir = '/media/na0043/misc/DATA/KITTI/odometry/dataset'
 # Specify the dataset to load
 # sequence = '02'
 # sequence = '05'

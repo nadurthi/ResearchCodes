@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import uq.quadratures.cubatures as uqcb
 from loggerconfig import *
@@ -12,12 +12,12 @@ import collections as clc
 import pandas as pd
 import os
 import dill,pickle
-import cv2
+# import cv2
 import pykitticustom
 import pykitticustom as pykcus
 from pykitticustom import tracking2 as pykcustracking
 import time
-import cv2
+# import cv2
 import datetime as dt
 import glob
 import os

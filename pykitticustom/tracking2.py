@@ -9,7 +9,7 @@ from matplotlib import patches
 import numpy as np
 
 from . import utils
-import cv2
+# import cv2
 
 class AA:
     def __init__(self):

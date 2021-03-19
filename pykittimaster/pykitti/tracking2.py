@@ -413,10 +413,10 @@ def drawBox3D(ax,obj,corners,face_idx,orientation):
                      np.hstack([corners[1,face_idx[f,:]],corners[1,face_idx[f,0]]])+1,
                      color=occ_col[obj.occluded],linewidth=3,linestyle=trun_style[trc]
                      )
-            ax.plot(np.hstack([corners[0,face_idx[f,:]]+1,corners[0,face_idx[f,0]]+1]),
-                     np.hstack([corners[1,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1]),
-                     color='b',linewidth=1
-                     )
+            # ax.plot(np.hstack([corners[0,face_idx[f,:]]+1,corners[0,face_idx[f,0]]+1]),
+            #          np.hstack([corners[1,face_idx[f,:]]+1,corners[1,face_idx[f,0]]+1]),
+            #          color='b',linewidth=1
+            #          )
 
 #            line([corners(1,face_idx(f,:)),corners(1,face_idx(f,1))]+1,...
 #   [corners(2,face_idx(f,:)),corners(2,face_idx(f,1))]+1,...
@@ -429,12 +429,14 @@ def drawBox3D(ax,obj,corners,face_idx,orientation):
 
 
 #  % draw orientation vector
-    if len(orientation)>0:
-        ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
-         np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='w',lineWidth=4)
-
-        ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
-         np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='k',lineWidth=2)
+    drawOrient=False
+    if drawOrient:
+        if len(orientation)>0 :
+            ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
+             np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='w',lineWidth=4)
+    
+            ax.plot(np.hstack([orientation[0,:]+1,orientation[0,:]+1]),
+             np.hstack([orientation[1,:]+1,orientation[1,:]+1]),color='k',lineWidth=2)
 
 
 
