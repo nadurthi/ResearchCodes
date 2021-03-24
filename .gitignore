@@ -7,7 +7,6 @@ doc/
 checkpoints/
 trainedmodels/
 .spyproject/
-turtlebotData/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
