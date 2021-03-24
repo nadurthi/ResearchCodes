@@ -27,64 +27,50 @@
 
 #include <librealsense2/rs.hpp>
 #include <librealsense2/hpp/rs_internal.hpp>
-#include <iostream>
-#include <algorithm>            // std::min, std::max
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/filters/passthrough.h>
-#include <string>
-#include <chrono>
-#include <ctime>   // localtime
-#include <termios.h>
-#include <iomanip> // put_time
-#include <time.h> 
-#include <boost/filesystem.hpp>
-#include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <unistd.h>
-#include <iostream>
-#include <cstdlib>
-#include <signal.h>
-#include <Eigen/Dense>
-#include <thread>         // std::thread
-#include <queue>          // std::queue
-#include <mutex>
-#include <memory>
-#include <fstream>              // File IO
-#include <iostream>             // Terminal IO
-#include <sstream>              // Stringstreams
-#include <opencv2/opencv.hpp>
 #include "cv-helpers.hpp"
-#include <map>
-#include <utility>
-#include <vector>
+#include "myhelper.hpp"
+
+// #include <iostream>
+// #include <algorithm>            // std::min, std::max
+// #include <pcl/point_types.h>
+// #include <pcl/io/pcd_io.h>
+// #include <pcl/io/ply_io.h>
+// #include <pcl/filters/passthrough.h>
+// #include <string>
+// #include <chrono>
+// #include <ctime>   // localtime
+// #include <termios.h>
+// #include <iomanip> // put_time
+// #include <time.h> 
+// #include <boost/filesystem.hpp>
+// #include <signal.h>
+// #include <stdlib.h>
+// #include <stdio.h>
+// #include <unistd.h>
+// #include <unistd.h>
+// #include <iostream>
+// #include <cstdlib>
+// #include <signal.h>
+// #include <Eigen/Dense>
+// #include <thread>         // std::thread
+// #include <queue>          // std::queue
+// #include <mutex>
+// #include <memory>
+// #include <fstream>              // File IO
+// #include <iostream>             // Terminal IO
+// #include <sstream>              // Stringstreams
+// #include <opencv2/opencv.hpp>
+// #include "cv-helpers.hpp"
+// #include <map>
+// #include <utility>
+// #include <vector>
 
 using namespace boost::filesystem;
 using namespace std;
 using namespace cv;
-
 using Eigen::MatrixXd;
 
 int EXIT_FLAG;
-
-
-// -----------  EIGEN ----------------------------
-
-MatrixXd timeVector(100000,1);
-
-int cnt=0;
-
-const static Eigen::IOFormat CSVFormat(Eigen::FullPrecision, Eigen::DontAlignCols, ", ", "\n");
-
-void writeToCSVfile(std::string name, MatrixXd matrix)
-{
-    std::ofstream file(name.c_str(),std::ofstream::out);
-    file << matrix.format(CSVFormat);
- }
-
 // -----------  Ctrl+C capture ----------------------------
 
 // Define the function to be called when ctrl-c (SIGINT) is sent to process
@@ -94,25 +80,14 @@ void signal_callback_handler(int signum) {
    EXIT_FLAG = 1;
 }
 
+// -----------  EIGEN ----------------------------
 
+MatrixXd timeVector(100000,1);
 
-// -----------  date time string  ----------------------------
-
-std::string return_current_time_and_date()
-{
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%H-%M-%S");
-    return ss.str();
-}
+int cnt=0;
 
 
 // -----------  PCL PCD ----------------------------
-
-using pcl_ptr = pcl::PointCloud<pcl::PointXYZ>::Ptr;
-
 
 
 pcl_ptr points_to_pcl2(const rs2::points& points)
@@ -139,35 +114,7 @@ pcl_ptr points_to_pcl2(const rs2::points& points)
     return cloud;
 }
 
-// ------------------ Binary write cv::Mat ------------------------
-inline void write_binary(const std::string& filename, const cv::Mat& matrix){
-    std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
-    if(out.is_open()) {
-        int rows=matrix.rows, cols=matrix.cols;
-        out.write(reinterpret_cast<char*>(&rows), sizeof(int));
-        out.write(reinterpret_cast<char*>(&cols), sizeof(int));
-        out.write(reinterpret_cast<const char*>(matrix.data), rows*cols*static_cast<int>( matrix.elemSize()) );
-        out.close();
-    }
-    else {
-        std::cout << "Can not write to file: " << filename << std::endl;
-    }
-}
 
-inline void read_binary(const std::string& filename, const cv::Mat& matrix){
-    std::ifstream in(filename, std::ios::in | std::ios::binary);
-    if (in.is_open()) {
-        int rows=0, cols=0;
-        in.read(reinterpret_cast<char*>(&rows),sizeof(int));
-        in.read(reinterpret_cast<char*>(&cols),sizeof(int));
-        matrix.resize(rows, cols);
-        in.read(reinterpret_cast<char*>(matrix.data), rows*cols*static_cast<int>(matrix.elemSize()) );
-        in.close();
-    }
-    else {
-        std::cout << "Can not open binary matrix file: " << filename << std::endl;
-    }
-}
 
 
 class ThreadSaver{
@@ -443,7 +390,7 @@ int main(int argc, char **argv) try {
 
         // Block program until frames arrive
         rs2::frameset frames = pipe.wait_for_frames();
-        rs2::frameset frames = align_to_color.process(frames);
+        frames = align_to_color.process(frames);
 
         double fractional_seconds_since_epoch
         = std::chrono::duration_cast<std::chrono::duration<double>>(
