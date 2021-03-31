@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from numpy import linalg as nplinalg
 import matplotlib
 # try:
 #     matplotlib.use('TkAgg')
@@ -50,7 +51,24 @@ class Regular2DNodeGrid(_baseMap):
         
         
         self.initiate()
-    
+    def nodesInRadius(self,x,radius,returnNodeIds=False):
+        d=nplinalg.norm(self.XYgvec-x,axis=1)
+        ind = d<radius
+        if returnNodeIds:
+            L = np.arange(0,self.Ng,1,dtype=int)
+            return list(L[ind])
+        else:
+            return self.XYgvec[ind,:]
+        
+    def snap2grid(self,xk):
+        """
+        xk : xk=[x,y,th]
+        """
+        dd = nplinalg.norm(self.XYgvec -np.array(xk[0:2]),axis=1)
+        indxy = np.argmin(dd)
+        indth = np.argmin(self.th - xk[2])
+        return np.hstack([self.XYgvec[indxy,:],self.th[indth]  ])
+        
     def middirn(self):
         return 0.5*(self.xy0+self.xyf)
     
@@ -98,6 +116,7 @@ class Regular2DNodeGrid(_baseMap):
         return self.th[thidx]
     
     def getNodeIdx(self,xnode):
+        
         aa = np.where((self.XYgvec == xnode).all(axis=1))
         return aa[0][0]
     

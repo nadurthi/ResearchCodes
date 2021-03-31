@@ -18,7 +18,14 @@ import matplotlib.pyplot as plt
 import collections as clc
 import utils.plotting.geometryshapes as utpltgeom
 
+from enum import Enum, auto
 
+
+# active or deactive is to remove the target from computations and save resources
+class RobotStatus(Enum):
+    Active = auto()
+    Inactive = auto()
+    
 class _baseRobot:
     def __init__(self):
         self.ID = uuid.uuid4()
@@ -27,7 +34,7 @@ class Robot2DRegGrid(_baseRobot):
     def __init__(self,mapobj=None):
         super().__init__()
         self.robotName = 1
-        
+        self.status = RobotStatus.Active
         self.mapobj = mapobj
         self.xk = np.array([np.nan,np.nan,np.nan]) # x,y,th
         self.shape={'a':5,'w':3}
@@ -42,10 +49,19 @@ class Robot2DRegGrid(_baseRobot):
         self.controllerhistory={}
         self.statehistory={}
         
+        self.NominalVmag = None
+        self.MinTempXferr = None
         
         self.x0=None # some intiial time from which states are propagated 
         self.t0=None # some intiial time from which states are propagated
-    
+    def makeInActive(self):
+        self.status = RobotStatus.Inactive()
+    def makeActive(self):
+        self.status = RobotStatus.Active()
+    def isActive(self):
+        return self.status == RobotStatus.Active()
+        
+        
     def freezeState(self):
         self.currt_freeze = np.copy(self.currt).astype(float)
         self.xk_freeze = self.xk.copy().astype(float)
@@ -73,6 +89,12 @@ class Robot2DRegGrid(_baseRobot):
         
         self.sensormodel.updateparam( self.currt, **params)
     
+    def reachableNodesFrom(self,xk,T,returnNodeIds=False):
+        radius = self.dynModel.maxvmag*T
+        nodes = self.mapobj.nodesInRadius(xk[0:2],radius,returnNodeIds=returnNodeIds)
+        return nodes
+    
+        
     def makeNewRobotfromCopy(self):
         robot = copy.deepcopy(self)
         robot.ID = uuid.uuid4()
@@ -82,6 +104,7 @@ class Robot2DRegGrid(_baseRobot):
     def addTemplateTraj(self,uk_key=None,val=None):
         """
         key=(idx0,idth0,idxf,idthf)
+        val={'xfpos':,'thf':,'Xtraj':,'cost':}
 
         """
         if uk_key in self.controltemplates:
@@ -122,7 +145,10 @@ class Robot2DRegGrid(_baseRobot):
             return contrval['cost']
     
     def getcontrol(self,t):
-        return self.controllerhistory[t]
+        if t in self.controllerhistory:
+            return self.controllerhistory[t]
+        else:
+            return None
     
     def propforward(self, t, dt, uk, **params):
         # first get current state and see if it is compatible with control
@@ -154,15 +180,16 @@ class Robot2DRegGrid(_baseRobot):
         """
         for t in tvec:
             uk_key = self.getcontrol(t)
-            contval = self.gettemplate(uk_key)
-            ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor )
+            if uk_key is not None:
+                contval = self.gettemplate(uk_key)
+                ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor )
             
 
         
     def plotdebugTemplate(self,uk_key):
         contval = self.gettemplate(uk_key)
         
-        fig = plt.figure(str(uk_key[0:2]))
+        fig = plt.figure(str(uk_key))
         ax = fig.add_subplot(111)
         
         # self.ax.cla()    

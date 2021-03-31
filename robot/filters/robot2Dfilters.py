@@ -11,7 +11,7 @@ import scipy.linalg as sclnalg #block_diag
 import scipy.optimize as scopt #block_diag
 from scipy.stats import multivariate_normal
 from sklearn import mixture
-import ipdb
+
 import utils.timers as utltm
 import matplotlib
 import matplotlib.pyplot as plt

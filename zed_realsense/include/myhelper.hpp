@@ -75,8 +75,10 @@ inline void write_binary(const std::string& filename, const cv::Mat& matrix){
     std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
     if(out.is_open()) {
         int rows=matrix.rows, cols=matrix.cols;
-        out.write(reinterpret_cast<char*>(&rows), sizeof(int));
+        int nbytes = matrix.elemSize();
+		out.write(reinterpret_cast<char*>(&rows), sizeof(int));
         out.write(reinterpret_cast<char*>(&cols), sizeof(int));
+        out.write(reinterpret_cast<char*>(&nbytes), sizeof(int));
         out.write(reinterpret_cast<const char*>(matrix.data), rows*cols*static_cast<int>( matrix.elemSize()) );
         out.close();
     }
@@ -88,11 +90,12 @@ inline void write_binary(const std::string& filename, const cv::Mat& matrix){
 inline void read_binary(const std::string& filename, const cv::Mat& matrix){
     std::ifstream in(filename, std::ios::in | std::ios::binary);
     if (in.is_open()) {
-        int rows=0, cols=0;
+        int rows=0, cols=0,nbytes=0;
         in.read(reinterpret_cast<char*>(&rows),sizeof(int));
         in.read(reinterpret_cast<char*>(&cols),sizeof(int));
+        in.read(reinterpret_cast<char*>(&nbytes),sizeof(int));
         matrix.resize(rows, cols);
-        in.read(reinterpret_cast<char*>(matrix.data), rows*cols*static_cast<int>(matrix.elemSize()) );
+        in.read(reinterpret_cast<char*>(matrix.data), rows*cols*nbytes );
         in.close();
     }
     else {

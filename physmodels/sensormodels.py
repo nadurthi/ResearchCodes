@@ -7,19 +7,21 @@ import uuid
 import collections as clc
 from scipy.linalg import block_diag
 import pdb
-
+import uq.stats.samplers as uqstsamp
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 from uq.uqutils import recorder
 
 
+        
 class SensorModel:
     """
     The
     """
     sensorName = 'SensorModel'
     def __init__(self, recordSensorState=False,recorderobj=None,sensorrecorder=None, **kwargs):
+        
         self.ID = uuid.uuid4()
         self.recordSensorState = recordSensorState
 
@@ -75,7 +77,69 @@ class SensorModel:
             self.recorder.record(t,zk=zk,**self.getSenStateDict())
 
         return zk,isinsidek,Lk
+    
+    def detection(self, t, dt, Xk):
+        XXk = Xk.copy()
+        ndim = XXk.ndim
+        if ndim ==1:
+            XXk=XXk.reshape(1,-1)
 
+            
+        Zk=np.zeros(XXk.shape[0])
+        dets = [1,0]
+        for i in range(XXk.shape[0]):
+            xk = XXk[i]
+            zk,isinsidek,Lk = self.__call__(t, dt, xk)
+            if isinsidek:
+                # inside so use TP and FN
+                Zk[i]=1
+            else: 
+                # outside so use TN and FP
+                Zk[i]=0
+                
+
+        if ndim ==1:
+            Zk=Zk[0]
+            
+        return Zk,None,None
+    
+    def generateRndDetections(self, t, dt, Xk,useRecord=False):
+        """
+        return detection (1) or not (0) for each point in Xk
+        TP: inside FOV and detected inside FOV
+        FP: outside FOV and detected inside FOV
+        TN: outside FOV and detected outside FOV
+        FN: inside FOV and detected as outside FOV
+        """
+        XXk = Xk.copy()
+        ndim = XXk.ndim
+        if ndim ==1:
+            XXk=XXk.reshape(1,-1)
+            
+            
+        Zk=np.zeros(XXk.shape[0])
+        dets = [1,0]
+        for i in range(XXk.shape[0]):
+            xk = XXk[i]
+            zk,isinsidek,Lk = self.__call__(t, dt, xk)
+            if isinsidek:
+                # inside so use TP and FN
+                idx = uqstsamp.samplePMF([self.TP,self.FN],1)
+                Zk[i]=dets[idx[0]]
+            else: 
+                # outside so use TN and FP
+                idx = uqstsamp.samplePMF([self.FP,self.TN],1)
+                Zk[i]=dets[idx[0]]
+                
+
+
+        if self.recordSensorState is True:
+            self.recorder.record(t,zk=zk,**self.getSenStateDict())
+        if ndim ==1:
+            Zk=Zk[0]
+            
+        return Zk,None,None
+    
     def debugStatus(self):
         ss=[]
         ss.append(['----------','----------'])

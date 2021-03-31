@@ -49,7 +49,8 @@ def optimizeTraj(robID,x0,xf,U0): #,constraints
 
 def generateTemplates(robotobj,dt,T):
     """
-    
+    T is robot time step between grids
+    dt is time step for trajectory points between [0,T]
 
     Parameters
     ----------
@@ -70,8 +71,8 @@ def generateTemplates(robotobj,dt,T):
     mapobj = robotobj.mapobj
     
     robotdyn = robotobj.dynModel
-    MaxVmag = robotobj.MaxVmag #5
-    MaxOmega = robotobj.MaxOmega #3
+    MaxVmag = robotdyn.maxvmag #5
+    MaxOmega = robotdyn.maxturnrate #3
     NominalVmag= robotobj.NominalVmag #2
     
     tvec=np.arange(0,T,dt)
@@ -144,3 +145,81 @@ def generateTemplates(robotobj,dt,T):
             robotobj.addTemplateTraj(uk_key=uk_key,val={'xfpos':Djob[uk_key]['xf'][0:2],'thf':Djob[uk_key]['thf'],'Xtraj':Xtraj,'cost':cost} )
             robotobj.plotdebugTemplate(uk_key)
                     
+
+def generateTemplates_reachSet(robotobj,dt,T):
+    """
+    T is robot time step between grids
+    dt is time step for trajectory points between [0,T]
+
+    Parameters
+    ----------
+    mapobj : TYPE
+        DESCRIPTION.
+    robotgrid : TYPE
+        DESCRIPTION.
+    dt : TYPE
+        DESCRIPTION.
+    robotdyn : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    mapobj = robotobj.mapobj
+    
+    robotdyn = robotobj.dynModel
+    MaxVmag = robotdyn.maxvmag #5
+    MaxOmega = robotdyn.maxturnrate #3
+    MinVmag = robotdyn.minvmag #5
+
+    NominalVmag= robotobj.NominalVmag #2
+    
+    tvec=np.arange(0,T,dt)
+    
+    robID = str(robotobj.ID)
+    # utred.rediscon.hset(robID,'robotobj',pkl.dumps(robotobj, protocol=pkl.HIGHEST_PROTOCOL))
+    # utred.rediscon.hset(robID,'tvec',pkl.dumps(tvec, protocol=pkl.HIGHEST_PROTOCOL))
+    
+    n=len(tvec)-1
+    const1 = lambda Uk: np.hstack([Uk[:n]-NominalVmag,-Uk[:n]+MaxVmag,-Uk[n:]+MaxOmega,Uk[n:]+MaxOmega])
+    constraints = {'type':'ineq','fun':const1}
+
+    Djob={}
+    for idx0,x0pos in mapobj.iteratenodes():
+        for idth0,th0 in mapobj.iteratedirn(x0pos):
+            for idxf,xfpos in mapobj.iteratenodes():
+                for idthf,thf in mapobj.iteratedirn(xfpos):
+                    if nplnalg.norm(x0pos-xfpos)>MaxVmag*T:
+                        continue
+                    if nplnalg.norm(x0pos-xfpos)<MinVmag*T:
+                        continue
+                    uk_key=(idx0,idth0,idxf,idthf)
+                    
+                    v0 = NominalVmag*np.array([np.cos(th0),np.sin(th0)])
+                    x0 = np.hstack([x0pos,v0,0])
+                    vf = NominalVmag*np.array([np.cos(thf),np.sin(thf)])
+                    xf = np.hstack([xfpos,vf,0])
+                    U0 = np.hstack([MaxVmag/2*np.ones(n),np.zeros(n)])
+                    # res = scopt.minimize(funcOpt, U0,args=(x0,xf,tvec,robotdyn),constraints={'type':'ineq','fun':const1})
+                    Xtraj = [np.linspace(x0pos[0],xfpos[0],len(tvec)),np.linspace(x0pos[1],xfpos[1],len(tvec))]
+                    Xtraj = np.vstack(Xtraj).T
+                    robotobj.addTemplateTraj(uk_key=uk_key,val={'xfpos':xf[0:2],'thf':thf,'Xtraj':Xtraj,'cost':1} )
+                    # robotobj.plotdebugTemplate(uk_key)
+                    # Uopt = res.x
+                    # cost = res.fun
+                    # Xtraj = propagator(x0,Uopt,tvec,robotdyn)
+                    # if nplnalg.norm(Xtraj[-1,0:2]-xfpos)>robotobj.MinTempXferr:
+                    #     continue
+                    
+                    
+                    # mapobj.addTemplateTraj(uk_key=uk_key,val={'xfpos':xfpos,'thf':thf,'Xtraj':Xtraj,'cost':cost} )
+                    # print("done with: ",(idx0,idth0,idxf,idthf))
+                    # print("success: ",res.success)
+                    # print("success: ",res.message)
+                    # mapobj.plotdebugTemplate(uk_key)
+                    
+    
+    
+    

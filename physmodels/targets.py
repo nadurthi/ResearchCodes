@@ -19,7 +19,7 @@ from enum import Enum, auto
 # active or deactive is to remove the target from computations and save resources
 class TargetStatus(Enum):
     Active = auto()
-    Deactive = auto()
+    Inactive = auto()
 
 class TargetTrack(Enum):
     Maintained = auto()
@@ -31,6 +31,9 @@ class TargetObservability(Enum):
     Observable = auto()
     Occluded = auto()
 
+class TargetType(Enum):
+    Standard = auto()
+    Search = auto()
 
 class Target:
     """
@@ -53,7 +56,7 @@ class Target:
     """
 
     def __init__(self, dynModel=None,dynModelset=None,gmmfk=None, modelprobfk = None, xfk=None, Pfk=None,particlesfk=None, currt=0,recordfilterstate=False,
-            status=TargetStatus.Active, recorderobjprior=None,recorderobjpost=None):
+            status=TargetStatus.Active, recorderobjprior=None,recorderobjpost=None,color='k'):
 
         self.ID = uuid.uuid4()
         self.targetName = 1
@@ -76,10 +79,13 @@ class Target:
         
         self.currt = currt
         self.context ={}
-
+        
+        self.color=color
+        
         self.N = 100
 
-
+        self.targtype = TargetType.Standard
+        self.filterer = None
 
         self.recordfilterstate = recordfilterstate
 
@@ -111,7 +117,15 @@ class Target:
 #            for recstate in self.recorderpost.states:
 #                params[recstate] = getattr(self,recstate)
 #            self.recorderpost.record(currt,**params)
-
+    
+    def isSearchTarget(self):
+        return self.targtype == TargetType.Search
+        
+    def makeInactive(self):
+        self.status = TargetStatus.Inactive
+    def makeActive(self):
+        self.status = TargetStatus.Active
+        
     def freezeState(self):
         if self.gmmfk is not None:
             self.gmmfk_freezer = self.gmmfk.makeCopy()
@@ -227,7 +241,30 @@ class Target:
                 for recstate in self.recorderpost.states:
                     recparams[recstate] = getattr(self,recstate)
                 self.recorderpost.record(self.currt,**recparams)
-
+    
+    def resetState2timePriorRecord(self,t):
+        for var in self.recorderprior.data:
+            if var=='t':
+                continue
+            if hasattr(self,var) :
+                val = self.recorderprior.getvar_bytime(var,t)
+                setattr(self,var,val)
+                self.currt = t        
+            else:
+                print("Target does not have this key '%s' to update"%(var,))
+        
+    def resetState2timePostRecord(self,t):
+        for var in self.recorderpost.data:
+            if var=='t':
+                continue
+            if hasattr(self,var):
+                val = self.recorderpost.getvar_bytime(var,t)
+                setattr(self,var,val)
+                self.currt = t
+            else:
+                print("Target does not have this key '%s' to update"%(var,))
+                
+                
     def freeze(self,recorderobj=False):
         self.freezer ={}
         self.freezer['dynModel'] = copy.deepcopy(self.dynModel)
@@ -239,7 +276,9 @@ class Target:
         self.freezer['currt'] = copy.deepcopy(self.currt)
         self.freezer['status'] = self.status
         self.freezer['filterstage'] = self.filterstage
-
+        
+        self.freeze_time = copy.deepcopy(self.currt)
+        
         if recorderobj:
             self.freezer['recorderprior'] = self.recorderprior.makecopy()
             self.freezer['recorderpost'] = self.recorderpost.makecopy()
@@ -305,7 +344,8 @@ class Target:
         return ss
 
 
-
+    
+    
 
 class TargetSet:
     def __init__(self):

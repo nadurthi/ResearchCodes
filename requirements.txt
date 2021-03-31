@@ -1,6 +1,5 @@
 autopep8==1.5.2
 cupy-cuda102==7.3.0
-cv-bridge==1.13.0
 cycler==0.10.0
 dill==0.3.1.1
 GitPython==3.1.1
@@ -17,3 +16,6 @@ torchfile==0.1.0
 torchnet==0.0.5.1
 torchvision==0.5.0
 nuscenes-devkit
+numba
+dill
+shapely

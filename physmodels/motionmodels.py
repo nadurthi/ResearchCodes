@@ -8,28 +8,28 @@ logger.setLevel(logging.DEBUG)
 
 
 class MotionModel:
-	motionModelName = 'MotionModel'
-	def __init__(self, *args, **kwargs):
-		self.ID = uuid.uuid4()
+    motionModelName = 'MotionModel'
+    def __init__(self, *args, **kwargs):
+        self.ID = uuid.uuid4()
 
-	def propforward(self, uk=None, *args, **kwargs):
-		pass
+    def propforward(self, uk=None, *args, **kwargs):
+        pass
 
-	def processNoise(self, *args, **kwargs):
-		pass
+    def processNoise(self, *args, **kwargs):
+        pass
 
-	def F(self, t, dt, xk, uk=None, **params):
-		pass
+    def F(self, t, dt, xk, uk=None, **params):
+        pass
 
-	def debugStatus(self):
-		ss=[]
-		ss.append(['----------','----------'])
-		ss.append(['MotionModel:',self.ID])
-		ss.append(['----------','----------'])
-		ss.append(['ModelName:',self.motionModelName])
-		ss.append(['fn',self.fn])
+    def debugStatus(self):
+        ss=[]
+        ss.append(['----------','----------'])
+        ss.append(['MotionModel:',self.ID])
+        ss.append(['----------','----------'])
+        ss.append(['ModelName:',self.motionModelName])
+        ss.append(['fn',self.fn])
 
-		return ss
+        return ss
 
 
 class MultipleMarkovMotionModel:
@@ -42,8 +42,8 @@ class MultipleMarkovMotionModel:
 #        self.Nmodels = len(models)
         self.models = models
         self.p = p
-        
-        
+
+
     @property
     def Nmodels(self):
         return len(self.models)
@@ -88,26 +88,30 @@ class KinematicModel_CT(MotionModel):
         self.L1 = L1
         self.L2 = L2
         self.fn = 5
+        self.maxturnrate = kwargs.get( 'maxturnrate',None)
+        self.maxvmag = kwargs.get( 'maxvmag',None)
+        self.minvmag = kwargs.get( 'minvmag',None)
+
         super().__init__(**kwargs)
     def propforward(self, t, dt, xk, uk=0, **params):
         T = dt;
         omg = xk[-1] + 1e-10
 
         xk1 = np.matmul(np.array([[1, 0, np.sin(omg * T) / omg, -(1 - np.cos(omg * T)) / omg, 0],
-				 [0, 1, (1 - np.cos(omg * T)) / omg, np.sin(omg * T) / omg, 0],
-				 [0, 0, np.cos(omg * T), -np.sin(omg * T), 0],
-				 [0, 0, np.sin(omg * T), np.cos(omg * T), 0],
-				 [0, 0, 0, 0, 1]]), xk);
+                 [0, 1, (1 - np.cos(omg * T)) / omg, np.sin(omg * T) / omg, 0],
+                 [0, 0, np.cos(omg * T), -np.sin(omg * T), 0],
+                 [0, 0, np.sin(omg * T), np.cos(omg * T), 0],
+                 [0, 0, 0, 0, 1]]), xk);
         super().propforward(**params)
         return (t + dt, xk1)
 
     def processNoise(self,t,dt,xk,uk=0,**params):
         T = dt
         Q_CT = self.L1 * np.array([[T**3 / 3, 0, T**2 / 2, 0, 0],
-		 [0, T**3 / 3, 0, T**2 / 2, 0], [
-		 T**2 / 2, 0, T, 0, 0], [
-			0, T**2 / 2, 0, T, 0], [
-		 0, 0, 0, 0, T * self.L2 / self.L1]])
+         [0, T**3 / 3, 0, T**2 / 2, 0], [
+         T**2 / 2, 0, T, 0, 0], [
+            0, T**2 / 2, 0, T, 0], [
+         0, 0, 0, 0, T * self.L2 / self.L1]])
 
         super().processNoise(**params)
         return Q_CT
@@ -125,10 +129,10 @@ class KinematicModel_CT(MotionModel):
             np.cos(omg*T)*T*xk[2] - np.sin(omg*T)*T*xk[3] ]
 
             F = np.array([[1, 0, np.sin(omg * T) / omg, -(1 - np.cos(omg * T)) / omg, f[0] ],
-				 [0, 1, (1 - np.cos(omg * T)) / omg, np.sin(omg * T) / omg, f[1]],
-				 [0, 0, np.cos(omg * T), -np.sin(omg * T), f[2]],
-				 [0, 0, np.sin(omg * T), np.cos(omg * T), f[3]],
-				 [0, 0, 0, 0, 1]])
+                 [0, 1, (1 - np.cos(omg * T)) / omg, np.sin(omg * T) / omg, f[1]],
+                 [0, 0, np.cos(omg * T), -np.sin(omg * T), f[2]],
+                 [0, 0, np.sin(omg * T), np.cos(omg * T), f[3]],
+                 [0, 0, 0, 0, 1]])
 
         else:
             F= [ [1,0,T,0,-0.5*T**2*xk[3]],
@@ -149,16 +153,24 @@ class KinematicModel_CT_control(KinematicModel_CT):
         """
         maxturnrate = getattr(self, 'maxturnrate',None)
         if maxturnrate is None:
+            maxturnrate = params.get( 'maxturnrate',None)
+        if maxturnrate is None:
             maxturnrate = 0.25
+
         maxvmag = getattr(self, 'maxvmag',None)
         if maxvmag is None:
+            maxvmag = params.get( 'maxvmag',None)
+
+        if maxvmag is None:
             maxvmag = 1.5
-        currvmag = nplnalg.norm(xk[2:4])    
+
+
+        currvmag = nplnalg.norm(xk[2:4])
         if uk is not None:
             vmag = uk[0]
             Omega = uk[1]
             vmag = np.clip(vmag, 0, maxvmag)
-            
+
             if currvmag>0:
                 xk[2:4] = vmag*xk[2:4]/currvmag
             else:
@@ -173,52 +185,92 @@ class KinematicModel_CT_control(KinematicModel_CT):
             xk[4] = np.clip(xk[4], -maxturnrate, maxturnrate)
         tt,xk1 = super().propforward(t, dt, xk, uk=0)
         return (tt, xk1)
-        
-    # def processNoise(self,t,dt,xk,uk=0,**params):
-    #     Q_CT = super().processNoise(t,dt,xk,uk=uk,**params)
-    #     return 0*Q_CT
-    
+
+
+
 class KinematicModel_UM(MotionModel):
-	motionModelName = 'KinematicModel_UM'
-	def __init__(self, L1=0.16,L2=0.001,**kwargs):
-		self.L1 = L1
-		self.L2 = L2
-		self.fn = 4
+    motionModelName = 'KinematicModel_UM'
+    def __init__(self, L1=0.16,L2=0.001,**kwargs):
+        self.L1 = L1
+        self.L2 = L2
+        self.fn = 4
+        self.maxturnrate = kwargs.get( 'maxturnrate',None)
+        self.maxvmag = kwargs.get( 'maxvmag',None)
+        self.minvmag = kwargs.get( 'minvmag',None)
 
-		super(KinematicModel_UM,self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
-	def propforward(self, t, dt, xk,uk=0, **params):
-		T = dt;
+    def propforward(self, t, dt, xk,uk=0, **params):
+        T = dt;
 
-		xk1 = np.matmul(np.array([[1, 0, T, 0],
-									[0, 1, 0, T],
-									[0, 0, 1, 0],
-									[0, 0, 0, 1]]), xk);
+        xk1 = np.matmul(np.array([[1, 0, T, 0],
+                                    [0, 1, 0, T],
+                                    [0, 0, 1, 0],
+                                    [0, 0, 0, 1]]), xk);
 
 
 
-		super(KinematicModel_UM,self).propforward(**params)
-		return (t+dt,xk1)
+        super().propforward(**params)
+        return (t+dt,xk1)
 
-	def processNoise(self,t,dt,xk,uk=0,**params):
+    def processNoise(self,t,dt,xk,uk=0,**params):
 
-		T = dt
-		Q_UM=self.L1 * np.array([[T**3 / 3, 0, T**2 / 2, 0],
-		 [0, T**3 / 3, 0, T**2 / 2], [
-		 T**2 / 2, 0, T, 0], [
-			0, T**2 / 2, 0, T]])
+        T = dt
+        Q_UM=self.L1 * np.array([[T**3 / 3, 0, T**2 / 2, 0],
+         [0, T**3 / 3, 0, T**2 / 2], [
+         T**2 / 2, 0, T, 0], [
+            0, T**2 / 2, 0, T]])
 
-		super().processNoise(**params)
-		return Q_UM
+        super().processNoise(**params)
+        return Q_UM
 
-	def F(self,t,dt,xk,uk=0,**params):
-		T = dt
-		F = np.array([[1, 0, T, 0],
-									[0, 1, 0, T],
-									[0, 0, 1, 0],
-									[0, 0, 0, 1]])
-		super().F(t, dt, xk, uk=uk, **params)
-		return F
+    def F(self,t,dt,xk,uk=0,**params):
+        T = dt
+        F = np.array([[1, 0, T, 0],
+                                    [0, 1, 0, T],
+                                    [0, 0, 1, 0],
+                                    [0, 0, 0, 1]])
+        super().F(t, dt, xk, uk=uk, **params)
+        return F
+
+class KinematicModel_UM_control(KinematicModel_UM):
+    """ velocity control"""
+    def propforward(self, t, dt, xk, uk, **params):
+        """
+        uk = [vx,vy]
+        """
+
+        maxvmag = getattr(self, 'maxvmag',None)
+        if maxvmag is None:
+            maxvmag = params.get( 'maxvmag',None)
+
+        if maxvmag is None:
+            maxvmag = 1.5
+
+
+        currvmag = nplnalg.norm(xk[2:4])
+        if uk is not None:
+            vx = uk[0]
+            vy = uk[1]
+            vm = nplnalg.norm(uk)
+            vdir = uk/vm
+            vmag = np.clip(vm, 0, maxvmag)
+
+            if currvmag>0:
+                xk[2:4] = vmag*vdir
+
+
+
+        else:
+            vmag = np.clip(currvmag, 0, maxvmag)
+            if currvmag>0:
+                xk[2:4] = vmag*xk[2:4]/currvmag
+
+
+
+        tt,xk1 = super().propforward(t, dt, xk, uk=0)
+        return (tt, xk1)
+
 
 class KinematicModel_UM_5state(KinematicModel_UM):
     motionModelName = 'KinematicModel_UM_5state'

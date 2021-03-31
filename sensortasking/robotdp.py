@@ -5,7 +5,7 @@ import collections as clc
 import copy
 from utils.math import geometry as utmthgeom
 from uq.gmm import gmmbase as uqgmmbase
-from sensortasking import robotinfo as sensrbinfo
+from sensortasking import robotinfo_GmmDp as sensrbinfoGmmDp
 
     
 def dynamicProgRobot2Dgrid_SeqRobot(simmanager,tvec,robots,targetset,Targetfilterer,infoconfig,splitterConfig,mergerConfig):
@@ -37,7 +37,7 @@ def dynamicProgRobot2Dgrid_SeqRobot(simmanager,tvec,robots,targetset,Targetfilte
     # doing DP for robots in seq and from end time
     for r in range(len(robots)):
         ridstates = robots[r].mapobj.XYgvec
-        infocost = sensrbinfo.robotTargetInfo(simmanager,r,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig)
+        infocost = sensrbinfoGmmDp.robotTargetInfo(simmanager,r,ridstates,robots,targetset,tvec,Targetfilterer,infoconfig,splitterConfig,mergerConfig)
         
         J=clc.defaultdict(dict)
         for k in range(len(tvec)-1,-1,-1):

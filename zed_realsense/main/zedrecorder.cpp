@@ -140,8 +140,14 @@ public:
             auto color_mat = colqueue.front();
             q_mutex_color.unlock();
 
+            if (colind==0){
             std::string ffc = colorfolder+std::string("/color_")+std::to_string(colind)+std::string(".png");
             imwrite(ffc.c_str(),color_mat);
+            }
+
+            std::string ffc = colorfolder+std::string("/color_")+std::to_string(colind)+std::string(".bin");
+            write_binary(ffd.c_str(),color_mat);
+
             colind++;
             
             std::cout<<"Writing to file the color data "<<std::endl;
