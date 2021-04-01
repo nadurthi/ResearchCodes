@@ -381,8 +381,10 @@ int main(int argc, char **argv) try {
         pipe.wait_for_frames();       
     }
 
+    
     int cind=0;
     // int dind=0;
+    int pind=0;
 
     while (true)
     {   
@@ -431,8 +433,11 @@ int main(int argc, char **argv) try {
 
         // double t0 = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::system_clock::now().time_since_epoch()).count();
         
+        if (pind<10){
+            thdsaver.pushpoints(points);
+        }
+        ++pind;
 
-        thdsaver.pushpoints(points);
         thdsaver.pushcolor(color_mat);
         thdsaver.pushdepth(depth_mat);
         // auto pcl_points = points_to_pcl(pcdfolder,points,++ind);
