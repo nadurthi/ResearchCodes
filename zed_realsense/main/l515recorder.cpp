@@ -385,6 +385,10 @@ int main(int argc, char **argv) try {
     int cind=0;
     // int dind=0;
     int pind=0;
+<<<<<<< HEAD
+=======
+
+>>>>>>> dc31a8594c9431ebf2b744cfbd4a33b0f3ca907b
 
     while (true)
     {   
@@ -433,11 +437,19 @@ int main(int argc, char **argv) try {
 
         // double t0 = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::system_clock::now().time_since_epoch()).count();
         
+<<<<<<< HEAD
         if (pind<10){
             thdsaver.pushpoints(points);
         }
         ++pind;
 
+=======
+        if (pind<=10){
+            thdsaver.pushpoints(points);
+        }
+        ++pind;
+        
+>>>>>>> dc31a8594c9431ebf2b744cfbd4a33b0f3ca907b
         thdsaver.pushcolor(color_mat);
         thdsaver.pushdepth(depth_mat);
         // auto pcl_points = points_to_pcl(pcdfolder,points,++ind);
