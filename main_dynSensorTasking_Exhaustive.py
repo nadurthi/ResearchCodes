@@ -635,6 +635,15 @@ for t,tk,dt in simmanger.iteratetimesteps():
     plt.show()
     plt.pause(0.1)
     
+    # Designate a target as lost
+    FOVradius=[]
+    for r in range(len(robots)):
+        FOVradius.append( robots[r].sensormodel.FOVradius )
+    for i in range(targetset.ntargs):
+        if targetset[i].isSearchTarget() is False:
+            egval, = nplg.eig(targetset[i].Pfk[0:2,0:2])
+            if np.any(np.sqrt(egval))>=max(FOVradius):
+                targetset[i].makeInactive()
 
 
 # %% Finalize and save

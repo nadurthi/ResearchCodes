@@ -13,25 +13,25 @@ from uq.uqutils import helper as uqutilhelp
 from uq.uqutils import constants as uqutilconst
 
 
-from enum import Enum, auto
+from enum import Enum, auto, IntEnum
 
 
 # active or deactive is to remove the target from computations and save resources
-class TargetStatus(Enum):
+class TargetStatus(IntEnum):
     Active = auto()
     Inactive = auto()
 
-class TargetTrack(Enum):
+class TargetTrack(IntEnum):
     Maintained = auto()
     Lost = auto()
     Recovered = auto()
 
-class TargetObservability(Enum):
+class TargetObservability(IntEnum):
     NotObservable = auto()
     Observable = auto()
     Occluded = auto()
 
-class TargetType(Enum):
+class TargetType(IntEnum):
     Standard = auto()
     Search = auto()
 
@@ -220,11 +220,18 @@ class Target:
 
     def setTargetFilterStageAsPosterior(self):
         self.filterstage = uqutilconst.FilterStage.Posterior
-
+    
+    
+        
     def updateParams(self,**params):
         for key,value in params.items():
             if hasattr(self,key):
-                setattr(self,key,value)
+                if isinstance(getattr(self,key),TargetStatus):
+                    for ss in TargetStatus:
+                        if ss.name==value:
+                            setattr(self,key,ss)        
+                else:
+                    setattr(self,key,value)
             else:
                 raise KeyError("Target does not have this key '%s' to update"%(key,))
 
@@ -233,13 +240,19 @@ class Target:
             if self.filterstage == uqutilconst.FilterStage.Prior:
                 recparams={}
                 for recstate in self.recorderprior.states:
-                    recparams[recstate] = getattr(self,recstate)
+                    if isinstance(getattr(self,recstate),IntEnum):
+                        recparams[recstate] = getattr(self,recstate).name
+                    else:
+                        recparams[recstate] = getattr(self,recstate)
                 self.recorderprior.record(self.currt,**recparams)
 
             if self.filterstage == uqutilconst.FilterStage.Posterior:
                 recparams={}
                 for recstate in self.recorderpost.states:
-                    recparams[recstate] = getattr(self,recstate)
+                    if isinstance(getattr(self,recstate),IntEnum):
+                        recparams[recstate] = getattr(self,recstate).name
+                    else:
+                        recparams[recstate] = getattr(self,recstate)
                 self.recorderpost.record(self.currt,**recparams)
     
     def resetState2timePriorRecord(self,t):

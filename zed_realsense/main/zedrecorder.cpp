@@ -146,7 +146,7 @@ public:
             }
 
             std::string ffc = colorfolder+std::string("/color_")+std::to_string(colind)+std::string(".bin");
-            write_binary(ffd.c_str(),color_mat);
+            write_binary(ffc.c_str(),color_mat);
 
             colind++;
             
