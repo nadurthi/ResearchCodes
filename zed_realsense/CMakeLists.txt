@@ -26,7 +26,8 @@ find_package( PCL REQUIRED )
 
 # find_package(glfw3 3.3 QUIET)
 # Find librealsense2 installed package
-find_package(realsense2 2.42.0 EXACT REQUIRED)
+#find_package(realsense2 2.42.0 EXACT REQUIRED)
+find_package(realsense2)
 set(DEPENDENCIES realsense2)
 
 find_package( OpenCV REQUIRED )
