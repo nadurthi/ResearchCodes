@@ -43,7 +43,7 @@ from uq.uqutils import recorder as uqrecorder
 from physmodels import targets as phytarg
 from uq.uqutils import metrics as uqmetrics
 from utils.math import geometry as utmthgeom
-from uq.uqutils import simmanager as uqsimmanager
+from utils import simmanager
 from utils.plotting import geometryshapes as utpltshp
 from utils.plotting import surface as utpltsurf
 from uq.quadratures import cubatures as quadcub
@@ -70,67 +70,36 @@ import copy
 import robot.filters.robot2Dfilters as rbf2df
 from sensortasking import exhaustive_tasking as stexhaust
 
+from utils.metrics import tracking as utmttrack
 
 # %% plotting functions
 markers = ['.','o','s','d','^']
 
-def plotsimIndividTargs(simmanger,targetset,robots,t):
-    print("plotsim thread")
-    for i in range(targetset.ntargs):
-        if targetset[i].isSearchTarget():
-            continue
-        
-        fig = plt.figure("MainSim: Target: %d"%i)
-        axlist = fig.axes
-        if len(axlist)==0:
-            ax = fig.add_subplot(111,label='c')
+def getActiveTrackTimes(tt,statuses):
+    TT=[]
+    T=[]
+    flg = 0
+    prevflg = 0
+    for i in range(len(statuses)):
+        prevflg = flg
+        if statuses[i] == 'Active':
+            flg = 1
         else:
-            ax = axlist[0]
-            ax.cla()
+            flg = 0
         
-        ax.set_title("time step = %f"%(t,) )
-        robots[0].mapobj.plotmap(ax)
-        xlim=[]
-        ylim=[]
-        XY=[]
-        for r in robots:
-            r.plotrobot(ax)
-            XY.append(r.mapobj.XYgvec)
+        if i == len(statuses)-1 and statuses[i] == 'Active':
+            flg=0
+            prevflg=1
+            
+        if prevflg==0 and flg==1:
+            T.append(i)
+        elif prevflg==1 and flg==0:
+            T.append(i)
+            TT.append(T)
+            T=[]
+    return TT
         
-        XY=np.vstack(XY)
-        aamn = np.min(XY,axis=0)
-        aamx = np.max(XY,axis=0)
-        xlim = [aamn[0]-10,aamx[0]+10]
-        ylim = [aamn[1]-10,aamx[1]+10]
-        
-        
-        
-        xktruth = targetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',t)
-        xfku = targetset[i].recorderpost.getvar_uptotime_stacked('xfk',t)
-        xfkf = targetset[i].recorderprior.getvar_uptotime_stacked('xfk',t)
-        
-        if xfku.shape[0]>=xfkf.shape[0]:
-            xfk = xfku
-        else:
-            xfk = xfkf
-
-        ax.plot(xktruth[:,0],xktruth[:,1],linestyle='--',c=targetset[i].color)
-        ax.plot(xktruth[-1,0],xktruth[-1,1],c=targetset[i].color,marker='*')
-        
-        ax.plot(xfk[:,0],xfk[:,1],c=targetset[i].color)
-        ax.plot(xfk[-1,0],xfk[-1,1],c=targetset[i].color,marker='s')
-        
-        ax.annotate(targetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
-        ax.annotate(targetset[i].targetName,xfk[-1,0:2],xfk[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
-
-        ax.axis('equal')
-        ax.set(xlim=xlim, ylim=ylim)
-        plt.show(block=False)
-        plt.pause(0.4)
-        # k = f'{t:06.2f}'.replace('.','-')
-        # simmanger.savefigure(fig, ['SimSnapshot', 'targ',], k+'.png')
-
-def plotsimAllTargs(simmanger,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True):
+def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True):
     
     xlim=[]
     ylim=[]
@@ -228,27 +197,44 @@ def plotsimAllTargs(simmanger,targetset,robots,t,tvec,plotest=True,plotrobottraj
     robots[0].mapobj.plotmap(ax)
     
     for r in robots:
-        r.plotrobotTraj(ax,tvec[:-1])
+        # r.plotrobotTraj(ax,tvec[:-1])
         r.plotrobot(ax)      
 
+    for i in range(groundtargetset.ntargs):
+        if groundtargetset[i].isSearchTarget():
+            continue
+            
+        tt,xktruth = groundtargetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',t,returntimes=True)
+        ax.plot(xktruth[:,0],xktruth[:,1],linestyle='--',c=groundtargetset[i].color)
+        ax.plot(xktruth[-1,0],xktruth[-1,1],c=groundtargetset[i].color,marker='*')
+        ax.annotate(groundtargetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]+2,color=groundtargetset[i].color,fontsize='x-small')
+        
     for i in range(targetset.ntargs):
         if targetset[i].isSearchTarget():
             continue
             
-        xktruth = targetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',t)
-        xfku = targetset[i].recorderpost.getvar_uptotime_stacked('xfk',t)
-        xfkf = targetset[i].recorderprior.getvar_uptotime_stacked('xfk',t)
+        
+        tt,xfku = targetset[i].recorderpost.getvar_uptotime_stacked('xfk',t,returntimes=True)
+        tt,status_ku = targetset[i].recorderpost.getvar_uptotime_list('status',t,returntimes=True)
+
+        TT = getActiveTrackTimes(tt,status_ku)
+        
+        # tt,xfkf = targetset[i].recorderprior.getvar_uptotime_stacked('xfk',t)
+        xfkf = None
         
         Pfku = targetset[i].recorderpost.getvar_bytime('Pfk',t)
         
-        ax.plot(xktruth[:,0],xktruth[:,1],linestyle='--',c=targetset[i].color)
-        ax.plot(xktruth[-1,0],xktruth[-1,1],c=targetset[i].color,marker='*')
-        ax.annotate(targetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
+        
+        
         
         
         if plotest:
             if xfku is not None:
-                ax.plot(xfku[:,0],xfku[:,1],c=targetset[i].color)
+                for T in TT:
+                    ax.plot(xfku[T[0]:T[1],0],xfku[T[0]:T[1],1],c=targetset[i].color)
+                    # ax.plot(xfku[T[0],0],xfku[T[0],1],c=targetset[i].color,marker='s')
+                    # ax.plot(xfku[T[1],0],xfku[T[1],1],c=targetset[i].color,marker='o')
+                    
                 ax.plot(xfku[-1,0],xfku[-1,1],c=targetset[i].color,marker='s')
                 ax.annotate(targetset[i].targetName,xfku[-1,0:2],xfku[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
     
@@ -267,7 +253,7 @@ def plotsimAllTargs(simmanger,targetset,robots,t,tvec,plotest=True,plotrobottraj
     plt.show(block=False)
     plt.pause(0.1)
     k = f'{t:06.2f}'.replace('.','-')
-    # simmanger.savefigure(fig, ['SimSnapshot', 'Alltargs'], k+'.png',data=[targetset,robots,t,tvec])
+    # simngr.savefigure(fig, ['SimSnapshot', 'Alltargs'], k+'.png',data=[targetset,robots,t,tvec])
 
 
 
@@ -283,11 +269,11 @@ Date: March 27 2021
 """
 
 
-simmanger = uqsimmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
+simngr = simmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
                                   simname="DynamicSensorTasking-SeqExhaust",savepath="simulations",
                                   workdir=os.getcwd())
 
-simmanger.initialize()
+simngr.initialize()
 
 
 # %% Create Map
@@ -309,8 +295,8 @@ robot = robtgr.Robot2DRegGrid()
 maxvmag = 5 #5
 minvmag = 1 #5
 maxturnrate = 2.5 #3
-robot.NominalVmag = simmanger.data['robot.NominalVmag'] = 2 #2
-robot.MinTempXferr = simmanger.data['robot.MinTempXferr'] = 0.5
+robot.NominalVmag = simngr.data['robot.NominalVmag'] = 2 #2
+robot.MinTempXferr = simngr.data['robot.MinTempXferr'] = 0.5
 
 robot.dynModel = phymm.KinematicModel_CT_control(L1=0.016, L2=0.0001,maxvmag=maxvmag,minvmag=minvmag,maxturnrate=maxturnrate)
 robot.mapobj = rgmap
@@ -321,7 +307,7 @@ robot.xk =  rgmap.snap2grid(robot.xk)
 mapobj = robot.mapobj
     
 with utltm.TimingContext():
-    robttj.generateTemplates_reachSet(robot,min([0.5,simmanger.dt/20]),simmanger.dt)
+    robttj.generateTemplates_reachSet(robot,min([0.5,simngr.dt/20]),simngr.dt)
 
 # for uk_key in robot.iterateControlsKeys(robot.xk[0:2],robot.xk[2]):
 #     print(uk_key)
@@ -342,7 +328,8 @@ robots[0].mapobj = robot.mapobj
 robots[0].controltemplates = copy.deepcopy(robot.controltemplates)
 robots[0].xk=rgmap.snap2grid(np.array([70,70,0]))
 robots[0].robotColor = 'b'
-robots[0].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.1)**2, (0.1)**2), 
+robots[0].shape = {'a':2,'w':1}
+robots[0].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((1)**2, (1)**2), 
                                                     FOVradius=20,
                                                     posstates=[0,1],
                                                     FOVcolor='b',
@@ -358,9 +345,10 @@ robots[1].mapobj = robot.mapobj
 robots[1].controltemplates = copy.deepcopy(robot.controltemplates)
 robots[1].xk=rgmap.snap2grid(np.array([30,30,0]))
 robots[1].robotColor = 'r'
-robots[1].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.1)**2, (0.1)**2), 
+robots[0].shape = {'a':2,'w':1}
+robots[1].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.2)**2, (0.2)**2), 
                                                    posstates=[0,1], 
-                                                   FOVradius=20,
+                                                   FOVradius=10,
                                                     FOVcolor='r',
                                                     TP=0.9, TN=0.9, FP=0.1, FN=0.1,
                                                     recordSensorState=True,
@@ -379,6 +367,7 @@ NUM_COLORS = 200
 colors = [colmap(1.*i/NUM_COLORS) for i in range(NUM_COLORS)]
 shuffle(colors)
 
+groundtargetset = phytarg.TargetSet()
 targetset = phytarg.TargetSet()
 vmag = 0.3
 DD = []
@@ -400,7 +389,7 @@ aamx = np.max(XY,axis=0)
 xlim = [aamn[0],aamx[0]]
 ylim = [aamn[1],aamx[1]]
 
-for i in range(2):
+for i in range(10):
 
     while(1):
         xf0 = np.random.rand(4)
@@ -431,8 +420,8 @@ for i in range(2):
     
     dynmodel = phymm.KinematicModel_UM_control(L1=0.0016, L2=1e-8,maxturnrate=0.25,maxvmag=vmag)
 
-    recorderobjprior = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk'])
-    recorderobjpost = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk'])
+    recorderobjprior = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk','status'])
+    recorderobjpost = uqrecorder.StatesRecorder_list(statetypes = ['xfk','Pfk','status'])
     target = phytarg.Target(dynModel=dynmodel, xfk=xf0, Pfk=Pf0, currt = 0, recordfilterstate=True,
                  recorderobjprior = recorderobjprior,recorderobjpost=recorderobjpost)
     target.groundtruthrecorder = uqrecorder.StatesRecorder_list(statetypes = ['xtk','uk'] )
@@ -442,7 +431,7 @@ for i in range(2):
     
     target.targetName = "Trgt:%d"%i
     target.color=colors[i]
-    targetset.addTarget(target)
+    groundtargetset.addTarget(target)
 
 
 xg = np.arange(rgmap.xy0[0],rgmap.xyf[0],10)
@@ -467,9 +456,6 @@ target.color=colors[-1]
 targetset.addTarget(target)   
 
 
-if not os.path.isfile(flname):
-    with open(flname,'wb') as F:
-        pkl.dump(DD,F)
 
 
 # %% Generate truth
@@ -480,21 +466,21 @@ if not os.path.isfile(flname):
 # pk = targetset[i].xfk
 # ax.scatter(xk[:,0], xk[:,1], pk, marker='.')
 
-simmanger.data['changeRate'] = changeRate = 0.99
+simngr.data['changeRate'] = changeRate = 0.7
 
 plt.close("all")
 maxturnrate_diff = 0.1
 
-for t,tk,dt in simmanger.iteratetimesteps():
+for t,tk,dt in simngr.iteratetimesteps():
     print (t,tk,dt)
     
     Uk = []
     # generate truth at time t+dt
-    for i in range(targetset.ntargs):
-        if targetset[i].isSearchTarget():
+    for i in range(groundtargetset.ntargs):
+        if groundtargetset[i].isSearchTarget():
             continue
         
-        xk = targetset[i].groundtruthrecorder.getvar_bytime('xtk',t)
+        xk = groundtargetset[i].groundtruthrecorder.getvar_bytime('xtk',t)
         vv = xk[2:4]
         vmag = nplg.norm(xk[2:4])
         if vmag >0:
@@ -503,7 +489,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
             vdir = np.array([0,0])
         
         # maxturnrate = targetset[i].dynModel.maxturnrate
-        maxvmag = targetset[i].dynModel.maxvmag
+        maxvmag = groundtargetset[i].dynModel.maxvmag
         
         if not robots[0].mapobj.isInMap(xk):
             dirnmid = robots[0].mapobj.middirn()-xk[0:2]
@@ -512,7 +498,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
             vdir = vdir/nplg.norm(vdir)
             vv = vmag*vdir
             # c=np.cross(np.hstack([vdir,0]),np.hstack([dirnmid,0]))
-            # turnrate = np.sign(c[2])*np.arccos(np.dot(vdir,dirnmid))/(simmanger.dt*5)
+            # turnrate = np.sign(c[2])*np.arccos(np.dot(vdir,dirnmid))/(simngr.dt*5)
             uk = vv
         else:
             # random turn of target
@@ -520,7 +506,7 @@ for t,tk,dt in simmanger.iteratetimesteps():
             if ss>changeRate:
                 d = np.random.randn(2)
                 # turnrate = xk[4]+max([min([d,maxturnrate_diff]),-maxturnrate_diff])
-                vdir = 0.7*vdir+0.3*d
+                vdir = 0.9*vdir+0.1*d
                 vdir = vdir/nplg.norm(vdir)
                 vv = vmag*vdir
                 uk = vv
@@ -530,16 +516,16 @@ for t,tk,dt in simmanger.iteratetimesteps():
         Uk.append(uk)
         # print("uk = ",uk)
         # uk=None
-        _,xk1=targetset[i].dynModel.propforward( t, dt, xk, uk=uk)
-        targetset[i].groundtruthrecorder.recordupdate(t+dt,xtk=xk1,uk=uk)
+        _,xk1=groundtargetset[i].dynModel.propforward( t, dt, xk, uk=uk)
+        groundtargetset[i].groundtruthrecorder.recordupdate(t+dt,xtk=xk1,uk=uk)
     
 
 
  
     # Plotting of simulations
-    # plotsimIndividTargs(simmanger,targetset,robots,t+dt)
-    tvec = simmanger.tvec[simmanger.tvec<=(tk+dt)]
-    plotsimAllTargs(simmanger,targetset,robots,t+dt,tvec,plotest=False,plotrobottraj=False,plotsearch=False)
+    # plotsimIndividTargs(simngr,targetset,robots,t+dt)
+    tvec = simngr.tvec[simngr.tvec<=(tk+dt)]
+    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,tvec,plotest=False,plotrobottraj=False,plotsearch=False)
     
     plt.ion()
     plt.show()
@@ -547,15 +533,37 @@ for t,tk,dt in simmanger.iteratetimesteps():
     
 simtestcase = "testcases/simcase.pkl"
 with open(simtestcase,'wb') as F:
-    pkl.dump({'targetset':targetset,'robots':robots,'simmanger':simmanger},F)
+    pkl.dump({'groundtargetset':groundtargetset,'targetset':targetset,'robots':robots,'simngr':simngr},F)
+    
+    
+def RE_Initialize(zk,target,dt):
+    Pf0 = block_diag(5**2,5**2,0.2**2,0.2**2)
+    xf0 = np.hstack([zk,0.1,0.1])
+    
+        
+    # estimate rough xf0 after two measurements
+    if 'ZK' in target.tempData:
+        target.tempData['ZK'].append((t+dt,zk))
+        ddt=target.tempData['ZK'][1][0]-target.tempData['ZK'][0][0]
+        vf=(target.tempData['ZK'][1][1]-target.tempData['ZK'][0][1])/ddt
+        if ddt<=2*dt:
+            xf0=np.hstack([zk,vf])
+        
+        target.tempData.pop('ZK')
+        
+    else:
+        target.tempData['ZK']=[(t+dt,zk)]
+    
+    return xf0,Pf0
 # %% Run sim
 with open(simtestcase,'rb') as F:
     data = pkl.load(F)
+    groundtargetset = data['groundtargetset']
     targetset=data['targetset']
     robots=data['robots']
-    simmanger=data['simmanger']
+    simngr=data['simngr']
 
-searchMIwt = simmanger.data['searchMIwt'] = 3
+searchMIwt = simngr.data['searchMIwt'] = 3
 
 
 
@@ -566,17 +574,78 @@ InfoTargetfilterer = uqkf.TargetEKF()
 mapobj = robot.mapobj
 
 
-simmanger.data['TT'] = TT = 5
-simmanger.data['TTrecomp'] = TTrecomp = 3
+simngr.data['TT'] = TT = 5
+simngr.data['TTrecomp'] = TTrecomp = 3
+
+simngr.data['LOST_FOV_FACTOR'] = LOST_FOV_FACTOR = 1
  
 dptvec = [0]
 
-for t,tk,dt in simmanger.iteratetimesteps():
+for t,tk,dt in simngr.iteratetimesteps():
     print (t,tk,dt)
+    
+    # -------------Do detection, initialize new targets, re-initialize previously lost targets----------------------
+    Tt = t
+    for i in range(groundtargetset.ntargs): 
+        gtargID = groundtargetset[i].ID
+        # if target is already tracked
+        if targetset.hasTarget(gtargID):
+            target = targetset.getTargetByID(gtargID)
+            # check if it is active or inactive
+            if target.isActive():
+                pass # do nothing
+            else: # is InActive: check if any robot sees it and re-initialize
+                for r in range(len(robots)):
+                    sensormodel = robots[r].sensormodel
+                    xtk = groundtargetset[i].groundtruthrecorder.getvar_bytime('xtk',Tt)
+                    zk,isinsidek,Lk = sensormodel.generateRndMeas(Tt, dt, xtk,useRecord=False)
+                    if isinsidek == 0: # outside FOV
+                        pass # cannot re-initialize a robot outside 
+                    else:
+                       
+                        if sensormodel.sensStateStrs!=['x','y']:
+                            raise NotImplemented("You need to somehow get x and y from the sensor to RE-initialize target")
+                        
+                        target.makeActive()
+                        print("Target %s is now Active"% target.targetName)
+                        xf0,Pf0 = RE_Initialize(zk,target,dt)
+                        
+                        target.setInitialdata(Tt,xfk=xf0, Pfk=Pf0)
+                        break
+                    
+        else:# if target is not tracked at all
+            
+            for r in range(len(robots)):
+                sensormodel = robots[r].sensormodel
+                xtk = groundtargetset[i].groundtruthrecorder.getvar_bytime('xtk',Tt)
+                zk,isinsidek,Lk = sensormodel.generateRndMeas(Tt, dt, xtk,useRecord=False)
+                if isinsidek == 0: # outside FOV
+                    pass # cannot initialize a robot outside 
+                else:
+                    if sensormodel.sensStateStrs!=['x','y']:
+                        raise NotImplemented("You need to somehow get x and y from the sensor to initialize target")
+                        
+                    target =  groundtargetset[i].makeCopy()
+                    target.makeActive()
+                    
+                    target.groundtruthrecorder = None
+                    target.recorderprior.cleardata(keepInitial = False)
+                    target.recorderpost.cleardata(keepInitial = False)
+                    
+                    
+                    print("Target %s is now Tracked "% target.targetName)
+                    
+                    xf0,Pf0 = RE_Initialize(zk,target,dt)
+                    
+                    target.setInitialdata(Tt,xfk=xf0, Pfk=Pf0)
+                    
+                    targetset.addTarget(target)
+                    break
+    # ------------------------------------------------------------------------
     
     
     if t==0 or t==dptvec[min([TTrecomp,len(dptvec)-1])]:
-        dptvec = simmanger.tvec[tk:min([tk+TT,simmanger.ntimesteps]) ]
+        dptvec = simngr.tvec[tk:min([tk+TT,simngr.ntimesteps]) ]
         stexhaust.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
         # stexhaust.random_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=0.5)
         
@@ -592,7 +661,10 @@ for t,tk,dt in simmanger.iteratetimesteps():
         if targetset[i].isSearchTarget():
             targetset[i].filterer.propagate( t,dt,targetset[i],updttarget=True)
         else:
-            Targetfilterer.propagate(t,dt,targetset[i],Ukfilter[i],updttarget=True)
+            if targetset[i].isInActive(): 
+                Targetfilterer.propagate(t, dt, targetset[i],Ukfilter[i],updttarget=True, justcopyprior=True)
+                continue
+            Targetfilterer.propagate(t,dt,targetset[i],Ukfilter[i],updttarget=True, justcopyprior=False)
     
     #### TIME IS NOW AT t+dt
     
@@ -603,33 +675,42 @@ for t,tk,dt in simmanger.iteratetimesteps():
         robots[j].xk = robots[j].statehistory[t+dt]
         robots[j].updateTime(t+dt)
         robots[j].updateSensorModel()
-        
-    # do measurment update for targets
-    with utltm.TimingContext("Measureemt update: "):
-        for i in range(targetset.ntargs):
-            if targetset[i].isSearchTarget():
-                for r in range(len(robots)):
-                    sensormodel = robots[r].sensormodel
-                    xk = targetset[i].dynModel.X
-                    zk,isinsidek,Lk = sensormodel.generateRndDetections( t, dt, xk,useRecord=False)
-                    targetset[i].filterer.measUpdate( t+dt, dt, targetset[i], sensormodel,zk, updttarget=True)
-            else:
-                for r in range(len(robots)):
-                    xk = targetset[i].groundtruthrecorder.getvar_bytime('xtk',t+dt)
-                    sensormodel = robots[r].sensormodel
-                    zk,isinsidek,Lk = sensormodel.generateRndMeas(t+dt, dt, xk,useRecord=False)
-                    if isinsidek == 0:
-                        fovSigPtFrac = 1  # dont do measurement update but just copy prior
-                        Targetfilterer.measUpdate(t+dt, dt, targetset[i], sensormodel, zk, updttarget=True, fovSigPtFrac=fovSigPtFrac,justcopyprior=True)
-                    else:
-                        fovSigPtFrac = -1 # do measurement update
-                        Targetfilterer.measUpdate(t+dt, dt, targetset[i], sensormodel, zk, updttarget=True, fovSigPtFrac=fovSigPtFrac,justcopyprior=False)
+    
+    
+
+           
+    # do measurment update for targets that are being tracked (Active). Does not matter if in FOV or not,deal with those cases as is
+    # with utltm.TimingContext("Measureemt update: "):
+    for i in range(targetset.ntargs):
+        if targetset[i].isSearchTarget():
+            for r in range(len(robots)):
+                sensormodel = robots[r].sensormodel
+                xk = targetset[i].dynModel.X
+                zk,isinsidek,Lk = sensormodel.generateRndDetections( t+dt, dt, xk,useRecord=False)
+                targetset[i].filterer.measUpdate( t+dt, dt, targetset[i], sensormodel,zk, updttarget=True)
+        else:
+            if targetset[i].isInActive(): 
+                Targetfilterer.measUpdate(t+dt, dt, targetset[i], sensormodel, zk, updttarget=True, justcopyprior=True)
+                continue
+            
+            for r in range(len(robots)):
+                targID = targetset[i].ID
+                
+                xtk = groundtargetset.getTargetByID(targID).groundtruthrecorder.getvar_bytime('xtk',t+dt)
+                sensormodel = robots[r].sensormodel
+                zk,isinsidek,Lk = sensormodel.generateRndMeas(t+dt, dt, xtk,useRecord=False)
+                if isinsidek == 0: # outside FOV
+                    fovSigPtFrac = 1  # dont do measurement update but just copy prior
+                    Targetfilterer.measUpdate(t+dt, dt, targetset[i], sensormodel, zk, updttarget=True, fovSigPtFrac=fovSigPtFrac,justcopyprior=True)
+                else: # inside FOV
+                    fovSigPtFrac = -1 # do measurement update
+                    Targetfilterer.measUpdate(t+dt, dt, targetset[i], sensormodel, zk, updttarget=True, fovSigPtFrac=fovSigPtFrac,justcopyprior=False)
                     
                     
             
     # Plotting of simulations
-    # plotsimIndividTargs(simmanger,targetset,robots,t+dt)
-    plotsimAllTargs(simmanger,targetset,robots,t+dt,simmanger.tvec[:(tk+dt)])
+    # plotsimIndividTargs(simngr,targetset,robots,t+dt)
+    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,simngr.tvec[:(tk+dt)])
     
     plt.ion()
     plt.show()
@@ -641,16 +722,17 @@ for t,tk,dt in simmanger.iteratetimesteps():
         FOVradius.append( robots[r].sensormodel.FOVradius )
     for i in range(targetset.ntargs):
         if targetset[i].isSearchTarget() is False:
-            egval, = nplg.eig(targetset[i].Pfk[0:2,0:2])
-            if np.any(np.sqrt(egval))>=max(FOVradius):
+            egval,egvec = nplg.eig(targetset[i].Pfk[0:2,0:2])
+            if np.any(np.sqrt(egval)) >= LOST_FOV_FACTOR*max(FOVradius):
                 targetset[i].makeInactive()
-
+                print("Target %s is now InActive"% targetset[i].targetName)
+                
 
 # %% Finalize and save
 
-simmanger.finalize()
+simngr.finalize()
 
-simmanger.save(metalog, mainfile=runfilename, targetset=targetset, robots=robots)
+simngr.save(metalog, mainfile=runfilename, targetset=targetset, robots=robots)
 
 
 

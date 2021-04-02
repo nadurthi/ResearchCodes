@@ -19,7 +19,7 @@ from enum import Enum, auto, IntEnum
 # active or deactive is to remove the target from computations and save resources
 class TargetStatus(IntEnum):
     Active = auto()
-    Inactive = auto()
+    InActive = auto()
 
 class TargetTrack(IntEnum):
     Maintained = auto()
@@ -77,6 +77,8 @@ class Target:
         self.modelprobtk = None  # truth
         self.posstates=np.array([0,1])
         
+        self.tempData={}
+        
         self.currt = currt
         self.context ={}
         
@@ -118,15 +120,24 @@ class Target:
 #                params[recstate] = getattr(self,recstate)
 #            self.recorderpost.record(currt,**params)
     
+    def makeCopy(self):
+        return copy.deepcopy(self)
+    
     def isSearchTarget(self):
         return self.targtype == TargetType.Search
-        
+    
+    def isActive(self):
+        return self.status == TargetStatus.Active
+    def isInActive(self):
+        return self.status == TargetStatus.InActive
+    
     def makeInactive(self):
         self.status = TargetStatus.Inactive
     def makeActive(self):
         self.status = TargetStatus.Active
         
     def freezeState(self):
+        raise NotImplemented("Deprecated")
         if self.gmmfk is not None:
             self.gmmfk_freezer = self.gmmfk.makeCopy()
         else:
@@ -153,6 +164,7 @@ class Target:
             self.currt_freezer = None
             
     def defrostState(self):
+        raise NotImplemented("Deprecated")
         if self.gmmfk_freezer is None:
             self.gmmfk = self.gmmfk_freezer
         else:
@@ -180,6 +192,7 @@ class Target:
         
         
     def setStateFromPrior(self,t,statevars):
+        raise NotImplemented("Deprecated")
         for var in statevars:
             v = self.recorderprior.getvar_bytime(var,t)
             if v is None:
@@ -188,6 +201,7 @@ class Target:
         self.currt=t
         
     def setStateFromPost(self,t,statevars):
+        raise NotImplemented("Deprecated")
         for var in statevars:
             v = self.recorderpost.getvar_bytime(var,t)
             if v is None:
@@ -207,12 +221,20 @@ class Target:
         if self.recordfilterstate:
             params={}
             for recstate in self.recorderprior.states:
-                params[recstate] = getattr(self,recstate)
+                if isinstance(getattr(self,recstate),IntEnum):
+                    params[recstate] = getattr(self,recstate).name
+                else:
+                    params[recstate] = getattr(self,recstate)
+                    
             self.recorderprior.record(currt,**params)
 
             params={}
             for recstate in self.recorderpost.states:
-                params[recstate] = getattr(self,recstate)
+                if isinstance(getattr(self,recstate),IntEnum):
+                    params[recstate] = getattr(self,recstate).name
+                else:
+                    params[recstate] = getattr(self,recstate)
+                    
             self.recorderpost.record(currt,**params)
 
     def setTargetFilterStageAsPrior(self):
@@ -261,7 +283,12 @@ class Target:
                 continue
             if hasattr(self,var) :
                 val = self.recorderprior.getvar_bytime(var,t)
-                setattr(self,var,val)
+                if isinstance(getattr(self,var),TargetStatus):
+                    for ss in TargetStatus:
+                        if ss.name==val:
+                            setattr(self,var,ss) 
+                else:
+                    setattr(self,var,val)
                 self.currt = t        
             else:
                 print("Target does not have this key '%s' to update"%(var,))
@@ -272,7 +299,12 @@ class Target:
                 continue
             if hasattr(self,var):
                 val = self.recorderpost.getvar_bytime(var,t)
-                setattr(self,var,val)
+                if isinstance(getattr(self,var),TargetStatus):
+                    for ss in TargetStatus:
+                        if ss.name==val:
+                            setattr(self,var,ss) 
+                else:
+                    setattr(self,var,val)
                 self.currt = t
             else:
                 print("Target does not have this key '%s' to update"%(var,))
@@ -364,7 +396,19 @@ class TargetSet:
     def __init__(self):
         self.targets = []
         self.ID = uuid.uuid4()
-
+        
+    def hasTarget(self,ID):
+        for i in range(self.ntargs):
+            if self.targets[i].ID == ID:
+                return True
+        return False
+    
+    def getTargetByID(self,ID):
+        for i in range(self.ntargs):
+            if self.targets[i].ID == ID:
+                return self.targets[i]
+        return None
+    
     def asserteqtimes(self):
         T=[]
         for i in range(self.ntargs):
@@ -374,7 +418,11 @@ class TargetSet:
     def targetIDs(self):
         return [ss.ID for ss in self.targets]
 
-
+    
+    @property
+    def targsIDlist(self):
+        return [targ.ID for targ in self.targets]
+    
     @property
     def ntargs(self):
         return len(self.targets)

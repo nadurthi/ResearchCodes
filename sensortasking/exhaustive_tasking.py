@@ -295,6 +295,8 @@ def robotTargetInfo_seqrobot(ExitFlag,seqQ,resQ,robots,targetset,tvec,Targetfilt
                     if targetset[i].isSearchTarget():
                         targetset[i].filterer.propagate( t-dt,dt,targetset[i],updttarget=True)
                     else:
+                        if targetset[i].isInActive(): 
+                            continue
                         uk = None
                         Targetfilterer.propagate(t-dt,dt,targetset[i],uk,updttarget=True)
                     
@@ -311,6 +313,8 @@ def robotTargetInfo_seqrobot(ExitFlag,seqQ,resQ,robots,targetset,tvec,Targetfilt
                             if targetset[i].isSearchTarget():
                                 targetset[i].filterer.measUpdate(t, dt, targetset[i], sensormodel,None, updttarget=True)
                             else:
+                                if targetset[i].isInActive(): 
+                                    continue
                                 # compute the intersection of FOV and COV ellipsoid
                                 covOverLap = sensormodel.intersectCovWithFOV(targetset[i].xfk,targetset[i].Pfk)
                                 if covOverLap>0.3:
@@ -337,6 +341,9 @@ def robotTargetInfo_seqrobot(ExitFlag,seqQ,resQ,robots,targetset,tvec,Targetfilt
                             print(pf)
                             print(pu)
                     else:
+                        if targetset[i].isInActive(): 
+                            continue
+                        
                         Pfk=targetset[i].recorderprior.getvar_bytime('Pfk',t)
                         Puk=targetset[i].recorderpost.getvar_bytime('Pfk',t)
                         # pdb.set_trace()
