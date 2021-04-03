@@ -99,7 +99,7 @@ def getActiveTrackTimes(tt,statuses):
             T=[]
     return TT
         
-def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True):
+def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True,saveit=False):
     
     xlim=[]
     ylim=[]
@@ -252,8 +252,9 @@ def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,
     ax.set(xlim=xlim, ylim=ylim)
     plt.show(block=False)
     plt.pause(0.1)
-    k = f'{t:06.2f}'.replace('.','-')
-    # simngr.savefigure(fig, ['SimSnapshot', 'Alltargs'], k+'.png',data=[targetset,robots,t,tvec])
+    fname = f'{t:06.0f}'.replace('.','-')
+    if saveit:
+        simngr.savefigure(fig, ['SimSnapshot'], fname,figformat='.png',data=[simngr,groundtargetset,targetset,robots,t,tvec])
 
 
 
@@ -517,7 +518,7 @@ for t,tk,dt in simngr.iteratetimesteps():
         # print("uk = ",uk)
         # uk=None
         _,xk1=groundtargetset[i].dynModel.propforward( t, dt, xk, uk=uk)
-        groundtargetset[i].groundtruthrecorder.recordupdate(t+dt,xtk=xk1,uk=uk)
+        groundtargetset[i].groundtruthrecorder.record(t+dt,xtk=xk1,uk=uk)
     
 
 
@@ -531,7 +532,7 @@ for t,tk,dt in simngr.iteratetimesteps():
     plt.show()
     plt.pause(0.01)
     
-simtestcase = "testcases/simcase.pkl"
+simtestcase = simngr.createFile("testcase",addtimetag=False)
 with open(simtestcase,'wb') as F:
     pkl.dump({'groundtargetset':groundtargetset,'targetset':targetset,'robots':robots,'simngr':simngr},F)
     
@@ -710,7 +711,7 @@ for t,tk,dt in simngr.iteratetimesteps():
             
     # Plotting of simulations
     # plotsimIndividTargs(simngr,targetset,robots,t+dt)
-    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,simngr.tvec[:(tk+dt)])
+    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,simngr.tvec[:(tk+dt)],saveit=True)
     
     plt.ion()
     plt.show()

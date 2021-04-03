@@ -59,8 +59,24 @@ class SimManager:
         for i in range(skipto,len(self.tvec)-1):
             yield self.tvec[i],i,self.tvec[i+1]-self.tvec[i]
     
-
+    def createFolder(self,foldername):
+        folderpath = os.path.join(self.fullpath,foldername)
+        if not os.path.exists(folderpath):
+            os.makedirs(folderpath)
+        return folderpath
+    
+    def createFile(self,filename,addtimetag=True):
+        
+        if addtimetag:
+            tt=datetime.datetime.now().strftime("%Y-%m-%d-%HH-%MM-%Ss")
+            ff = filename.split('.')
+            filename = ff[0]+'_'+tt+'.'+ff[1]
             
+        filepath = os.path.join(self.fullpath,filename)
+        
+        return filepath
+    
+    
     def initialize(self,repocheck=False):
         self.createdtime  = datetime.datetime.now()
         
@@ -117,7 +133,7 @@ class SimManager:
     def compress(self):
         pass
 
-    def savefigure(self,fig,pather,fname,data=None):
+    def savefigure(self,fig,pather,fname,figformat='.png',data=None):
         pather= [str(pp) for pp in pather]
         patherpath = os.path.join(self.figpath,*pather)
         datapatherpath = os.path.join(self.figpath,*pather,"figdata")
@@ -127,11 +143,11 @@ class SimManager:
             os.makedirs(datapatherpath)
 
                 
-        fpath = os.path.join(patherpath,fname)
+        fpath = os.path.join(patherpath,fname+figformat)
         fig.savefig(fpath,format='png',bbox_inches='tight',dpi=600)
         
         if data is not None:
-            dpath = os.path.join(datapatherpath,fname)
+            dpath = os.path.join(datapatherpath,fname+'.pkl')
             with open(dpath,'wb') as FF:
                 pickle.dump(data,FF)
                 
