@@ -769,6 +769,9 @@ xticks = ax1.get_xticks()
 ax1.set_xticks(xticks)
 ax1.set_xticklabels(Methods)
 
+fig1.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-position",format='png',bbox_inches='tight',dpi=600)
+
+# ----------------
 fig2, ax2 = plt.subplots()
 ax2.set_ylabel('RMSE in velocity')
 ax2.set_xlabel('Methods')
@@ -778,6 +781,45 @@ xticks = ax2.get_xticks()
 ax2.set_xticks(xticks)
 ax2.set_xticklabels(Methods)
 
-DynamicSensorTasking-SIMset1
+fig2.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-velocity",format='png',bbox_inches='tight',dpi=600)
 
+
+# ----------------
+
+fig3, ax3= plt.subplots()
+ax3.set_ylabel('percent')
+cc = 'TIMES_Active_percent'
+databox1 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
+xpos1=np.array([0,1,2])
+ax3.boxplot(databox1,positions = xpos1)
+ax3.set_xticklabels(Methods)
+ax3.set_ylabel(cc)
+ax3.set_xlabel('Methods')
+plt.show()
+fig3.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
+
+
+
+fig4, ax4= plt.subplots()
+cc = 'TIMES_Active_percent_after_discovery'
+databox2 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
+xpos2=np.array([4,5,6])
+ax4.boxplot(databox2,positions = xpos2)
+ax4.set_xticklabels(Methods)
+ax4.set_ylabel(cc)
+ax4.set_xlabel('Methods')
+plt.show()
+fig4.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
+
+
+fig5, ax5= plt.subplots()
+cc = 'TIME_percent_before_discover'
+databox3 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
+xpos3=np.array([8,9,10])
+ax5.boxplot(databox3,positions = xpos3)
+ax5.set_xticklabels(Methods)
+ax5.set_ylabel(cc)
+ax5.set_xlabel('Methods')
+plt.show()
+fig5.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
 
