@@ -65,14 +65,18 @@ class SimManager:
             os.makedirs(folderpath)
         return folderpath
     
-    def createFile(self,filename,addtimetag=True):
+    def createFile(self,filename,pather=[],addtimetag=True):
         
         if addtimetag:
             tt=datetime.datetime.now().strftime("%Y-%m-%d-%HH-%MM-%Ss")
             ff = filename.split('.')
             filename = ff[0]+'_'+tt+'.'+ff[1]
+        
+        folderpath = os.path.join(self.fullpath,*pather)
+        if not os.path.exists(folderpath):
+            os.makedirs(folderpath)
             
-        filepath = os.path.join(self.fullpath,filename)
+        filepath = os.path.join(folderpath,filename)
         
         return filepath
     
@@ -213,13 +217,15 @@ class SimManager:
         
         
     @staticmethod
-    def load(mainfolder,G):
-        datafile = os.path.join(mainfolder,'data.dill')
-        with open(datafile,'rb') as F:
+    def load(mainfolder):
+        simmanagerfile = os.path.join(mainfolder,'simmanager.dill')
+        with open(simmanagerfile,'rb') as F:
+            simanger = dill.load(F)
+        
+        with open(simanger.datapath,'rb') as F:
             D = dill.load(F)
-
-        for key in D:
-            G[key] = D[key]
+        
+        return simanger,D
 
 
 

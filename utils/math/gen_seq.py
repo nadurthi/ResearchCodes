@@ -3,7 +3,29 @@
 import numpy as np
 import numba as nb
 
-
+def independent_seq_generator(Xsets):
+    """
+    Xsets = [Xset1,Xset2,Xset3]
+    seqL = 3
+    chose one from each and build the seq
+    """
+    seqL = len(Xsets)
+    cntrs = np.zeros(seqL,dtype=np.int)
+    while True:
+        Xseq=[]
+        for i in range(seqL):
+            Xseq.append( Xsets[i][cntrs[i]] )
+            if i==seqL-1:
+                cntrs[i] = cntrs[i]+1
+        
+        for i in range(seqL-1,0,-1):
+            if cntrs[i] == len(Xsets[i]):
+                cntrs[i]=0
+                cntrs[i-1] = cntrs[i-1] + 1
+        yield Xseq
+        if cntrs[0] == len(Xsets[0]):
+            break
+        
 def dependent_seq_generator(seqL,ind0,Xset,Xconst):
     """
     seqL is the length of the required sequence
@@ -86,4 +108,8 @@ if __name__=="__main__":
         print(Xseq)
         # gogo = input("next")
                
-            
+    print("independent sequences")
+
+    Xsets=[[1,2,3],[4,5,6],[7,8]]
+    for Xseq in independent_seq_generator(Xsets):
+        print(Xseq)

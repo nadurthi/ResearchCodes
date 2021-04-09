@@ -18,12 +18,11 @@ import pickle as pkl
 from random import shuffle
 import matplotlib
 from mpl_toolkits.mplot3d import Axes3D
-# try:
-#     matplotlib.use('TkAgg')
-# except:
-# matplotlib.use('nbAgg')
+
 import matplotlib.pyplot as plt
 colmap = plt.get_cmap('gist_rainbow')
+# plt.style.use("utils/plotting/production_pyplot_style.txt")
+
 
 import os
 from matplotlib import cm
@@ -55,7 +54,7 @@ from uq.filters import sigmafilter as uqfsigf
 from uq.filters import markovfilter as uqfmarkf
 from uq.filters import gmm as uqgmmf
 from sklearn import mixture
-
+import pyperclip
 
 import collections as clc
 plt.close('all')
@@ -68,7 +67,9 @@ from robot import gridrobot as robtgr
 from maps import gridmap
 import copy
 import robot.filters.robot2Dfilters as rbf2df
-from sensortasking import exhaustive_tasking as stexhaust
+from sensortasking import exhaustive_tasking_seq_robot as stexhaustseqrobot
+from sensortasking import exhaustive_tasking_seq_time as stexhaustseqtime
+
 
 from utils.metrics import tracking as utmttrack
 
@@ -99,7 +100,7 @@ def getActiveTrackTimes(tt,statuses):
             T=[]
     return TT
         
-def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True,saveit=False):
+def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotest=True,plotrobottraj=True,plotsearch=True,saveit=False):
     
     xlim=[]
     ylim=[]
@@ -254,7 +255,7 @@ def plotsimAllTargs(simngr,groundtargetset,targetset,robots,t,tvec,plotest=True,
     plt.pause(0.1)
     fname = f'{t:06.0f}'.replace('.','-')
     if saveit:
-        simngr.savefigure(fig, ['SimSnapshot'], fname,figformat='.png',data=[simngr,groundtargetset,targetset,robots,t,tvec])
+        simngr.savefigure(fig, pather, fname,figformat='.png',data=[simngr,groundtargetset,targetset,robots,t,tvec])
 
 
 
@@ -271,7 +272,7 @@ Date: March 27 2021
 
 
 simngr = simmanager.SimManager(t0=0,tf=200,dt=2,dtplot=0.1,
-                                  simname="DynamicSensorTasking-SeqExhaust",savepath="simulations",
+                                  simname="DynamicSensorTasking-SeqExhaust-Time",savepath="simulations",
                                   workdir=os.getcwd())
 
 simngr.initialize()
@@ -284,7 +285,7 @@ rgmap = gridmap.Regular2DNodeGrid(xy0=(0,0),xyf=(101,101),d=(10,10))
 rgmap.th=np.array([0])
 fig = plt.figure()
 ax = fig.add_subplot(111)
-rgmap.plotmap(ax)
+rgmap.plotmap(ax,labelnodes=True)
 plt.pause(0.1)
 
 
@@ -526,15 +527,15 @@ for t,tk,dt in simngr.iteratetimesteps():
     # Plotting of simulations
     # plotsimIndividTargs(simngr,targetset,robots,t+dt)
     tvec = simngr.tvec[simngr.tvec<=(tk+dt)]
-    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,tvec,plotest=False,plotrobottraj=False,plotsearch=False)
+    plotsimAllTargs(simngr,None,groundtargetset,targetset,robots,t+dt,tvec,plotest=False,plotrobottraj=False,plotsearch=False)
     
     plt.ion()
     plt.show()
     plt.pause(0.01)
     
-simtestcase = simngr.createFile("testcase",addtimetag=False)
+simtestcase = simngr.createFile("testcase.pkl",pather=[],addtimetag=False)
 with open(simtestcase,'wb') as F:
-    pkl.dump({'groundtargetset':groundtargetset,'targetset':targetset,'robots':robots,'simngr':simngr},F)
+    pkl.dump({'groundtargetset':groundtargetset,'targetset':targetset,'robots':robots},F)
     
     
 def RE_Initialize(zk,target,dt):
@@ -557,12 +558,14 @@ def RE_Initialize(zk,target,dt):
     
     return xf0,Pf0
 # %% Run sim
-with open(simtestcase,'rb') as F:
+# loadtestcase = simtestcase
+loadtestcase = "simulations/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s/testcase.pkl"
+with open(loadtestcase,'rb') as F:
     data = pkl.load(F)
     groundtargetset = data['groundtargetset']
     targetset=data['targetset']
     robots=data['robots']
-    simngr=data['simngr']
+    # simngr=data['simngr']
 
 searchMIwt = simngr.data['searchMIwt'] = 3
 
@@ -643,15 +646,15 @@ for t,tk,dt in simngr.iteratetimesteps():
                     targetset.addTarget(target)
                     break
     # ------------------------------------------------------------------------
-    
-    
+    #                           ROBOT TRAJECTORY
+    #-------------------------------------------------------------------------
     if t==0 or t==dptvec[min([TTrecomp,len(dptvec)-1])]:
         dptvec = simngr.tvec[tk:min([tk+TT,simngr.ntimesteps]) ]
-        stexhaust.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
-        # stexhaust.random_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=0.5)
+        # stexhaustseqrobot.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
+        stexhaustseqtime.exhaustive_seq_time(dptvec,robots,targetset,Targetfilterer,searchMIwt=0.5)
         
 
-
+    # -----------------------------------------------------------------
     
         
         
@@ -711,7 +714,7 @@ for t,tk,dt in simngr.iteratetimesteps():
             
     # Plotting of simulations
     # plotsimIndividTargs(simngr,targetset,robots,t+dt)
-    plotsimAllTargs(simngr,groundtargetset,targetset,robots,t+dt,simngr.tvec[:(tk+dt)],saveit=True)
+    plotsimAllTargs(simngr,['SimSnapshot'],groundtargetset,targetset,robots,t+dt,simngr.tvec[:(tk+dt)],saveit=True)
     
     plt.ion()
     plt.show()
@@ -724,16 +727,57 @@ for t,tk,dt in simngr.iteratetimesteps():
     for i in range(targetset.ntargs):
         if targetset[i].isSearchTarget() is False:
             egval,egvec = nplg.eig(targetset[i].Pfk[0:2,0:2])
-            if np.any(np.sqrt(egval)) >= LOST_FOV_FACTOR*max(FOVradius):
+            if np.any(np.sqrt(egval) >= LOST_FOV_FACTOR*max(FOVradius)):
                 targetset[i].makeInactive()
                 print("Target %s is now InActive"% targetset[i].targetName)
-                
+
+               
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(t,groundtargetset,targetset)
+print(metrics.iloc[7])
+
+alphabets = list('ABCDEFGHIJKLMNOPQRTSUVWXYZ')
+cols = metrics.columns
+cols_dict = {cols[i]:alphabets[i] for i in range(len(cols))}
+ss = metrics.rename(columns=cols_dict).to_latex(index=True)
+print(ss)
+pyperclip.copy(ss)
+
+
+for ff in figs:
+    fname = ff.get_label()
+    simngr.savefigure(ff, ['Metrics'], fname,figformat='.png')
 
 # %% Finalize and save
 
 simngr.finalize()
 
-simngr.save(metalog, mainfile=runfilename, targetset=targetset, robots=robots)
+simngr.save(metalog, mainfile=runfilename,metrics=metrics, targetset=targetset,groundtargetset=groundtargetset, robots=robots)
 
+#%% load the simmanger for the folder
+simngr_seqrobot,data_seqrobot = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s")
+simngr_seqtime,data_seqtime = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Time_1_2021-04-09-15H-38M-31s")
+simngr_seqtime_MIsearch10,data_seqtime_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Time-MIlamda10_0_2021-04-09-15H-18M-40s")
+
+Methods = ['Seq-UAV', 'Seq-Time', 'Seq-Time (10)']
+
+fig1, ax1 = plt.subplots()
+ax1.set_ylabel('RMSE in position')
+ax1.set_xlabel('Methods')
+databox = [data_seqrobot['metrics']['RMSE_Active_pos'],data_seqtime['metrics']['RMSE_Active_pos'],data_seqtime_MIsearch10['metrics']['RMSE_Active_pos']]
+ax1.boxplot(databox)
+xticks = ax1.get_xticks()
+ax1.set_xticks(xticks)
+ax1.set_xticklabels(Methods)
+
+fig2, ax2 = plt.subplots()
+ax2.set_ylabel('RMSE in velocity')
+ax2.set_xlabel('Methods')
+databox = [data_seqrobot['metrics']['RMSE_Active_vel'],data_seqtime['metrics']['RMSE_Active_vel'],data_seqtime_MIsearch10['metrics']['RMSE_Active_vel']]
+ax2.boxplot(databox)
+xticks = ax2.get_xticks()
+ax2.set_xticks(xticks)
+ax2.set_xticklabels(Methods)
+
+DynamicSensorTasking-SIMset1
 
 

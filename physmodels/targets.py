@@ -132,7 +132,7 @@ class Target:
         return self.status == TargetStatus.InActive
     
     def makeInactive(self):
-        self.status = TargetStatus.Inactive
+        self.status = TargetStatus.InActive
     def makeActive(self):
         self.status = TargetStatus.Active
         

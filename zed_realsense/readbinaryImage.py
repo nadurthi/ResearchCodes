@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 
 mainfolder = "/media/na0043/misc/DATA/MyZEDL515"
 realfolder= os.path.join(mainfolder,  "RealSenseSession_2021-04-06_10-23-23")
-zedfolder= os.path.join(mainfolder,  "ZedSession_2021-04-06_13-20-20")
+zedfolder= os.path.join(mainfolder,  "ZedSession_2021-04-06_14-08-02")
 
 #%% real sense
 
@@ -166,6 +166,7 @@ N=len(depthfiles_bin)
 
 
 
+
 dfilebin = depthfiles_bin[100]
 
 cpngf = colorfiles_png[0]
@@ -194,8 +195,8 @@ pprint.pprint(cloud.get_metadata())
 pcd = o3d.geometry.PointCloud()
 xyz = np.vstack([list(s)[0:3] for s in cloud.pc_data])
 pcd.points = o3d.utility.Vector3dVector(xyz) 
-np_colors = np.array([list(s)[3] for s in cloud.pc_data],dtype=np.float32) 
-Mat mResult;
-mFloatFrame.convertTo(mResult, CV_8UC4);
+# np_colors = np.array([list(s)[3] for s in cloud.pc_data],dtype=np.float32) 
+# Mat mResult;
+# mFloatFrame.convertTo(mResult, CV_8UC4);
 # pcd.colors = o3d.utility.Vector3dVector(np_colors)
 o3d.visualization.draw_geometries([pcd])

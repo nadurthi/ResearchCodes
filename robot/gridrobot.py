@@ -182,6 +182,9 @@ class Robot2DRegGrid(_baseRobot):
             uk_key = self.getcontrol(t)
             if uk_key is not None:
                 contval = self.gettemplate(uk_key)
+                if contval is None:
+                    print("--- control traj ------")
+                    print(t,uk_key,contval)
                 ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor )
             
 

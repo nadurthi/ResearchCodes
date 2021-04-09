@@ -237,7 +237,7 @@ def exhaustive_seq_robot(tvec,robots,targetset,Targetfilterer,searchMIwt=0.5):
             th1 = robots[r].mapobj.getthfromIdx(uk_key[3])
             xk1 = np.hstack([s1,th1])
             robots[r].controllerhistory[tvec[k]]=uk_key
-            robots[r].statehistory[tvec[k+1]]=xk1
+            robots[r].statehistory[tvec[k+1]]=xk1.copy()
     
         
     # set the targets back to normal at tvec[0]
@@ -245,6 +245,7 @@ def exhaustive_seq_robot(tvec,robots,targetset,Targetfilterer,searchMIwt=0.5):
         targetset[i].defrost(recorderobj=False)
         for j in range(1,len(tvec)):
             targetset[i].recorderprior.deleteRecord(tvec[j])
+            targetset[i].recorderpost.deleteRecord(tvec[j])
         targetset[i].resetState2timePostRecord(tvec[0])
         
     # set the robots back to normal at tvec[0]
@@ -252,7 +253,8 @@ def exhaustive_seq_robot(tvec,robots,targetset,Targetfilterer,searchMIwt=0.5):
         robots[r].xk = robots[r].statehistory[tvec[0]].copy()
         robots[r].updateSensorModel()
     
-
+    # pdb.set_trace()
+    
     for i in range(len(processes)):
         processes[i].join()
 

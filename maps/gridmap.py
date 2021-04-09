@@ -137,10 +137,15 @@ class Regular2DNodeGrid(_baseMap):
     
     
         
-    def plotmap(self,ax):
+    def plotmap(self,ax,labelnodes=False):
         
         ax.plot(self.XYgvec[:,0],self.XYgvec[:,1],'b.',linewidth=1,markersize=1)
-
+        
+        if labelnodes:
+            for i in range(self.XYgvec.shape[0]):
+                xx = self.XYgvec[i,:]
+                ax.annotate(str(i),xx+2,color='k',fontsize='x-small')
+            
         ax.set_xlim(self.xy0[0]-self.d[0], self.xyf[0]+self.d[0])
         ax.set_ylim(self.xy0[1]-self.d[1], self.xyf[1]+self.d[1])
         

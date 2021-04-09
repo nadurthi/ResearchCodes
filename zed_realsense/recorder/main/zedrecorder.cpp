@@ -112,7 +112,8 @@ pcl_ptr_col points_to_pcl2(const sl::Mat& point_cloud,const Resolution& image_si
             it.x = X;
             it.y = p_data_cloud[index + 1];
             it.z = p_data_cloud[index + 2];
-            it.rgb = convertColor(p_data_cloud[index + 3]); // Convert a 32bits float into a pcl .rgb format
+            float a =convertColor(p_data_cloud[index + 3]); // Convert a 32bits float into a pcl .rgb format
+            it.rgb = a;
         }
         index += 4;
     }
