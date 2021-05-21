@@ -20,7 +20,10 @@ __pycache__/
 *.zip
 *.7z
 *.pyc
+*.db3
 
+turtlebotData/
+datasets/
 simulations/
 
 # C extensions

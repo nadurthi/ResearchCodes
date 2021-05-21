@@ -27,6 +27,24 @@
 				"buffer_size": 25326,
 				"line_ending": "Unix"
 			}
+		},
+		{
+			"contents": "Accident &Health Insurance,Advertising,Aerospace,Agricultural Chemicals,Air Freight/Delivery Services,Aluminum,Apparel,Auto Manufacturing,Auto Parts:O.E.M.,Automotive Aftermarket,Banks,Beverages (Production/Distribution),Biotechnology: Biological Products (No Diagnostic Substances),Biotechnology: Commercial Physical & Biological Resarch,Biotechnology: Electromedical & Electrotherapeutic Apparatus,Biotechnology: In Vitro & In Vivo Diagnostic Substances,Biotechnology: Laboratory Analytical Instruments,Books,Broadcasting,Building Materials,Building operators,Building Products,Business Services,Catalog/Specialty Distribution,Clothing/Shoe/Accessory Stores,Coal Mining,Commercial Banks,Computer Communications Equipment,Computer Manufacturing,Computer peripheral equipment,Computer Software: Prepackaged Software,Computer Software: Programming, Data Processing,Construction/Ag Equipment/Trucks,Consumer Electronics/Appliances,Consumer Electronics/Video Chains,Consumer Specialties,Consumer: Greeting Cards,Containers/Packaging,Department/Specialty Retail Stores,Diversified Commercial Services,Diversified Electronic Products,Diversified Financial Services,EDP Services,Electric Utilities: Central,Electrical Products,Electronic Components,Electronics Distribution,Engineering & Construction,Environmental Services,Farming/Seeds/Milling,Finance Companies,Finance: Consumer Services,Finance/Investors Services,Fluid Controls,Food Chains,Food Distributors,Forest Products,General Bldg Contractors - Nonresidential Bldgs,Home Furnishings,Homebuilding,Hospital/Nursing Management,Hotels/Resorts,Industrial Machinery/Components,Industrial Specialties,Integrated oil Companies,Investment Bankers/Brokers/Service,Investment Managers,Life Insurance,Major Banks,Major Chemicals,Major Pharmaceuticals,Marine Transportation,Meat/Poultry/Fish,Medical Electronics,Medical Specialities,Medical/Dental Instruments,Medical/Nursing Services,Metal Fabrications,Military/Government/Technical,Mining & Quarrying of Nonmetallic Minerals (No Fuels),Misc Health and Biotechnology Services,Miscellaneous,Miscellaneous manufacturing industries,Motor Vehicles,Movies/Entertainment,Multi-Sector Companies,Natural Gas Distribution,Newspapers/Magazines,Office Equipment/Supplies/Services,Oil & Gas Production,Oil Refining/Marketing,Oil/Gas Transmission,Oilfield Services/Equipment,Ophthalmic Goods,Ordnance And Accessories,Other Consumer Services,Other Pharmaceuticals,Other Specialty Stores,Package Goods/Cosmetics,Packaged Foods,Paints/Coatings,Paper,Plastic Products,Pollution Control Equipment,Power Generation,Precious Metals,Precision Instruments,Professional Services,Property-Casualty Insurers,Publishing,Radio And Television Broadcasting And Communications Equipment,Railroads,Real Estate,Real Estate Investment Trusts,Recreational Products/Toys,Rental/Leasing Companies,Restaurants,RETAIL: Building Materials,Retail: Computer Software & Peripheral Equipment,Savings Institutions,Semiconductors,Services-Misc. Amusement & Recreation,Shoe Manufacturing,Specialty Chemicals,Specialty Foods,Specialty Insurers,Steel/Iron Ore,Telecommunications Equipment,Television Services,Textiles,Tobacco,Tools/Hardware,Transportation Services,Trucking Freight/Courier Services,Water Supply,Wholesale Distributors",
+			"settings":
+			{
+				"buffer_size": 3279,
+				"line_ending": "Windows",
+				"name": "Accident &Health Insurance,Advertising,Aerospace,A"
+			}
+		},
+		{
+			"file": "/C/Users/Nagnanamus/Google Drive/teaching/gradingHelperMAE488.py",
+			"settings":
+			{
+				"buffer_size": 9487,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
 		}
 	],
 	"build_system": "",
@@ -180,6 +198,9 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"\n",
+			"\\\\n",
+			"\\n",
 			"ICM20649",
 			"i2c",
 			"lint",
@@ -197,6 +218,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			",",
 			"i2c_bus",
 			"printf"
 		],
@@ -209,7 +231,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 3,
 			"sheets":
 			[
 				{
@@ -239,7 +261,7 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 3,
 					"type": "text"
 				},
 				{
@@ -267,6 +289,63 @@
 						},
 						"translation.x": 0.0,
 						"translation.y": 9008.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3279,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3279,
+								0
+							]
+						],
+						"settings":
+						{
+							"auto_name": "Accident &Health Insurance,Advertising,Aerospace,A",
+							"default_dir": "C:\\Users\\Nagnanamus\\Google Drive\\repos\\RaspPiSensor\\OnPi",
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "/C/Users/Nagnanamus/Google Drive/teaching/gradingHelperMAE488.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9487,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -322,7 +401,7 @@
 	"project": "SLAM.sublime-project",
 	"replace":
 	{
-		"height": 70.0
+		"height": 106.0
 	},
 	"save_all_on_build": true,
 	"select_file":
