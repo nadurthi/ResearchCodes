@@ -27,22 +27,22 @@ import matplotlib.pyplot as plt
 from numpy.linalg import multi_dot
 from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import Axes3D
-# from sklearn import mixture
-# from sklearn.neighbors import KDTree
-# from uq.gmm import gmmfuncs as uqgmmfnc
-# from utils.plotting import geometryshapes as utpltgmshp
+from sklearn import mixture
+from sklearn.neighbors import KDTree
+from uq.gmm import gmmfuncs as uqgmmfnc
+from utils.plotting import geometryshapes as utpltgmshp
 import time
-# from scipy.optimize import minimize, rosen, rosen_der,least_squares
-# from scipy import interpolate
+from scipy.optimize import minimize, rosen, rosen_der,least_squares
+from scipy import interpolate
 import networkx as nx
-# import pdb
-# # import pandas as pd
-# from fastdist import fastdist
+import pdb
+import pandas as pd
+from fastdist import fastdist
 import copy
-# from lidarprocessing import point2Dprocessing as pt2dproc
+from lidarprocessing import point2Dprocessing as pt2dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import codecs
-        
+import turtlebot_helper as ttlhelp
 
 #https://quaternion.readthedocs.io/en/latest/
 import quaternion
@@ -51,6 +51,29 @@ import quaternion
 
 import datetime
 dtype = np.float64
+
+#%%
+
+from rclpy.duration import Duration
+from rclpy.qos import QoSDurabilityPolicy
+from rclpy.qos import QoSHistoryPolicy
+from rclpy.qos import QoSLivelinessPolicy
+from rclpy.qos import QoSPresetProfiles
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
+
+qos_closedposegraphPoses_profile = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=10,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.VOLATILE,
+            lifespan=Duration(seconds=4),
+            deadline=Duration(seconds=5),
+            # liveliness=QoSLivelinessPolicy.MANUAL_BY_TOPIC,
+            # liveliness_lease_duration=Duration(nanoseconds=12),
+            avoid_ros_namespace_conventions=True
+        )
+
 
  #%%
 # Terminology:
@@ -78,18 +101,43 @@ class TurtlebotPlotter:
         self.poseGraph=None
         self.Lodom={'trans':[],'q':[],'t':[]}
         self.Llidarpose={'trans':[],'q':[],'t':[],'gHs':[]}
-    
+        self.poseData={}
     def save(self,filename):
         print("Saving")
         with open(filename,'wb') as fh:
             pickle.dump({'odom':self.Lodom,'lidarPose':self.Llidarpose},fh)        
             
-            
+    # def processScanPts(self,scanmsg):
+    #     Tstamp,T,X = ttlhelp.filter_scanmsg(scanmsg)
+        
+    #     self.poseData[T]={'X':X}
+    #     # return X
+        
+        
     def getPoseGraph(self,msg):
         unpickled = pkl.loads(codecs.decode(msg.data.encode(), "base64"))
-        self.poseGraph = unpickled
-        print("got new posegraph data for plotting")
-        # self.plotposegraph()
+        self.poseGraph,self.poseData = unpickled
+        
+        self.plotposegraph()
+        # print(self.poseGraph.nodes)
+        # print(self.poseData)
+        # # replace T in poseData with corresponding idx
+        # for idx in self.poseGraph.nodes:
+        #     T = self.poseGraph.nodes[idx]['time']
+        #     if T in self.poseData:
+        #         self.poseData[idx] = copy.deepcopy(self.poseData[T])
+        #         del self.poseData[T]
+        
+        # # delete the unecessary X data in poseData
+        # kys = list(self.poseData.keys())
+        # posGtimeDict = nx.get_node_attributes(self.poseGraph, "time")
+        # for ns in kys:
+        #     if ns not in posGtimeDict.values():
+        #         self.poseData.pop(ns)
+        
+        
+                
+                
     def odom_listener_callback(self,msg):
         
         T=datetime.datetime.fromtimestamp(msg.header.stamp.sec+1e-9*msg.header.stamp.nanosec)
@@ -124,15 +172,16 @@ class TurtlebotPlotter:
         Lkeys = list(filter(lambda x: self.poseGraph.nodes[x]['frametype']=="keyframe",self.poseGraph.nodes))
         idx0=min(Lkeys)
         idx1=max(Lkeys)
-        self.fig,self.ax,self.figg,self.axgraph=pt2dplot.plot_keyscan_path(self.poseGraph,idx0,idx1,makeNew=False,plotGraph=False)
+        self.fig,self.ax,self.figg,self.axgraph=pt2dplot.plot_keyscan_path(self.poseGraph,self.poseData,idx0,idx1,makeNew=False,skipScanFrame=True,plotGraphbool=False,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
         et = time.time()
         print("plotting time : ",et-st)
 
-        odotrans = np.array(self.Lodom['trans'])
-        self.ax.plot(odotrans[:,0],odotrans[:,1],'m--')
+        # odotrans = np.array(self.Lodom['trans'])
+        # self.ax.plot(odotrans[:,0],odotrans[:,1],'m--')
 
-        lidartrans = np.array(self.Llidarpose['trans'])
-        self.ax.plot(lidartrans[:,0],lidartrans[:,1],'c--')
+        # lidartrans = np.array(self.Llidarpose['trans'])
+        # self.ax.plot(lidartrans[:,0],lidartrans[:,1],'c--')
         
         
         plt.draw()
@@ -149,19 +198,21 @@ def main(args=None):
     node = rclpy.create_node('turtlebotPlotter')
     ttlplt=TurtlebotPlotter()
 
-    node.create_subscription(String,'posegraphclose',ttlplt.getPoseGraph,qos_profile_sensor_data)
+    node.create_subscription(String,'posegraphclose',ttlplt.getPoseGraph,qos_closedposegraphPoses_profile)
     node.create_subscription(Odometry,'odom',ttlplt.odom_listener_callback,qos_profile_sensor_data)
     node.create_subscription(PoseStamped,'lidarPose',ttlplt.lidar_pose_callback,qos_profile_sensor_data)
+    # node.create_subscription(LaserScan,'scan',ttlplt.processScanPts,qos_profile_sensor_data)
+    
     
     
     print("ready")
     try:
         while True:
             rclpy.spin_once(node,timeout_sec=1)
-            if ttlplt.poseGraph is not None:
-                print("plotting posegrph")
-                ttlplt.plotposegraph()
-                ttlplt.poseGraph = None
+            # if ttlplt.poseGraph is not None:
+            #     print("plotting posegrph")
+            #     ttlplt.plotposegraph()
+            #     ttlplt.poseGraph = None
                 
         # rclpy.spin(node)
     except KeyboardInterrupt:

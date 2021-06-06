@@ -6,18 +6,62 @@ from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import Axes3D
 from utils.plotting import geometryshapes as utpltgmshp
 import networkx as nx
-
+from uq.gmm import gmmfuncs as uqgmmfnc
 # from lidarprocessing import point2Dprocessing as pt2dproc
+from lidarprocessing import point2Dprocessing as pt2dproc
 
-
+dtype=np.float64
  #%%
 # scanfilepath = 'C:/Users/nadur/Google Drive/repos/SLAM/lidarprocessing/houseScan_std.pkl'
 # scanfilepath = 'C:/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/houseScan_complete.pkl'
 # scanfilepath = 'C:/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/houseScan_std.pkl'
 # scanfilepath = 'lidarprocessing/houseScan_std.pkl'
 
-
-
+def debugplotgmm(clf1,X1,X2,a=1):
+    
+    MU=np.ascontiguousarray(clf1.means_,dtype=dtype)
+    P=np.ascontiguousarray(clf1.covariances_,dtype=dtype)
+    W=np.ascontiguousarray(clf1.weights_,dtype=dtype)
+    p1=uqgmmfnc.gmm_eval_fast(X1,MU,P,W)+a
+    p2=uqgmmfnc.gmm_eval_fast(X2,MU,P,W)+a
+    
+    X = np.vstack([X1,X2])
+    mn = np.min(X,axis=0)
+    mx = np.max(X,axis=0)
+    mn = mn-5
+    mx = mx+5
+    
+    xedges = np.linspace(mn[0],mx[0],150)
+    yedges = np.linspace(mn[1],mx[1],150)
+    xgrid,ygrid=np.meshgrid(xedges,yedges)
+    
+    XX = np.hstack([xgrid.reshape(-1,1),ygrid.reshape(-1,1)])
+    pgrid = uqgmmfnc.gmm_eval_fast(XX,MU,P,W)+a
+    pgrid=pgrid.reshape(xgrid.shape[0],xgrid.shape[1])
+    
+    # pgrid = np.zeros_like(xgrid)
+    # for i in range(xgrid.shape[0]):
+    #     for j in range(xgrid.shape[1]):
+            
+    #         pgrid[i,j] = uqgmmfnc.gmm_eval_fast(X1,MU,P,W)
+            
+    H1, xedges, yedges = np.histogram2d(X1[:,0], X1[:,1], bins=(xedges, yedges))
+    H2, xedges, yedges = np.histogram2d(X2[:,0], X2[:,1], bins=(xedges, yedges))
+    
+    
+    fig = plt.figure('debugplotgmm-X1')
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(xgrid,ygrid,pgrid,alpha=0.4)
+    ax.plot(X1[:,0],X1[:,1],p1,'ro',label='X1')
+    ax.legend()
+    
+    fig = plt.figure('debugplotgmm-both')
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(xgrid,ygrid,pgrid,alpha=0.4)
+    ax.plot(X1[:,0],X1[:,1],p1,'ro',label='X1')
+    ax.plot(X2[:,0],X2[:,1],p2,'b.',label='X2')
+    ax.legend()
+    
 def plotGraph(poseGraph,Lkey,ax=None):
     pos = nx.get_node_attributes(poseGraph, "pos")
     # poskey = {k:v for k,v in pos.items() if k in Lkey}
@@ -55,9 +99,10 @@ def plotGraph(poseGraph,Lkey,ax=None):
         ax = fig.add_subplot(111)
     
     nx.draw_networkx(poseGraph,pos=pos,nodelist =Lkey,edgelist=edgelist,edge_color=edge_color,with_labels=True,font_size=6,node_size=200,ax=ax)
+    ax.axis('equal')
 
-
-def plot_keyscan_path(poseGraph,idx1,idx2,makeNew=False,skipScanFrame=True,plotGraph=True):
+def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+                      forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
     Lkey.sort()
@@ -74,7 +119,7 @@ def plot_keyscan_path(poseGraph,idx1,idx2,makeNew=False,skipScanFrame=True,plotG
         
     ax.cla()
     
-    if plotGraph:
+    if plotGraphbool:
         if makeNew:
             figg=plt.figure()
         else:
@@ -97,16 +142,52 @@ def plot_keyscan_path(poseGraph,idx1,idx2,makeNew=False,skipScanFrame=True,plotG
     # if idx % 1==0 or idx==len(dataset)-1:
     # plt.figure("Full Plot")
     # plot scans in global frame
+    Xcomb=[]
     for i in Lkey:
         gHs = nplinalg.inv(poseGraph.nodes[i]['sHg'])
-        XX = poseGraph.nodes[i]['X']
+        Ti = poseGraph.nodes[i]['time']
+        XX = poseData[Ti]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
-        ax.plot(XX[:,0],XX[:,1],'b.')
-        
+        Xcomb.append(XX)
+        if i==Lkey[-1]:
+            Xlast = XX
+            
+    Xcomb=np.vstack(Xcomb)
+    # Xcomb=pt2dproc.binnerDensitySampler(Xcomb,dx=0.05,MaxFrac=0.5)
+    Xcomb=pt2dproc.binnerDownSampler(Xcomb,dx=0.05,cntThres=2)
+    # Xcomb=pt2dproc.SubMapGridmaker(Xcomb,len(Lkey),dx=0.05,r=0.8)
+    
+    ax.plot(Xcomb[:,0],Xcomb[:,1],'k.',linewidth=0.2, markersize=2)
+    ax.plot(Xlast[:,0],Xlast[:,1],'b.',linewidth=0.2, markersize=2)
+    
+    if plotLastkeyClf:
+        clf1=poseGraph.nodes[Lkey[-1]]['clf']
+        gHs = nplinalg.inv(poseGraph.nodes[Lkey[-1]]['sHg'])
+        for i in range(clf1.n_components):
+            m = clf1.means_[i]
+            P = clf1.covariances_[i]
+            Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
+            XX=np.matmul(gHs,np.vstack([Xe.T,np.ones(Xe.shape[0])])).T   
+            ax.plot(XX[:,0],XX[:,1],'g')
+
+    
+    if forcePlotLastidx:
+        gHs = nplinalg.inv(poseGraph.nodes[idx2]['sHg'])
+        Tidx2 = poseGraph.nodes[idx2]['time']
+        XX = poseData[Tidx2]['X']
+        XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
+        ax.plot(XX[:,0],XX[:,1],'r.',linewidth=0.2, markersize=2)
     # gHs=nplinalg.inv(poseGraph.nodes[idx]['sHg'])
     # Xg=np.matmul(gHs,np.vstack([X.T,np.ones(X.shape[0])])).T   
 
-    
+    if plotLoopCloseOnScanPlot:
+        LedgesLoop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+        
+        for x in LedgesLoop:
+            idx_pos=poseGraph.nodes[x[0]]['pos']
+            previdx_pos=poseGraph.nodes[x[1]]['pos']
+            ax.arrow(idx_pos[0],idx_pos[1],previdx_pos[0]-idx_pos[0],previdx_pos[1]-idx_pos[1],color='b',linestyle='--',length_includes_head=True)
+        
     posdict = nx.get_node_attributes(poseGraph, "pos")
     
     # plot robot path
@@ -128,38 +209,42 @@ def plot_keyscan_path(poseGraph,idx1,idx2,makeNew=False,skipScanFrame=True,plotG
     ax.plot(KeyFrames[:,0],KeyFrames[:,1],'gs', markersize=3)
     
     ax.set_title(str(idx1)+" to "+str(idx2))
-    
+    ax.axis('equal')
     plt.draw()
     # plt.show()
     fig.canvas.draw()
-    if plotGraph:
-        figg.canvas.draw()
+    if plotGraphbool:
+        fig.canvas.draw()
+    
     plt.pause(0.05)
-    if plotGraph:      
+    
+    if plotGraphbool:      
         return fig,ax,figg,axgraph
     else:
         return fig,ax,None,None
     
-def plotcomparisons(idx1,idx2,H12=None):
+def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
     # H12: from 2 to 1
     
-    fig = plt.figure(figsize=(20,10))
+    fig = plt.figure("ComparisonPlot",figsize=(20,10))
     if H12 is None:
         ax = fig.subplots(nrows=1, ncols=2)
     else:
         ax = fig.subplots(nrows=1, ncols=3)
     # idx=6309
     # idx2=8761
-    X1=getscanpts(dataset,idx1)
-    X2=getscanpts(dataset,idx2)
+    T1 = poseGraph.nodes[idx1]['time']
+    T2 = poseGraph.nodes[idx2]['time']
+    X1=poseData[T1]['X']
+    X2=poseData[T2]['X']
     # X12: points in 2 , transformed to 1
     X12 = np.dot(H12,np.hstack([X2,np.ones((X2.shape[0],1))]).T).T
     X12=X12[:,0:2]
 
     
-    X12=X12-np.mean(X1,axis=0)            
-    X1=X1-np.mean(X1,axis=0)
-    X2=X2-np.mean(X2,axis=0)
+    # X12=X12-np.mean(X1,axis=0)            
+    # X1=X1-np.mean(X1,axis=0)
+    # X2=X2-np.mean(X2,axis=0)
     
     ax[0].cla()
     ax[1].cla()
@@ -176,17 +261,28 @@ def plotcomparisons(idx1,idx2,H12=None):
     if H12 is not None:
         ax[2].cla()
         ax[2].plot(X1[:,0],X1[:,1],'b.')
-        ax[2].plot(X12[:,0],X12[:,1],'k.')
+        ax[2].plot(X12[:,0],X12[:,1],'r.')
         ax[2].set_xlim(-4,4)
         ax[2].set_ylim(-4,4)
         ax[2].axis('equal')
+    
+    clf1=poseGraph.nodes[idx1]['clf']
+    for i in range(clf1.n_components):
+        # print("ok")
+        m = clf1.means_[i]
+        P = clf1.covariances_[i]
+        Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
+        ax[0].plot(Xe[:,0],Xe[:,1],'g')
+        ax[2].plot(Xe[:,0],Xe[:,1],'g')
+    
+    ax[2].set_title("err = %f"%(err,))
     
     plt.draw()
     # plt.show()
     fig.canvas.draw()
     
     plt.pause(1)
-    
+    return fig,ax
     
 def plotcomparisons_posegraph(poseGraph,idx1,idx2,H12=None):
     # H12: from 2 to 1
@@ -203,22 +299,14 @@ def plotcomparisons_posegraph(poseGraph,idx1,idx2,H12=None):
         ax[1].cla()
     # idx=6309
     # idx2=8761
-    m_clf1=poseGraph.nodes[idx1]['m_clf']
+    # m_clf1=poseGraph.nodes[idx1]['m_clf']
     clf1=poseGraph.nodes[idx1]['clf']
     
     X1=poseGraph.nodes[idx1]['X']
-    if idx2 in poseGraph.nodes:
-        X2=poseGraph.nodes[idx2]['X']
-    else:
-        X2 = getscanpts(dataset,idx2)
-    # X12: points in 2 , transformed to 1
+    X2=poseGraph.nodes[idx2]['X']
+    
     X12 = np.dot(H12,np.hstack([X2,np.ones((X2.shape[0],1))]).T).T
     X12=X12[:,0:2]
-
-    
-    X12=X12-m_clf1    
-    X1=X1-m_clf1
-    X2=X2-np.mean(X2,axis=0)
     
     for i in range(clf1.n_components):
         # print("ok")
@@ -232,10 +320,10 @@ def plotcomparisons_posegraph(poseGraph,idx1,idx2,H12=None):
    
     ax[0].plot(X1[:,0],X1[:,1],'b.')
     ax[1].plot(X2[:,0],X2[:,1],'r.')
-    ax[0].set_xlim(-4,4)
-    ax[1].set_xlim(-4,4)
-    ax[0].set_ylim(-4,4)
-    ax[1].set_ylim(-4,4)
+    # ax[0].set_xlim(-4,4)
+    # ax[1].set_xlim(-4,4)
+    # ax[0].set_ylim(-4,4)
+    # ax[1].set_ylim(-4,4)
     ax[0].set_title(str(idx1))
     ax[1].set_title(str(idx2))
     ax[0].axis('equal')
@@ -243,8 +331,8 @@ def plotcomparisons_posegraph(poseGraph,idx1,idx2,H12=None):
     if H12 is not None:
         ax[2].plot(X1[:,0],X1[:,1],'b.')
         ax[2].plot(X12[:,0],X12[:,1],'k.')
-        ax[2].set_xlim(-4,4)
-        ax[2].set_ylim(-4,4)
+        # ax[2].set_xlim(-4,4)
+        # ax[2].set_ylim(-4,4)
         ax[2].axis('equal')
         
     fig.canvas.draw()

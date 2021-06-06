@@ -6,6 +6,7 @@ More details.
 """
 
 
+
 import numpy as np
 import logging
 import uuid
@@ -39,7 +40,7 @@ class Recorder:
         return self.data['t'][:self.idx].copy()
 
     def record(self,**kwargs):
-        pass
+        raise NotImplementedError("Method not implemented")
 
     def getitem_bytime(self,t):
 
@@ -89,16 +90,17 @@ class Recorder:
         return copy.deepcopy(self)
 
     def getitem_bytimestep(self,k):
-        pass
+        raise NotImplementedError("Method not implemented")
 
     def cleardata(self,keepInitial=True):
-        pass
+        raise NotImplementedError("Method not implemented")
 
     def save(filepath,metadata):
         """
         save as pickle
         """
-        pass
+        raise NotImplementedError("Method not implemented")
+        
     def debugStatus(self):
         ss=[]
         ss.append( ['----------','----------'] )
@@ -182,7 +184,11 @@ class StatesRecorder_list(Recorder):
         statetypes = ['xfk','Pfk']
 
         """
-        super().__init__()
+        self.ID = uuid.uuid4()
+        self.data = {}
+
+        self.data['t'] = []
+        
 
         if not isinstance(statetypes,(list,tuple)):
             raise TypeError('statetypes have to be list or tuple')
@@ -193,10 +199,20 @@ class StatesRecorder_list(Recorder):
         for var in self.statetypes:
             self.data[var] = []
 
-    def debugStatus(self):
-        ss = super().debugStatus()
+    def debugStatus(self,printit=False):
+        ss=[]
+        ss.append( ['----------','----------'] )
+        ss.append( ['Recorder',self.ID] )
+        ss.append( ['----------','----------'] )
+        ss.append( ['recorder_datatype',self.recorder_datatype] )
+        ss.append( ['statetypes',self.statetypes] )
+        
         for var in self.data:
             ss.append( [var+'.len',len(self.data[var])] )
+        
+        if printit:
+            print("\n".join(ss))
+            
         return ss
 
     def cleardata(self,keepInitial = True):
@@ -205,83 +221,133 @@ class StatesRecorder_list(Recorder):
         else:
             p = 0
 
-        self.data['t'][p:]=self.data['t'][p:]*0
+        self.data['t'][p:]=[]
 
         for var in self.statetypes:
             self.data[var][p:] = []
 
-
-        self.idx = p
-        self.endid = p
     
     def deleteRecord(self,t):
-        k = np.where(self.data['t'][:self.idx]==t)
-        if len(k[0])==0:
-            return None
-        idx = k[0][0]
+        try:
+            k = self.data['t'].index(t)
+        except ValueError:
+            return False
+        
         for var in self.statetypes:
-            self.data[var].pop(idx)
-        self.data['t'] = np.delete(self.data['t'],idx)
-        self.idx = self.idx -1
+            self.data[var].pop(k)
+        self.data['t'].pop(k)
         
         return True
     
             
     def getvar_bytime(self,var,t):
-        k = np.where(self.data['t'][:self.idx]==t)
-        if len(k[0])==0:
+        try:
+            k = self.data['t'].index(t)
+        except ValueError:
             return None
-        return copy.deepcopy( self.data[var][k[0][0]] )
 
+        return copy.deepcopy( self.data[var][k] )
+    
+    def getvar_list(self,var,t0,tf,returntimes=False):
+        k=[i for i in range(len(self.data['t'])) if self.data['t'][i]>=t0 and self.data['t'][i]<=tf]
+        st=[]
+        ss=[]
+        for i in k:
+            st.append(self.data['t'][i]) 
+            ss.append(self.data[var][i]) 
+        
+        if returntimes:
+            return st,ss
+        else:
+            return ss
+        
     def getvar_alltimes_stacked(self,var):
 
-        return np.stack( self.data[var][:self.idx],axis=0 )
+        return np.stack( self.data[var],axis=0 )
+
+    def getvar_uptotime_list(self,var,t,returntimes=False):
+        k=[i for i in range(len(self.data['t'])) if self.data['t'][i]<=t]
+        if len(k)==0:
+            if returntimes:
+                return None,None
+            else:
+                return None
+        else:
+            k=k[-1]
+        
+        tt = self.data['t'][:k+1]
+        ss = copy.deepcopy( self.data[var][:k+1] )
+        
+        if returntimes:
+            return tt,ss
+        else:
+            return ss
     
-    def getvar_uptotime_stacked(self,var,t):
-        k = np.where(self.data['t'][:self.idx]==t)
-        if len(k[0])==0:
-            return None
-        return np.stack( self.data[var][:k[0][0]+1],axis=0 )
+
+        
+        
+    def getvar_uptotime_stacked(self,var,t,returntimes=False):
+        
+        k=[i for i in range(len(self.data['t'])) if self.data['t'][i]<=t]
+        if len(k)==0:
+            if returntimes:
+                return None,None
+            else:
+                return None
+        else:
+            k=k[-1]
+        
+                    
+        ss = np.stack( self.data[var][:k+1],axis=0 )
+        st = np.hstack( self.data['t'][:k+1] )
+        
+        if returntimes:
+            return st,ss
+        else:
+            return ss
     
 #    def getgmm_stacked
     def record(self, t,updateIfExists=True, **kwargs):
         
-        k = np.where(self.data['t'][:self.idx]==t)
+        try:
+            k = self.data['t'].index(t)
+        except ValueError:
+            k = None
+        
         # print("recorder index k = ",k)
-        if len(k[0])>0:
+        if k is not None: # record exists
             if updateIfExists is False:
                 raise Exception("record exists for time: ",t," : cannot update the record")
             # print("updating record as it exists")
-            idx = k[0][0]
+            
             # update data
             for var in kwargs:
                 if var in self.data:
-                    self.data[var][idx] = copy.deepcopy(kwargs[var]) 
+                    self.data[var][k] = copy.deepcopy(kwargs[var]) 
     
 
                     
         else:
             # if not there, then append ---------
             # append time
-            if self.idx == len(self.data['t'] ):
-                self.data['t'] = np.hstack((self.data['t'],np.zeros(self.Nextd)))
-                self.currN += self.Nextd
-    
-            self.data['t'][self.idx] = t
+               
+            self.data['t'].append(t)
             
             # append data
             for var in kwargs:
                 if var not in self.data:
-                    self.data[var] = [None]*self.idx
+                    self.data[var] = [None]*(len(self.data['t'])-1)
                 self.data[var].append( copy.deepcopy(kwargs[var]) )
     
             for var in self.data:
                 if var not in kwargs and var != 't':
                     self.data[var].append( None )
     
-            self.idx += 1
+            
 
     def recordupdate(self, t, **kwargs):
+        raise NotImplementedError("Deprecated ")
+        
         # replace value if t exists just replace the value
         k = np.where(self.data['t'][:self.idx]==t)
         # print("recorder index k = ",k)
