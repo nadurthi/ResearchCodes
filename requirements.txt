@@ -19,3 +19,6 @@ numba
 dill
 shapely
 pyperclip
+numba
+fastdist
+networkx

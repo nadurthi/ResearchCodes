@@ -25,6 +25,8 @@ __pycache__/
 turtlebotData/
 datasets/
 simulations/
+savedMaps/
+
 
 # C extensions
 *.so
