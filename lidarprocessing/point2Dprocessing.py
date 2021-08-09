@@ -548,7 +548,7 @@ def addNewKeyFrame(poseGraph,poseData,idx,KeyFrame_prevIdx,sHg_idx,params,keepOt
             XX=np.matmul(H,np.vstack([poseData[ix]['X'].T,np.ones(poseData[ix]['X'].shape[0])])).T  
             Xidx.append(XX[:,:2])
             
-    X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=0.35)
+    X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
 
         
     poseData[KeyFrame_prevIdx]['X']=X
@@ -561,7 +561,7 @@ def addNewKeyFrame(poseGraph,poseData,idx,KeyFrame_prevIdx,sHg_idx,params,keepOt
     poseGraph.nodes[KeyFrame_prevIdx]['h']=h
     
     ## now add the idx node as a keyframe
-    Xidx=binnerDownSamplerProbs(Xidx,dx=params['BinDownSampleKeyFrame_dx'],prob=0.35)
+    Xidx=binnerDownSamplerProbs(Xidx,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
     poseData[idx]['X']=Xidx
     res = getclf(Xidx,params,doReWtopt=True,means_init=None)
     clf=res['clf']    
@@ -830,7 +830,7 @@ def LoopCLose_CloseByNodes(poseGraph,poseData,params):
             X.append(XX[:,:2])
             
             
-        X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=0.35)
+        X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
         poseData[mn]['X']=X
         res = getclf(X,params,doReWtopt=True,means_init=None)
         clf=res['clf']

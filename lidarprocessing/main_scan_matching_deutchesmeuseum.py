@@ -43,8 +43,8 @@ angle_min,angle_max =  -2.3518311977386475,2.3518311977386475
 
 dtype = np.float64
 
-import warnings
-warnings.filterwarnings('error')
+# import warnings
+# warnings.filterwarnings('error')
 
  #%%
 # scanfilepath = 'C:/Users/nadur/Google Drive/repos/SLAM/lidarprocessing/houseScan_std.pkl'
@@ -52,24 +52,26 @@ warnings.filterwarnings('error')
 # scanfilepath = 'C:/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/houseScan_std.pkl'
 # scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2015-07-07-11-27-05.pkl'
 # scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2015-07-07-11-27-05/'
-scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46.pkl'
+# scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46.pkl'
+scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46/'
 # os.makedirs(scanfilefolder)
 
-with open(scanfilepath,'rb') as fh:
-    dataset=pkl.load(fh)
+# with open(scanfilepath,'rb') as fh:
+#     dataset=pkl.load(fh)
 
 
 # for i in range(len(dataset['scan'])):
-    # with open(os.path.join(scanfilefolder,'scan_%d.pkl'%1),'wb') as F:
-        # pkl.dump(dataset['scan'][1],F)
+#     with open(os.path.join(scanfilefolder,'scan_%d.pkl'%i),'wb') as F:
+#         pkl.dump(dataset['scan'][i],F)
 
 def getscanpts_deutches(idx):
-    ranges = dataset[i]['ranges']
-    # with open(os.path.join(scanfilefolder,'scan_%d.pkl'%idx),'rb') as F:
-    #     scan=pkl.load(F)
-    # rngs = list(map(lambda x: np.max(x) if len(x)>0 else 120,scan['scan']))
     
+    with open(os.path.join(scanfilefolder,'scan_%d.pkl'%idx),'rb') as F:
+        scan=pkl.load(F)
+    rngs = list(map(lambda x: np.max(x) if len(x)>0 else 120,scan['scan']))
     rngs = np.array(rngs)
+    
+    # ranges = dataset[i]['ranges']
     # rngs = np.array(dataset[idx]['ranges'])
     
     ths = np.arange(angle_min,angle_max,angle_increment)
@@ -154,7 +156,7 @@ params['ERR_THRES']=4.0
 params['n_components']=35
 params['reg_covar']=0.002
 params['BinDownSampleKeyFrame_dx']=0.05
-
+params['BinDownSampleKeyFrame_probs']=0.15
 
 params['doLoopClosure'] = True
 params['LOOP_CLOSURE_D_THES']=31.4
@@ -165,7 +167,7 @@ params['LOOP_CLOSURE_ERR_THES']= 3
 # params['LOOPCLOSE_BIN_MATCHER_L'] = 13
 params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.25,0.25],dtype=np.float64)
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.35
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.4
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.6
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 16
 params['offsetNodesBy'] = 2
@@ -201,7 +203,7 @@ DoneLoops=[]
 Nframes = len(os.listdir(scanfilefolder))
 # Nframes = len(dataset)
 
-idx1=26415 #14340
+idx1=9722 #14340
 idxLast = Nframes
 previdx_loopclosure = idx1
 previdx_loopdetect = idx1
