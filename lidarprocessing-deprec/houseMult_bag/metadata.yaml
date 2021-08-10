@@ -1,0 +1,36 @@
+rosbag2_bagfile_information:
+  version: 1
+  storage_identifier: sqlite3
+  relative_file_paths:
+    - houseMult_bag.db3
+  duration:
+    nanoseconds: 1993688343990
+  starting_time:
+    nanoseconds_since_epoch: 1604675559357262097
+  message_count: 149784
+  topics_with_message_count:
+    - topic_metadata:
+        name: /battery_state
+        type: sensor_msgs/msg/BatteryState
+        serialization_format: cdr
+      message_count: 39874
+    - topic_metadata:
+        name: /cmd_vel
+        type: geometry_msgs/msg/Twist
+        serialization_format: cdr
+      message_count: 20263
+    - topic_metadata:
+        name: /imu
+        type: sensor_msgs/msg/Imu
+        serialization_format: cdr
+      message_count: 39874
+    - topic_metadata:
+        name: /odom
+        type: nav_msgs/msg/Odometry
+        serialization_format: cdr
+      message_count: 39874
+    - topic_metadata:
+        name: /scan
+        type: sensor_msgs/msg/LaserScan
+        serialization_format: cdr
+      message_count: 9899
