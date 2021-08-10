@@ -361,7 +361,7 @@ def eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrl
     return posematch
 
 
-def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False):
+def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params,PoseGrid,isPoseGridOffset,isBruteForce):
     # fromidx is idx1, toidx is idx2 
     clf1=poseGraph.nodes[idx1]['clf']
     # m_clf1=poseGraph.nodes[idx1]['m_clf']
@@ -400,6 +400,8 @@ def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params,PoseGrid=None
         posematch['err']=err
         posematch['hess_inv']=hess_inv
     else:
+        print("-----------------Inside-----------------")
+        
         if isPoseGridOffset:
             t,th=nbpt2Dproc.extractPosAngle(H21_est) 
             PoseGrid[:,0]+= th
@@ -413,7 +415,8 @@ def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params,PoseGrid=None
             txset = np.linspace(xedges_ovrlp[0],xedges_ovrlp[-1],PoseGrid[1])+v[0]
             tyset = np.linspace(yedges_ovrlp[0],yedges_ovrlp[-1],PoseGrid[2])+v[1]
             PoseGrid=getgridvec(thset,txset,tyset)
-            
+        
+
         M=0
         posematch=None
         for i in range(PoseGrid.shape[0]):
@@ -435,7 +438,7 @@ def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params,PoseGrid=None
     return posematch
 
 
-def poseGraph_keyFrame_matcher_binmatch(poseGraph,poseData,idx1,idx2,params,PoseGrid,isPoseGridOffset=True,isBruteForce=False):
+def poseGraph_keyFrame_matcher_binmatch(poseGraph,poseData,idx1,idx2,params,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False):
     sHg_1 = poseGraph.nodes[idx1]['sHg']
     sHg_2 = poseGraph.nodes[idx2]['sHg']
     
@@ -645,8 +648,7 @@ def matchdetect(qin,qout,ExitFlag,Lkey,poseGraph,poseData,params) :
                 if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
                     # add loop closure edge
                     
-                    
-                    posematch=poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
+                    posematch=poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params,None,False,False)
                     
                     a1=posematch['err'] < params['LOOP_CLOSURE_ERR_THES']
                     a2=posematch['mbinfrac']>=params['LOOPCLOSE_BIN_MIN_FRAC']
@@ -663,7 +665,52 @@ def matchdetect(qin,qout,ExitFlag,Lkey,poseGraph,poseData,params) :
             break
     
     print("thread done")              
-        
+
+def matchdetectLong(qin,qout,ExitFlag,Lkey,poseGraph,poseData,params) :
+    while(True):
+        idx = None
+        previdx = None
+        try:
+            idx,previdx = qin.get(True,0.2)
+        except queue.Empty:
+            idx = None
+            previdx = None
+            
+        if idx is not None and previdx is not None:
+            h1=poseGraph.nodes[idx]['h']
+            p1=poseGraph.nodes[idx]['pos']
+            i1=Lkey.index(idx)
+            i2=Lkey.index(previdx)
+            if poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
+                
+                h2=poseGraph.nodes[previdx]['h']
+                
+                p2=poseGraph.nodes[previdx]['pos']
+                d=nplinalg.norm(h1-h2,ord=1)
+                
+                c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
+                c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
+                if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
+                    # add loop closure edge
+                    
+                    posematch=poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params,None,False,True)
+                    
+                    a1=posematch['err'] < params['LOOP_CLOSURE_ERR_THES']
+                    a2=posematch['mbinfrac']>=params['LOOPCLOSE_BIN_MIN_FRAC']
+                    a3=posematch['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current']
+                    # print("Potential Loop closure ",a1,a2,a3)
+                    if a3:
+                        qout.put(['edge',idx,previdx,posematch['H'],posematch['err'],posematch['hess_inv'],d,posematch])
+            
+            
+            # qout.put(['status',idx,'LoopDetectDone',True])
+                
+            
+        if (ExitFlag.is_set() and qin.empty()):
+            break
+    
+    print("thread done")  
+       
 def detectAllLoopClosures_closebyNodes(poseGraph,poseData,params,returnCopy=False,parallel=True):
     """
     idx is index of current "keyframe"
@@ -917,7 +964,7 @@ def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False,parallel=Tr
     params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current'] = params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']
     if parallel:
         for i in range(Ncore):
-            p = ctx.Process(target=matchdetect, args=(qin,qout,ExitFlag,Lkeys,poseGraph,poseData,params))
+            p = ctx.Process(target=matchdetectLong, args=(qin,qout,ExitFlag,Lkeys,poseGraph,poseData,params))
             processes.append( p )
             p.start()
             print("created thread")    
@@ -938,7 +985,7 @@ def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False,parallel=Tr
     
     if not parallel:
         ExitFlag.set()
-        matchdetect(qin,qout,ExitFlag,Lkeys,poseGraph,poseData,params)
+        matchdetectLong(qin,qout,ExitFlag,Lkeys,poseGraph,poseData,params)
         
     flg=0
     while True:

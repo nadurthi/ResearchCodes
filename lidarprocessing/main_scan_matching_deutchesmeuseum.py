@@ -152,7 +152,7 @@ params={}
 
 params['REL_POS_THRESH']=0.5 # meters after which a keyframe is made
 params['REL_ANGLE_THRESH']=15*np.pi/180
-params['ERR_THRES']=4.0
+params['ERR_THRES']=3.5
 params['n_components']=35
 params['reg_covar']=0.002
 params['BinDownSampleKeyFrame_dx']=0.05
@@ -166,16 +166,24 @@ params['LOOP_CLOSURE_ERR_THES']= 3
 # params['LOOPCLOSE_BIN_MATCHER_dx'] = 4
 # params['LOOPCLOSE_BIN_MATCHER_L'] = 13
 params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.25,0.25],dtype=np.float64)
-params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.35
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.4
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.6
+params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.5
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.4
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 16
 params['offsetNodesBy'] = 2
+
+params['NearLoopClose'] = {}
+params['NearLoopClose']['PoseGrid']=None
+params['NearLoopClose']['isPoseGridOffset']=True
+params['NearLoopClose']['isBruteForce']=False
 
 
 # meters. skip loop closure of current node if there is a loop closed node within radius along the path
 params['LongLoopClose'] = {}
 params['LongLoopClose']['SkipLoopCloseIfNearCLosedNodeWithin'] = 5 
+params['LongLoopClose']['PoseGrid']=None
+params['LongLoopClose']['isPoseGridOffset']=False
+params['LongLoopClose']['isBruteForce']=True
 
 # params['Do_GMM_FINE_FIT']=False
 
@@ -186,10 +194,11 @@ params['Do_BIN_DEBUG_PLOT']= False
 
 params['xy_hess_inv_thres']=100000000*0.4
 params['th_hess_inv_thres']=100000000*0.4
-params['#ThreadsLoopClose']=4
+params['#ThreadsLoopClose']=8
 
 params['INTER_DISTANCE_BINS_max']=120
 params['INTER_DISTANCE_BINS_dx']=1
+
 
 
 
@@ -203,7 +212,7 @@ DoneLoops=[]
 Nframes = len(os.listdir(scanfilefolder))
 # Nframes = len(dataset)
 
-idx1=9722 #14340
+idx1=0 #16000 #27103 #14340
 idxLast = Nframes
 previdx_loopclosure = idx1
 previdx_loopdetect = idx1
@@ -288,7 +297,7 @@ for idx in range(idx1,idxLast):
         Lkeyloop.sort()
             
         # detect loop closure and add the edge
-        if params['doLoopClosure'] and Lkeyloop.index(idx)-Lkeyloop.index(previdx_loopdetect)>10:
+        if params['doLoopClosure'] and Lkeyloop.index(idx)-Lkeyloop.index(previdx_loopdetect)>5:
             
             
            
@@ -803,12 +812,24 @@ pt2dplot.plotcomparisons(poseGraph,poseData,idx,previdx,H12=nplinalg.inv(piHi),e
     
 
 #%% 
-Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
 
-for idx, previdx in Lkeyloop:
-    if previdx<=3952 and idx>=3502:
+for idx in Lkeys:
+    if idx>=23140 and idx<=24525:
+        pass
+    else:
+        continue
+    for previdx in Lkeys:
+        if previdx >=15760 and previdx <= 19100:
+            pass
+        else:
+            continue
+        
         st=time.time()
-        piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
+        # piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
+        posematch=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
+        piHi = posematch['H']
+        mbinfrac = posematch['mbinfrac']
         et=time.time()
         print("Mathc time = ",et-st)
         
