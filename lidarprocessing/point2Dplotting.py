@@ -101,7 +101,7 @@ def plotGraph(poseGraph,Lkey,ax=None):
     nx.draw_networkx(poseGraph,pos=pos,nodelist =Lkey,edgelist=edgelist,edge_color=edge_color,with_labels=True,font_size=6,node_size=200,ax=ax)
     ax.axis('equal')
 
-def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
                       forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
@@ -145,8 +145,8 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     Xcomb=[]
     for i in Lkey:
         gHs = nplinalg.inv(poseGraph.nodes[i]['sHg'])
-        Ti = poseGraph.nodes[i]['time']
-        XX = poseData[Ti]['X']
+        # Ti = poseGraph.nodes[i]['time']
+        XX = poseGraph.nodes[i]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
         Xcomb.append(XX)
         if i==Lkey[-1]:
@@ -154,6 +154,7 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
             
     Xcomb=np.vstack(Xcomb)
     # Xcomb=pt2dproc.binnerDensitySampler(Xcomb,dx=0.05,MaxFrac=0.5)
+    # Xcomb=pt2dproc.binnerDownSamplerProbs(Xcomb,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])
     Xcomb=pt2dproc.binnerDownSampler(Xcomb,dx=0.05,cntThres=2)
     # Xcomb=pt2dproc.SubMapGridmaker(Xcomb,len(Lkey),dx=0.05,r=0.8)
     
@@ -173,8 +174,8 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     
     if forcePlotLastidx:
         gHs = nplinalg.inv(poseGraph.nodes[idx2]['sHg'])
-        Tidx2 = poseGraph.nodes[idx2]['time']
-        XX = poseData[Tidx2]['X']
+        # Tidx2 = poseGraph.nodes[idx2]['time']
+        XX = poseGraph.nodes[idx2]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
         ax.plot(XX[:,0],XX[:,1],'r.',linewidth=0.2, markersize=2)
     # gHs=nplinalg.inv(poseGraph.nodes[idx]['sHg'])
@@ -223,7 +224,7 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     else:
         return fig,ax,None,None
     
-def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
+def plotcomparisons(poseGraph,idx1,idx2,H12=None,err=None):
     # H12: from 2 to 1
     
     fig = plt.figure("ComparisonPlot",figsize=(20,10))
@@ -231,10 +232,9 @@ def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
     
     # idx=6309
     # idx2=8761
-    T1 = poseGraph.nodes[idx1]['time']
-    T2 = poseGraph.nodes[idx2]['time']
-    X1=poseData[T1]['X']
-    X2=poseData[T2]['X']
+    X1 = poseGraph.nodes[idx1]['X']
+    X2 = poseGraph.nodes[idx2]['X']
+    
     # X12: points in 2 , transformed to 1
     X12 = np.dot(H12,np.hstack([X2,np.ones((X2.shape[0],1))]).T).T
     X12=X12[:,0:2]
