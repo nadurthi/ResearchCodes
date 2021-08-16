@@ -65,9 +65,13 @@ scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46/
 #         pkl.dump(dataset['scan'][i],F)
 
 def getscanpts_deutches(idx):
-    
-    with open(os.path.join(scanfilefolder,'scan_%d.pkl'%idx),'rb') as F:
-        scan=pkl.load(F)
+    # if idx >= 20079 and idx<=20089:
+    #     return None
+    try:
+        with open(os.path.join(scanfilefolder,'scan_%d.pkl'%idx),'rb') as F:
+            scan=pkl.load(F)
+    except:
+        return None
     rngs = list(map(lambda x: np.max(x) if len(x)>0 else 120,scan['scan']))
     rngs = np.array(rngs)
     
@@ -152,7 +156,7 @@ params={}
 
 params['REL_POS_THRESH']=0.5 # meters after which a keyframe is made
 params['REL_ANGLE_THRESH']=15*np.pi/180
-params['ERR_THRES']=3.5
+params['ERR_THRES']=2.5
 params['n_components']=35
 params['reg_covar']=0.002
 
@@ -163,6 +167,8 @@ params['Plot_BinDownSampleKeyFrame_dx']=0.05
 params['Plot_BinDownSampleKeyFrame_probs']=0.001
 
 params['doLoopClosure'] = True
+params['doLoopClosureLong'] = True
+
 params['Loop_CLOSURE_PARALLEL'] = True
 params['LOOP_CLOSURE_D_THES']=31.4
 params['LOOP_CLOSURE_POS_THES']=25
@@ -176,10 +182,11 @@ params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.5
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 16
 params['offsetNodesBy'] = 2
+params['MAX_NODES_ADJ_COMBINE']=5
 
 params['NearLoopClose'] = {}
 params['NearLoopClose']['Method']='GMM'
-params['NearLoopClose']['PoseGrid']=None
+params['NearLoopClose']['PoseGrid']=None #pt2dproc.getgridvec(np.linspace(-np.pi/12,np.pi/12,3),np.linspace(-1,1,3),np.linspace(-1,1,3))
 params['NearLoopClose']['isPoseGridOffset']=True
 params['NearLoopClose']['isBruteForce']=False
 
@@ -188,9 +195,9 @@ params['NearLoopClose']['isBruteForce']=False
 params['LongLoopClose'] = {}
 params['LongLoopClose']['Method'] = 'GMM'
 params['LongLoopClose']['SkipLoopCloseIfNearCLosedNodeWithin'] = 5 
-params['LongLoopClose']['PoseGrid']=None
-params['LongLoopClose']['isPoseGridOffset']=False
-params['LongLoopClose']['isBruteForce']=True
+params['LongLoopClose']['PoseGrid']= None
+params['LongLoopClose']['isPoseGridOffset']=True
+params['LongLoopClose']['isBruteForce']=False
 
 # params['Do_GMM_FINE_FIT']=False
 
@@ -219,14 +226,18 @@ DoneLoops=[]
 Nframes = len(os.listdir(scanfilefolder))
 # Nframes = len(dataset)
 
-idx1=16000 #16000 #27103 #14340
+idx1=0 #19970 #16000 #27103 #14340
 idxLast = Nframes
 previdx_loopclosure = idx1
 previdx_loopdetect = idx1
-
+previdx_loopdetect_long=idx1
 for idx in range(idx1,idxLast): 
     # ax.cla()
+    if idx>=20083 and idx <=20085:
+        continue
     X=getscanpts(idx)
+    if X is None:
+        continue
     if len(poseGraph.nodes)==0:
         # Xd,m = pt2dproc.get0meanIcov(X)
         res = pt2dproc.getclf(X,params,doReWtopt=True,means_init=None)
@@ -247,11 +258,18 @@ for idx in range(idx1,idxLast):
     # estimate pose to last keyframe
     KeyFrameClf = poseGraph.nodes[KeyFrame_prevIdx]['clf']
     Xclf = poseGraph.nodes[KeyFrame_prevIdx]['X']
-    # m_clf = poseGraph.nodes[KeyFrame_prevIdx]['m_clf']
+    
+    
     if (idx-KeyFrame_prevIdx)<=1:
         sHk_prevframe = np.identity(3)
+    elif KeyFrame_prevIdx==previdx:
+        sHk_prevframe = np.identity(3)
     else:
-        sHk_prevframe = poseGraph.edges[KeyFrame_prevIdx,idx-1]['H']
+        sHk_prevframe = poseGraph.edges[KeyFrame_prevIdx,previdx]['H']
+        
+    # sHk_prevframe = np.identity(3)
+    
+        
     # assuming sHk_prevframe is very close to sHk
     st=time.time()
     sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=sHk_prevframe)
@@ -262,14 +280,15 @@ for idx in range(idx1,idxLast):
     # if np.isfinite(serrk)==0:
     #     pdb.set_trace()
     #     pt2dplot.plotcomparisons_posegraph(poseGraph,KeyFrame_prevIdx,idx,H12=nplinalg.inv( sHk_prevframe) )
-        
-        
+    
+    
     print("idx = ",idx," Error = ",np.round(serrk,5)," , and time taken = ",np.round(et-st,3))
     # publish pose
     kHg = poseGraph.nodes[KeyFrame_prevIdx]['sHg']
     sHg = np.matmul(sHk,kHg)
     poses.append(sHg)
     gHs=nplinalg.inv(sHg)
+    
     
     # get relative frame from idx-1 to idx
     # iHim1 = np.matmul(sHk,nplinalg.inv(sHk_prevframe))
@@ -285,8 +304,32 @@ for idx in range(idx1,idxLast):
         et=time.time()
         print("time taken for new keyframe = ",et-st)
         poseGraph.add_edge(KeyFrame_prevIdx,idx,H=sHk,H_prevframe=sHk_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
-    
-    
+        
+        # pdb.set_trace()
+        # bin match key frame to keyframe
+        dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+        Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,X,dxcomp)
+        activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+        H12=poseGraph.edges[KeyFrame_prevIdx,idx]['H']
+        posematch=pt2dproc.eval_posematch(H12,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+        poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+        print("posematch['mbinfrac_ActiveOvrlp']=",posematch['mbinfrac_ActiveOvrlp'])
+        if posematch['mbinfrac_ActiveOvrlp']<0.5:
+            posematch = pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+            poseGraph.edges[KeyFrame_prevIdx,idx]['H']=posematch['H']
+            poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+            
+            sHg = np.matmul(posematch['H'],kHg)
+            gHs=nplinalg.inv(sHg)    
+            tpos=np.matmul(gHs,np.array([0,0,1])) 
+            poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+            poseGraph.nodes[idx]['sHg']=sHg
+        
+        # pt2dplot.plotcomparisons(poseGraph,KeyFrame_prevIdx,idx,UseLC=False,H12=nplinalg.inv( sHk) ,err=serrk)
+        # fig = plt.figure("ComparisonPlot")
+        # fig.savefig("ComparisonPlot-%d-%d.png"%(KeyFrame_prevIdx, idx))
+        # plt.close(fig)
+        
         KeyFrame_prevIdx = idx
         KeyFrames.append(np.matmul(gHs,np.array([0,0,1]))  )
         
@@ -294,22 +337,39 @@ for idx in range(idx1,idxLast):
         Lkeyloop.sort()
             
         # detect loop closure and add the edge
-        if params['doLoopClosure'] and Lkeyloop.index(idx)-Lkeyloop.index(previdx_loopdetect)>10:
+        if params['doLoopClosure'] and Lkeyloop.index(idx)-Lkeyloop.index(previdx_loopdetect)>20:
             
+            poseGraph=pt2dproc.detectAllLoopClosures_closebyNodes(poseGraph,params,returnCopy=False,parallel=params['Loop_CLOSURE_PARALLEL'])
+            poseGraph=pt2dproc.LoopCLose_CloseByNodes(poseGraph,params)
             
-            for gg in range(2):
-                Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-                for ii in Lkeys:
-                    if poseGraph.nodes[ii]['LoopDetectDone'] is False: 
-                        poseGraph.nodes[ii]['LocalLoopClosed']=False
-                poseGraph=pt2dproc.detectAllLoopClosures_closebyNodes(poseGraph,params,returnCopy=False,parallel=params['Loop_CLOSURE_PARALLEL'])
-                poseGraph=pt2dproc.LoopCLose_CloseByNodes(poseGraph,params)
-            
-            
+            # # bin match key frame to keyframe
+            # Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+            # for KeyFrameIdx11 in Lkeyloop:
+            #     for idx11 in poseGraph.successors(KeyFrameIdx11):
+            #         if poseGraph.edges[KeyFrameIdx11,idx11].get('DoneBinMatch',False) is False:
+            #             posematch = pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrameIdx11,idx11,params,DoCLFmatch=True,dx0=1.5,L0=10,th0=np.pi/3,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+            #             poseGraph.edges[KeyFrameIdx11,idx11]['H']=posematch['H']
+            #             poseGraph.edges[KeyFrameIdx11,idx11]['DoneBinMatch']=True
+                        
+            previdx_loopdetect=idx
+        
+            # Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+            # Lkeyloop.sort()
+       
+        
+            # mm=10000
+            # cc=idx
+            # for m in Lkeyloop:  
+            #     if abs(m-previdx_loopdetect_long)<mm:
+            #         cc=m
+            #         mm=abs(m-previdx_loopdetect_long)
+                
+            # if params['doLoopClosureLong'] and Lkeyloop.index(idx)-Lkeyloop.index(cc)>10:
+    
             poseGraph=pt2dproc.detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=params['Loop_CLOSURE_PARALLEL'])
             
             
-            previdx_loopdetect=idx
+            
             
             res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(poseGraph,Lkeyloop[0],idx,maxiter=None,algo='trf')
     
@@ -320,10 +380,8 @@ for idx in range(idx1,idxLast):
                 print("opt is failure")
                 print(res)
             
-            
-
-            
-                    
+            previdx_loopdetect_long=idx    
+                
     else: #not a keyframe
         tpos=np.matmul(gHs,np.array([0,0,1]))
 
@@ -334,11 +392,14 @@ for idx in range(idx1,idxLast):
     
     
     
-    
+        # pt2dplot.plotcomparisons(poseGraph,KeyFrame_prevIdx,idx,UseLC=False,H12=nplinalg.inv( sHk) ,err=serrk)
+        # fig = plt.figure("ComparisonPlot")
+        # fig.savefig("ComparisonPlot-%d-%d.png"%(KeyFrame_prevIdx, idx))
+        # plt.close(fig)
     
 
 
-    
+    previdx = idx
     
     
     # plotting
@@ -363,12 +424,49 @@ df.sort_values(by=['idx'],inplace=True)
 df
 
 with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'wb') as fh:
-    pkl.dump(poseGraph,fh)
+    pkl.dump([poseGraph,params],fh)
+
+#%% scan to scan test
+Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+Lkeyloop.sort()
+        
+KeyFrameIdx = 20081
+idx = 20084
+
+H21_est = poseGraph.edges[KeyFrameIdx,idx]['H']
+
+params['n_components']=35
+params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.25,0.25],dtype=np.float64)
+
+Xclf=getscanpts(KeyFrameIdx)
+Xidx=getscanpts(idx)
+
+res = pt2dproc.getclf(Xclf,params,doReWtopt=True,means_init=None)
+KeyFrameClf=res['clf']
+
+poseGraph.edges[KeyFrameIdx,idx]['H']
+
+st=time.time()
+posematch = pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrameIdx,idx,params,dx0=1,L0=3,th0=np.pi/6,DoCLFmatch=True,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+et=time.time()
+print("time taken matching = ",et-st)
+# pt2dplot.plotcomparisons_points(Xclf,Xidx,KeyFrameIdx,idx,KeyFrameClf,UseLC=False,H21_est=H21_est,H12=nplinalg.inv( posematch['H']) ,err=posematch['mbinfrac_ActiveOvrlp'])
+
+sHk=np.identity(3)
+sHk[0,2]=1
+# sHk[1,2]=1
+# sHk_corrected,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,Xidx,params,sHk=sHk)   
+# pt2dplot.plotcomparisons_points(Xclf,Xidx,KeyFrameIdx,idx,KeyFrameClf,UseLC=False,H12=nplinalg.inv( sHk_corrected) ,err=serrk)
+# fig = plt.figure("ComparisonPlot")
+# fig.savefig("ComparisonPlot-%d-%d.png"%(KeyFrame_prevIdx, idx))
+# plt.close(fig)
+    
+
 
 #%% Doing faster loop closure
 
 with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'rb') as fh:
-    poseGraph=pkl.load(fh)
+    poseGraph,params=pkl.load(fh)
     
 
 
@@ -413,155 +511,81 @@ else:
 pt2dplot.plot_keyscan_path(poseGraph2,idx1,idx,params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
     
-#%%
-with open("PoseGraph-deutchesMesuemDebug-planes22-traingleLoopClose.pkl",'rb') as fh:
-    poseGraph=pkl.load(fh)
-    
-Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-    
-Seqs=[]
 
-for seq in nx.simple_cycles(poseGraph):
-    seq = sorted(list(seq))
-    Seqs.append(seq)
-    
-# Seqs=sorted(Seqs,key=lambda x: len(x),reverse=True)
-Seqs=sorted(Seqs,key=lambda x: x[0])
-Seqs_todo = []
-for seq in Seqs:
-    S=[Lkeys.index(s) for s in seq]
-    if np.all(np.abs(np.diff(S))==1): 
-        Seqs_todo.append(seq)
-# Seqs_todo is the list of sorted decreasing sequences
-# do pose optimization and update all the global poses
-for i,seq in enumerate(Seqs_todo):
-    # if max(seq)<=3502 or min(seq)>=3952:# def fails upto 8070 ; 3898 is bad     ; 3111 is okay  ;3952 and idx>=3502
-    s1 = seq[0]
-    s2 = seq[-1]
-    st=time.time()
-    res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(poseGraph,s1,s2,maxiter=None,algo='trf',xtol=1e-4)
-    if res.success:
-        poseGraph=pt2dproc.updateGlobalPoses(copy.deepcopy(poseGraph),sHg_updated,updateRelPoses=True)
+
+#%%
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+27905
+27844
+27905
+27843
+27820
+Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+idx=27905
+idx_p1=Lkeyloop[Lkeyloop.index(idx)+1]
+idx_m1=Lkeyloop[Lkeyloop.index(idx)-1]
+
+
+H21_est = poseGraph.edges[idx,idx_p1]['H']
+pt2dplot.plotcomparisons(poseGraph,idx,idx_p1,UseLC=False,H12=nplinalg.inv(H21_est),err=0) #nplinalg.inv(piHi) 
+
+
+for idx, previdx in Lkeyloop_edges:
+    if idx>=27333 and idx<=28751:
+        pass
     else:
-        print("opt is failure")
-        print(res)
-
-pt2dplot.plot_keyscan_path(poseGraph,Lkeys[0],Lkeys[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
-                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
-
-
-
+        continue
     
-#%% Now do global loop closure
-with open("PoseGraph-deutchesMesuemDebug-planes22-traingleLoopClose-combined.pkl",'rb') as fh:
-    poseGraph=pkl.load(fh)
-    
-
-params['LOOP_CLOSURE_D_THES']=30.3
-params['LOOP_CLOSURE_POS_THES']=20
-params['LOOP_CLOSURE_POS_MIN_THES']=0.1
-params['LOOP_CLOSURE_ERR_THES']= 3
-params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.5
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC']=0.50
-
-params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = 0.15
-
-params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 5
-params['LOOP_CLOSURE_COMBINE_TRIANGLES']= True
-
-idx1=0
-
-
-Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-Lkeys.sort()
-for idx in Lkeys:
-    poseGraph.nodes[idx]['LoopDetectDone'] = False
-    
-    # idbmx = params['INTER_DISTANCE_BINS_max']
-    # idbdx=params['INTER_DISTANCE_BINS_dx']
-    # X = poseData[idx]['X']
-    # h=pt2dproc.get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
-    # poseGraph.nodes[idx]['h']=h
-    
-    
-for idx in Lkeys:
-    if poseGraph.nodes[idx]['LoopDetectDone'] is False:          
-        h1=poseGraph.nodes[idx]['h']
-        p1=poseGraph.nodes[idx]['pos']
-        # previdx < Lkeys[Lkeys.index(idx)-1] and 
-        LPkeys = Lkeys[:max([Lkeys.index(idx)-2,0])]
-        for previdx in LPkeys:
-            # if previdx>=idx:
-            #     continue
-            
-            if poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
-                
-                h2=poseGraph.nodes[previdx]['h']
-                
-                p2=poseGraph.nodes[previdx]['pos']
-                d=nplinalg.norm(h1-h2,ord=1)
-                c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
-                c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
-                if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
-                    # add loop closure edge
-                    # print("Potential Loop closure")
-                    st=time.time()
-                    piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i,mbinfrac_ActiveOvrlp=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,idx,previdx,params)
-                    print(idx,previdx,time.time()-st)
-                    # piHi,pi_err_i,hess_inv_err_i=0,0,0
-                    posematch={'mbin':mbin,'mbinfrac':mbinfrac,'mbinfrac_ActiveOvrlp':mbinfrac_ActiveOvrlp}
-                    a1=pi_err_i < params['LOOP_CLOSURE_ERR_THES']
-                    a2=mbinfrac>=params['LOOPCLOSE_BIN_MIN_FRAC']
-                    a3=mbinfrac_ActiveOvrlp>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC']
-                    if a3:
-                        poseGraph.add_edge(idx,previdx,H=piHi,err = pi_err_i,posematch=posematch,hess_inv = hess_inv_err_i,edgetype="Key2Key-LoopClosure",d=d,color='b')
-                        print("Added")
-                        # res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(poseGraph,Lkeyloop[max([0,len(Lkeyloop)-1000])],idx,maxiter=None,algo='trf')
-                        
-        
-        poseGraph.nodes[idx]['LoopDetectDone'] = True
-
-pt2dplot.plot_keyscan_path(poseGraph,Lkeys[0],Lkeys[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
-                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
-
-with open("PoseGraph-deutchesMesuemDebug-planes22-traingleLoopClose-combined-loopclose.pkl",'wb') as fh:
-    pkl.dump(poseGraph,fh)
-#%% Optimize poses
-with open("PoseGraph-deutchesMesuemDebug-planes22-traingleLoopClose-combined-loopclose.pkl",'rb') as fh:
-    poseGraph=pkl.load(fh)
-
-
-Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(poseGraph,Lkeys[0],Lkeys[-1],maxiter=None,algo='lm')
-if res.success:
-    poseGraph=pt2dproc.updateGlobalPoses(copy.deepcopy(poseGraph),sHg_updated,updateRelPoses=True)
-else:
-    print("opt is failure")
-    print(res)
-    
-
-pt2dplot.plot_keyscan_path(poseGraph,Lkeys[0],Lkeys[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
-                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
-
-#%%
-Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
-
-for idx, previdx in Lkeyloop:
     # st=time.time()
     # piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,idx,previdx,params)
     # et=time.time()
     # print("Mathc time = ",et-st)
-    mbinfrac=poseGraph.edges[idx,previdx]['posematch']['mbinfrac']
-    mbinfrac_ActiveOvrlp=poseGraph.edges[idx,previdx]['posematch']['mbinfrac_ActiveOvrlp']
+    # posematch=pt2dproc.poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
+    #                                                      params['LongLoopClose']['isPoseGridOffset'],
+    #                                                      params['LongLoopClose']['isBruteForce'])
     
-    piHi=poseGraph.edges[idx,previdx]['H']
+    posematch=poseGraph.edges[idx,previdx]['posematch']
+    mbinfrac=posematch['mbinfrac']
+    mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
     
-    pt2dplot.plotcomparisons(poseGraph,idx,previdx,H12=nplinalg.inv(piHi),err=mbinfrac_ActiveOvrlp) #nplinalg.inv(piHi) 
+    piHi=posematch['H']
+    
+    pt2dplot.plotcomparisons(poseGraph,idx,previdx,UseLC=True,H12=nplinalg.inv(piHi),err=mbinfrac_ActiveOvrlp) #nplinalg.inv(piHi) 
     fig = plt.figure("ComparisonPlot")
     fig.savefig("loopdetect-%d-%d.png"%(idx, previdx))
     plt.close(fig)
 
+#%%
+with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'rb') as fh:
+    poseGraph,=pkl.load(fh)
+    
+idx=27827
+previdx=27709
+params['LongLoopClose']['PoseGrid']= None #pt2dproc.getgridvec(np.linspace(-np.pi/6,np.pi/6,10),np.linspace(-5,5,3),np.linspace(-5,5,3))
+params['LongLoopClose']['isPoseGridOffset']=True
+params['LongLoopClose']['isBruteForce']=False
 
+X1,clf1=pt2dproc.getCombinedNode(poseGraph,idx,5,params,Doclf=True)
+poseGraph.nodes[idx]['clflc']=clf1
+poseGraph.nodes[idx]['Xlc']=X1
+poseGraph.nodes[idx]['DoneAdjCombine']=True
+
+X1,clf1=pt2dproc.getCombinedNode(poseGraph,previdx,5,params,Doclf=True)
+poseGraph.nodes[previdx]['clflc']=clf1
+poseGraph.nodes[previdx]['Xlc']=X1
+poseGraph.nodes[previdx]['DoneAdjCombine']=True
+
+posematch=pt2dproc.poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
+                                                          params['LongLoopClose']['isPoseGridOffset'],
+                                                          params['LongLoopClose']['isBruteForce'])
+    
+# posematch=poseGraph.edges[idx,previdx]['posematch']
+mbinfrac=posematch['mbinfrac']
+mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
+
+piHi=posematch['H']
+
+pt2dplot.plotcomparisons(poseGraph,idx,previdx,UseLC=True,H12=nplinalg.inv(piHi),err=mbinfrac_ActiveOvrlp) #nplinalg.inv(piHi)
     
 #%%
 plt.close("all")
@@ -698,31 +722,35 @@ clfj=res['clf']
 # clfj = poseGraph.nodes[jj]['clf']
 plotGmmX(None,clfj,Xj)
 #%% 
+with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'rb') as fh:
+    poseGraph,=pkl.load(fh)
+
+    
 Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
 
 for idx in Lkeys:
-    if idx>=23530 and idx<=24051:
+    if idx>=27333 and idx<=28751:
         pass
     else:
         continue
     for previdx in Lkeys:
-        if previdx >=18141 and previdx <= 18770:
-            pass
-        else:
-            continue
-        
-        st=time.time()
-        # piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,idx,previdx,params)
-        posematch=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
-                                                         params['LongLoopClose']['isPoseGridOffset'],
-                                                         params['LongLoopClose']['isBruteForce'])
-        piHi = posematch['H']
-        mbinfrac = posematch['mbinfrac']
-        et=time.time()
-        print("Mathc time = ",et-st)
-        
-        pt2dplot.plotcomparisons(poseGraph,idx,previdx,H12=nplinalg.inv(piHi),err=mbinfrac) #nplinalg.inv(piHi) 
-        fig = plt.figure("ComparisonPlot")
-        fig.savefig("loopdetec-%d-%d.png"%(idx, previdx))
-        plt.close(fig)
+    #     if previdx >=18141 and previdx <= 18770:
+    #         pass
+    #     else:
+    #         continue
+        if (idx,previdx) in poseGraph.edges:
+            st=time.time()
+            posematch=poseGraph.edges[idx,previdx]['posematch']
+            # posematch=pt2dproc.poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
+            #                                                  params['LongLoopClose']['isPoseGridOffset'],
+            #                                                  params['LongLoopClose']['isBruteForce'])
+            piHi = posematch['H']
+            mbinfrac = posematch['mbinfrac']
+            et=time.time()
+            print("Mathc time = ",et-st)
+            
+            pt2dplot.plotcomparisons(poseGraph,idx,previdx,H12=nplinalg.inv(piHi),err=mbinfrac) #nplinalg.inv(piHi) 
+            fig = plt.figure("ComparisonPlot")
+            fig.savefig("loopdetec-%d-%d.png"%(idx, previdx))
+            plt.close(fig)
 #%%
