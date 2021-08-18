@@ -106,7 +106,8 @@ def binScanCost(x,P,Xt,xedges,yedges,cntThres):
     
     
     # mbinfrac_ovrlp=mbin_and/mbin_or
-    mbinfrac_ActiveOvrlp = max([mbin_and/activebins1_ovrlp,mbin_and/activebins2_ovrlp])
+    # mbinfrac_ActiveOvrlp = max([mbin_and/activebins1_ovrlp,mbin_and/activebins2_ovrlp])
+    mbinfrac_ActiveOvrlp = mbin_and/activebins1_ovrlp
 
     return mbinfrac_ActiveOvrlp
 
