@@ -514,14 +514,16 @@ pt2dplot.plot_keyscan_path(poseGraph2,idx1,idx,params,makeNew=True,skipScanFrame
 
 
 #%%
-Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
-27905
-27844
-27905
-27843
-27820
+
+
+
+# 27905
+# 27844
+# 27905
+# 27843
+# 27820
 Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-idx=27905
+idx=27852
 idx_p1=Lkeyloop[Lkeyloop.index(idx)+1]
 idx_m1=Lkeyloop[Lkeyloop.index(idx)-1]
 
@@ -529,9 +531,10 @@ idx_m1=Lkeyloop[Lkeyloop.index(idx)-1]
 H21_est = poseGraph.edges[idx,idx_p1]['H']
 pt2dplot.plotcomparisons(poseGraph,idx,idx_p1,UseLC=False,H12=nplinalg.inv(H21_est),err=0) #nplinalg.inv(piHi) 
 
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
 
 for idx, previdx in Lkeyloop_edges:
-    if idx>=27333 and idx<=28751:
+    if idx>=27096 and idx<=28234:
         pass
     else:
         continue
