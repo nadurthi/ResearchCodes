@@ -226,15 +226,15 @@ DoneLoops=[]
 Nframes = len(os.listdir(scanfilefolder))
 # Nframes = len(dataset)
 
-idx1=0 #19970 #16000 #27103 #14340
+idx1=18970 #19970 #16000 #27103 #14340
 idxLast = Nframes
 previdx_loopclosure = idx1
 previdx_loopdetect = idx1
 previdx_loopdetect_long=idx1
 for idx in range(idx1,idxLast): 
     # ax.cla()
-    if idx>=20083 and idx <=20085:
-        continue
+    # if idx>=20083 and idx <=20085:
+    #     continue
     X=getscanpts(idx)
     if X is None:
         continue
@@ -515,6 +515,15 @@ pt2dplot.plot_keyscan_path(poseGraph2,idx1,idx,params,makeNew=True,skipScanFrame
 
 #%%
 
+with open("turtlebot/DeutchesMeuseum.pkl",'rb') as fh:
+    poseGraph,params=pkl.load(fh)
+    
+
+Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+
+pt2dplot.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
 
 
 # 27905
@@ -522,27 +531,30 @@ pt2dplot.plot_keyscan_path(poseGraph2,idx1,idx,params,makeNew=True,skipScanFrame
 # 27905
 # 27843
 # 27820
-Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-idx=27852
-idx_p1=Lkeyloop[Lkeyloop.index(idx)+1]
-idx_m1=Lkeyloop[Lkeyloop.index(idx)-1]
+# Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+# idx=27852
+# idx_p1=Lkeyloop[Lkeyloop.index(idx)+1]
+# idx_m1=Lkeyloop[Lkeyloop.index(idx)-1]
 
 
-H21_est = poseGraph.edges[idx,idx_p1]['H']
-pt2dplot.plotcomparisons(poseGraph,idx,idx_p1,UseLC=False,H12=nplinalg.inv(H21_est),err=0) #nplinalg.inv(piHi) 
+# H21_est = poseGraph.edges[idx,idx_p1]['H']
+# pt2dplot.plotcomparisons(poseGraph,idx,idx_p1,UseLC=False,H12=nplinalg.inv(H21_est),err=0) #nplinalg.inv(piHi) 
 
 Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+# Ledges = poseGraph.edges
 
 for idx, previdx in Lkeyloop_edges:
-    if idx>=27096 and idx<=28234:
-        pass
-    else:
-        continue
+    # if idx>=27096 and idx<=28234:
+    #     pass
+    # else:
+    #     continue
     
     # st=time.time()
     # piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=pt2dproc.poseGraph_keyFrame_matcher(poseGraph,idx,previdx,params)
     # et=time.time()
-    # print("Mathc time = ",et-st)
+   
+    
+   # print("Mathc time = ",et-st)
     # posematch=pt2dproc.poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
     #                                                      params['LongLoopClose']['isPoseGridOffset'],
     #                                                      params['LongLoopClose']['isBruteForce'])
@@ -553,11 +565,71 @@ for idx, previdx in Lkeyloop_edges:
     
     piHi=posematch['H']
     
-    pt2dplot.plotcomparisons(poseGraph,idx,previdx,UseLC=True,H12=nplinalg.inv(piHi),err=mbinfrac_ActiveOvrlp) #nplinalg.inv(piHi) 
+    pt2dplot.plotcomparisons(poseGraph,idx,previdx,UseLC=False,H12=nplinalg.inv(piHi),err=mbinfrac_ActiveOvrlp) #nplinalg.inv(piHi) 
     fig = plt.figure("ComparisonPlot")
     fig.savefig("loopdetect-%d-%d.png"%(idx, previdx))
     plt.close(fig)
 
+
+#%%
+
+from turtlebot.lidarprocessing import point2Dprocessing as pt2dproc2
+from turtlebot.lidarprocessing import point2Dplotting as pt2dplot2
+import turtlebot.lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc2
+
+
+# with open("turtlebot/Check_DeutchesMeuseum.pkl",'rb') as fh:
+#     poseGraph,params=pkl.load(fh)
+
+with open("turtlebot/DeutchesMeuseum.pkl",'rb') as fh:
+    poseGraph,params=pkl.load(fh)
+    
+
+Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+
+pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
+
+
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
+# Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+# Ledges = poseGraph.edges
+
+for previdx,idx  in Lkeyloop_edges:
+    if previdx>=11435 and previdx<=11503:
+        pass
+    else:
+        continue
+    posematch=poseGraph.edges[previdx,idx]['posematch']        
+    if posematch['mbinfrac_ActiveOvrlp']<=0.9:
+        # posematchbin= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+    
+    
+        # mbinfrac=posematch['mbinfrac']
+        # mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
+        
+        piHi=posematch['H']
+        
+        # piHi=poseGraph.edges[previdx,idx]['H']
+        
+        pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematch['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+        fig = plt.figure("ComparisonPlot")
+        fig.savefig("debugplots/Key2Key-%d-%d_gmm.png"%(idx, previdx))
+        plt.close(fig)
+    
+        # piHi=posematchbin['H']
+        # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematchbin['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+        # fig = plt.figure("ComparisonPlot")
+        # fig.savefig("debugplots/Key2Key-%d-%d_bin.png"%(idx, previdx))
+        # plt.close(fig)
+        
+#%%
+X1=getscanpts_deutches(16197)
+X2=getscanpts_deutches(16198)
+fig = plt.figure("ComparisonPlot")
+plt.plot(X2[:,0],X2[:,1],'r.')
+plt.show()
 #%%
 with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'rb') as fh:
     poseGraph,=pkl.load(fh)

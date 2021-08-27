@@ -22,13 +22,14 @@ import numpy.linalg as nplinalg
 import numba
 from numba import vectorize, float64,guvectorize,int64,double,int32,float32
 from numba import njit, prange,jit
+import random
 
 import multiprocessing as mp
 import threading
 import queue
-
+from utils.plotting import geometryshapes as utpltgmshp
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
-
+from lidarprocessing import point2Dplotting as pt2dplot
 import copy
 
 import matplotlib.pyplot as plt
@@ -66,6 +67,8 @@ def binnerDownSampler(X,dx=0.05,cntThres=1):
     xedges = np.arange(mn[0],mx[0]+dx,dx)
     yedges = np.arange(mn[1],mx[1]+dx,dx)
     
+    # H= nbpt2Dproc.numba_histogram2D(X, xedges,yedges)
+    
     H, xedges, yedges = np.histogram2d(X[:,0],X[:,1],bins=(xedges, yedges) )
     
     inds = np.argwhere(H>=cntThres)   
@@ -77,13 +80,41 @@ def binnerDownSampler(X,dx=0.05,cntThres=1):
 
 
 
-
+def binnerDownSamplerProbs(Xlist,dx=0.05,prob=0.5):
+    N = len(Xlist)
+    X = np.vstack(Xlist)
+    mn = np.min(X,axis=0)
+    mx = np.max(X,axis=0)
+    mn = mn-dx/2
+    mx = mx+dx/2
+    
+    xedges = np.arange(mn[0],mx[0]+dx,dx)
+    yedges = np.arange(mn[1],mx[1]+dx,dx)
+    
+    # H= nbpt2Dproc.numba_histogram2D(X, xedges,yedges)
+    H, xedges, yedges = np.histogram2d(X[:,0],X[:,1],bins=(xedges, yedges) )
+    
+    H= H/N
+    
+    inds = np.argwhere(H>=prob)   
+    x=xedges[inds[:,0]]+dx/2
+    y=yedges[inds[:,1]]+dx/2                                
+    Xd = np.vstack([x,y]).T
+    
+    return Xd
 
 
     
 #%% Pose estimation by keyframe
 # - manage keyframes
 # - estimate pose to closest keyframe
+
+class Clf:
+    def __init__(self,MU,P,W):
+        self.means_=MU
+        self.covariances_=P
+        self.weights_=W
+        self.n_components = len(W)
 
 def get0meanIcov(X):
     m=np.mean(X,axis=0)
@@ -98,12 +129,78 @@ def wcost(W,pcomp,randind):
         # c = c + (np.log(pp[i])-np.log(pp[i-1]))**2
     return c
 
+def wcost2(W,pcomp):
+    pp=np.sum(pcomp*W,axis=1)
+    c=np.sum((pp-1)**2)
+    return c
+
+def wcost2lsq(W,pcomp):
+    pp=np.sum(pcomp*W,axis=1)
+    c=(pp-1)
+    return c
+
+def optWts1(X,MU,P,W):
+    
+    pcomp=uqgmmfnc.gmm_evalcomp_fast(X,MU,P,W)
+    bnds=[]
+    for i in range(len(W)):
+        bnds.append((0,1000))
+    randind = []
+    for i in range(100):
+        a=np.random.choice(X.shape[0], 2)
+        randind.append(a)
+        
+    res = minimize(wcost, W,args=(pcomp,randind),jac=False,bounds=bnds ,method='SLSQP', tol=1e-4) # 'Nelder-Mead'
+    # res = least_squares(wcost_lsq, W,args=(pcomp,),bounds=([0]*len(W),[1000]*len(W)) )
+    res.x=res.x/np.sum(res.x)
+      
+    
+    return res
 
 
+    
+def optWts2(X,MU,P,W):
+    pcomp=uqgmmfnc.gmm_evalcomp_fast(X,MU,P,W)
+    bnds=[]
+    for i in range(len(W)):
+        bnds.append((0,1000))
+    
+    # res = minimize(wcost2, W,args=(pcomp,),jac=False,bounds=bnds ,method='BFGS', tol=1e-4) # 'Nelder-Mead'
+    res = least_squares(wcost2lsq, W,args=(pcomp,),bounds=([0]*len(W),[1000]*len(W)),xtol=1e-4 )
+    res.x=res.x/np.sum(res.x)
+    
+    return res
+
+    
 def getclf(X,params,doReWtopt=True,means_init=None,weights_init=None,precisions_init=None):
     
-    # Xdb=binnerDownSampler(X,dx=0.025,cntThres=1)
-    Xdb = X
+    doReWtopt=False
+    
+    # mn = np.min(X,axis=0)
+    # mx = np.max(X,axis=0)
+    # dx0=np.max(mx-mn)/50
+    
+    # for dx in np.arange(dx0,dx0/25,-dx0/25):
+    #     Xm=binnerDownSampler(X,dx=dx,cntThres=1)
+    #     if np.abs(Xm.shape[0]-params['n_components'])<=5 or Xm.shape[0]>=params['n_components']:
+    #         break
+    #     else:
+    #         continue
+    
+    # if Xm.shape[0]>params['n_components']:   
+    #     means_init=Xm[:params['n_components'],:]
+    #     n_components=params['n_components']
+    # if Xm.shape[0]<=params['n_components']:   
+    #     means_init=Xm
+    #     n_components=Xm.shape[0]
+    
+    # try:
+    #     print(n_components)
+    # except:
+    #     print(dx0)
+    #     print(Xm.shape)
+        
+    Xdb=X   
     
     clf = mixture.GaussianMixture(n_components=params['n_components'],
                                   means_init=means_init, 
@@ -117,27 +214,16 @@ def getclf(X,params,doReWtopt=True,means_init=None,weights_init=None,precisions_
     P=np.ascontiguousarray(clf.covariances_,dtype=dtype)
     W=np.ascontiguousarray(clf.weights_,dtype=dtype)
     
-    ncomp = MU.shape[0]
-    dim = MU.shape[1]
-    npt = X.shape[0]
-    invPP=np.zeros_like(P)
-    for i in range(ncomp):
-        invPP[i] = nplinalg.inv(P[i])
+    # ncomp = MU.shape[0]
+    # dim = MU.shape[1]
+    # npt = X.shape[0]
+    # invPP=np.zeros_like(P)
+    # for i in range(ncomp):
+    #     invPP[i] = nplinalg.inv(P[i])
     
     if doReWtopt:
-        pcomp=uqgmmfnc.gmm_evalcomp_fast(X,MU,P,W)
-        bnds=[]
-        for i in range(len(W)):
-            bnds.append((0,1000))
-        randind = []
-        for i in range(100):
-            a=np.random.choice(X.shape[0], 2)
-            randind.append(a)
-            
-        res = minimize(wcost, W,args=(pcomp,randind),jac=False,bounds=bnds ,method='SLSQP', tol=1e-4) # 'Nelder-Mead'
-        # res = least_squares(wcost_lsq, W,args=(pcomp,),bounds=([0]*len(W),[1000]*len(W)) )
-        res.x=res.x/np.sum(res.x)
-          
+        # res=optWts1(X,MU,P,W)
+        res=optWts1(X,MU,P,W)
         W=res.x
         clf.weights_=res.x
     
@@ -209,11 +295,11 @@ def gridsearch_alignment_brute(Posegrid,MU,P,W,X):
 #%%
 def alignscan2keyframe(MU,P,W,X):
     best=np.zeros(3)
-    # Posegrid = pt2dproc.getgridvec(thset,txset,tyset)
+    # Posegrid = getgridvec(thset,txset,tyset)
     # best=gridsearch_alignment(Posegrid,MU,P,W,X)
     # print("best = ",best) 
     
-    res = minimize(nbpt2Dproc.getcostgradient, best,args=(X,MU,P,W),jac=True ,method='BFGS', tol=1e-4) # 'Nelder-Mead'
+    res = minimize(nbpt2Dproc.getcostgradient, best,args=(X,MU,P,W),jac=True ,method='BFGS', tol=1e-2) # 'Nelder-Mead'
     
     
     th=res.x[0]
@@ -224,45 +310,35 @@ def alignscan2keyframe(MU,P,W,X):
     kHs = np.vstack([kHs,[0,0,1]])
     sHk = nplinalg.inv(kHs)
     err=res.fun
+    hess_inv=res.hess_inv
     
+    # J=res.jac
+    # print(J)
+    # hess_inv = nplinalg.inv(J.T.dot(J))
     # hess_inv is like covariance
-    return sHk,err, res.hess_inv
+    return sHk,err, hess_inv
 
-def scan2keyframe_bin_match(Xclf,X,Posegrid,dx=1,sHk=np.identity(3)):
-    kHs = nplinalg.inv(sHk)
-    Xk=np.matmul(kHs,np.vstack([X.T,np.ones(X.shape[0])])).T  
-    Xd=Xk[:,:2]
-    # Xd=Xk-m_clf
-    # MU=np.ascontiguousarray(KeyFrameClf.means_,dtype=dtype)
-    # P=np.ascontiguousarray(KeyFrameClf.covariances_,dtype=dtype)
-    # W=np.ascontiguousarray(KeyFrameClf.weights_,dtype=dtype)
-    Xd = np.ascontiguousarray(Xd,dtype=dtype) 
+# def scan2keyframe_bin_match(Xclf,X,Posegrid,d=np.ones(2,dtype=np.int),sHk=np.identity(3)):
+#     kHs = nplinalg.inv(sHk)
+#     Xk=np.matmul(kHs,np.vstack([X.T,np.ones(X.shape[0])])).T  
+#     Xd=Xk[:,:2]
+
+#     Xd = np.ascontiguousarray(Xd,dtype=dtype) 
     
 
-    res,mbin = nbpt2Dproc.binScanMatcher(Posegrid,Xclf,Xd,dx,1)
+#     res,mbin = nbpt2Dproc.binScanMatcher(Posegrid,Xclf,Xd,d,1)
     
-    
-    # # th=res[0]
-    # # t=np.array([res[1],res[2]])
-    # # err=0
-    # # hess_inv=np.identity(3)
-    
-    # fres = minimize(nbpt2Dproc.getcostgradient, res,args=(Xd,MU,P,W),jac=True ,method='BFGS', tol=1e-4)
-    
-    th=res[0]
-    t=res[1:]
-    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]],dtype=dtype,order='C')
+#     th=res[0]
+#     t=res[1:]
+#     R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]],dtype=dtype,order='C')
 
-    kHs_rel=np.hstack([R,t.reshape(2,1)])
-    kHs_rel = np.vstack([kHs_rel,[0,0,1]])
-    sHk_rel = nplinalg.inv(kHs_rel)
-    # err=fres.fun
-    # hess_inv = fres.hess_inv
-    
+#     kHs_rel=np.hstack([R,t.reshape(2,1)])
+#     kHs_rel = np.vstack([kHs_rel,[0,0,1]])
+#     sHk_rel = nplinalg.inv(kHs_rel)    
 
-    sHk_corrected=np.matmul(sHk,sHk_rel)
+#     sHk_corrected=np.matmul(sHk,sHk_rel)
     
-    return sHk_corrected,mbin
+#     return sHk_corrected,mbin
 
     
 def scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=np.identity(3)):
@@ -285,72 +361,31 @@ def scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=np.identity(3)):
     txy,theta = nbpt2Dproc.extractPosAngle(sHk_rel)
     
     
-    # if np.max(xy_hess_inv_eigval) > params['xy_hess_inv_thres']:
-    #     print("going to bin search refinement")
-    #     ind = np.argmax(xy_hess_inv_eigval)
-    #     vec = xy_hess_inv_eigvec[:,ind]
-        
-    #     PP = np.zeros_like(P)
-    #     for i in range(P.shape[0]):
-    #         # eigval,eigvec = nplinalg.eig( P[i] )
-    #         # if eigvec[:,0].dot(vec)> eigvec[:,1].dot(vec):
-    #         #     eigvec[:,0]=eigvec[:,0]*2**2
-    #         # else:
-    #         #     eigvec[:,1]=eigvec[:,1]*2**2
-    #         # PP[i] = eigvec.dot(np.diag(eigval).dot(eigvec.T))
-    #         PP[i] = P[i]*2**2
-    #     # sHk_rel,err,hess_inv = alignscan2keyframe(MU,P,W,Xd)
-        
-    #     pose=np.identity(3)
-    #     E=err
-    #     for i in np.linspace(-5,5,11):
-    #         # tt=txy+vec*i
-    #         # Posegrid.append([theta,tt[0],tt[1]]) 
-    #         SS = sHk_rel.copy()
-    #         # print(SS.shape)
-    #         SS[0:2,2] = SS[0:2,2]+vec*i
-    #         # print(SS.shape)
-    #         # print(Xd.shape)
-    #         XX=np.matmul(SS,np.vstack([Xd.T,np.ones(Xd.shape[0])])).T  
-    #         XX=XX[:,:2]
-    #         XX = np.ascontiguousarray(XX,dtype=dtype) 
-    #         sHk_inter,err_inter,hess_inv_inter = alignscan2keyframe(MU,PP,W,XX)
-    #         if err_inter<E:
-    #             pose = sHk_inter
-    #             E=err_inter
-    #         fig=plt.figure()
-    #         ax = fig.add_subplot(111)
-    #         ax.plot(Xclf[:,0],Xclf[:,1],'r.')
-    #         ax.plot(XX[:,0],XX[:,1],'bo')
-    #         eigval,eigvec = nplinalg.eig( hess_inv_inter[1:,1:] )
-    #         ax.set_title("err=%f , err_inter= %f, eigval=%f,%f"%(err,err_inter,eigval[0],eigval[1]))
-    #         plt.show()
-            
-    #     sHk_rel =np.matmul(sHk_rel,pose) 
-        
-        # Posegrid = np.array(Posegrid)
-        
-        # res,m = nbpt2Dproc.binScanMatcher(Posegrid,Xclf,Xd,0.2,1)
-        
-        
-        # th=fres.x[0]
-        # t=fres.x[1:]
-        # R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]],dtype=dtype,order='C')
-        
-        # # pdb.set_trace()    
-        
-        # kHs_rel=np.hstack([R,t.reshape(2,1)])
-        # kHs_rel = np.vstack([kHs_rel,[0,0,1]])
-        # sHk_rel = nplinalg.inv(kHs_rel)
-        # err=fres.fun
-        # hess_inv = fres.hess_inv
-        
-   
+
             
     sHk_corrected=np.matmul(sHk,sHk_rel)
     
     return sHk_corrected,err,hess_inv
 
+
+
+
+def getEdges(Xb,dx):
+    mn=np.zeros(2)
+    mn[0] = np.min(Xb[:,0])
+    mn[1] = np.min(Xb[:,1])
+    
+    mx=np.zeros(2)
+    mx[0] = np.max(Xb[:,0])
+    mx[1] = np.max(Xb[:,1])
+    
+    mn = mn-0.5
+    mx = mx+0.5
+
+    xedges = np.arange(mn[0],mx[0],dx[0])
+    yedges = np.arange(mn[1],mx[1],dx[1])
+    
+    return xedges,yedges
 
 def Commonbins(P,Xn,xedges,yedges,cntThres):
     H=nbpt2Dproc.numba_histogram2D(Xn, xedges,yedges)
@@ -373,144 +408,345 @@ def Commonbins(P,Xn,xedges,yedges,cntThres):
     For = np.sum(dor.reshape(-1))
     return Fand,For,Pn
 
+#%%
+def eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp):
+    H12 = nplinalg.inv(H21)
+    Xn=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
+    Xn=Xn[:,:2]
+    
+    mbin_and,mbin_or,Hist2_ovrlp=Commonbins(Hist1_ovrlp,Xn,xedges_ovrlp,yedges_ovrlp,1)
+    activebins2_ovrlp = np.sum(Hist2_ovrlp.reshape(-1))
+    
+    
+    mbinfrac_ovrlp=mbin_and/mbin_or
+    
+    
+    # mbinfrac_ActiveOvrlp = np.max([mbin_and/activebins1_ovrlp,mbin_and/max([1,activebins2_ovrlp])])
+    mbinfrac_ActiveOvrlp = mbin_and/activebins1_ovrlp
+    # print("\n",mbinfrac_ActiveOvrlp,mbin_and,activebins1_ovrlp,activebins2_ovrlp)
+        
+    posematch={'mbin':mbin_and,'mbinfrac':mbinfrac_ovrlp,'mbinfrac_ActiveOvrlp':mbinfrac_ActiveOvrlp}
+    
+    return posematch
 
-def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params):
+
+def poseGraph_keyFrame_matcher(poseGraph,idx1,idx2,params,PoseGrid,isPoseGridOffset,isBruteForce,H21_est=None):
     # fromidx is idx1, toidx is idx2 
     clf1=poseGraph.nodes[idx1]['clf']
-    # m_clf1=poseGraph.nodes[idx1]['m_clf']
+    
+    if H21_est is None:
+        sHg_1 = poseGraph.nodes[idx1]['sHg']
+        sHg_2 = poseGraph.nodes[idx2]['sHg']
+        
+        H21_est = np.matmul(sHg_2,nplinalg.inv(sHg_1))
+
+    X1 = poseGraph.nodes[idx1]['X']
+    X2 = poseGraph.nodes[idx2]['X']
+    
+
+    
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    
+    if PoseGrid is None:
+        H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21_est)
+        posematch=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+        posematch['H']=H21
+        posematch['err']=err
+        posematch['hess_inv']=hess_inv
+    else:
+        print("-----------------Inside-----------------")
+        
+        if isPoseGridOffset:
+            t,th=nbpt2Dproc.extractPosAngle(H21_est) 
+            PoseGrid[:,0]+= th
+            PoseGrid[:,1:3]+= t
+        
+        elif isBruteForce:
+            m1 = np.mean(X1,axis=0)
+            m2 = np.mean(X2,axis=0)
+            v = m1-m2
+            thset = np.linspace(0,2*np.pi,PoseGrid[0])
+            txset = np.linspace(xedges_ovrlp[0],xedges_ovrlp[-1],PoseGrid[1])+v[0]
+            tyset = np.linspace(yedges_ovrlp[0],yedges_ovrlp[-1],PoseGrid[2])+v[1]
+            PoseGrid=getgridvec(thset,txset,tyset)
+        
+
+        M=0
+        posematch=None
+        for i in range(PoseGrid.shape[0]):
+            th=PoseGrid[i,0]
+            t=np.array([PoseGrid[i,1],PoseGrid[i,2]])
+            HH = nbpt2Dproc.getHmat(th,t) 
+            H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=HH)
+            
+            posematch2=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+            if posematch2['mbinfrac_ActiveOvrlp']>M:
+                posematch=posematch2
+                posematch['H']=H21
+                posematch['err']=err
+                posematch['hess_inv']=hess_inv
+                M = posematch2['mbinfrac_ActiveOvrlp']
+  
+    
+    
+    return posematch
+
+
+def getCombinedNode(poseGraph,idx,nn,params,Doclf=True):
+    Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+    G=poseGraph.subgraph(Lkey[Lkey.index(idx)-nn:Lkey.index(idx)+nn])
+    L=list(filter(lambda x: idx in x,list(nx.simple_cycles(G))))
+    L=list(filter(lambda x: idx in x[int(len(x)/3):int(2*len(x)/3)],L))
+    L=sorted(L,key=lambda x:len(x))
+    if len(L)==0:
+        print("bruteforce side combine")
+        pii=idx
+        lp=[idx]
+
+        for ii in Lkey[Lkey.index(idx)+1:Lkey.index(idx)+nn]:
+            if (pii,ii) in poseGraph.edges:
+                if poseGraph.edges[pii,ii]['posematch']['mbinfrac_ActiveOvrlp']>=params["Side_Combine_Overlap"]:
+                    lp.append(ii)
+            pii=ii
+        pii=idx
+        for ii in Lkey[Lkey.index(idx)-nn:Lkey.index(idx)][::-1]:
+            if (ii,pii) in poseGraph.edges:
+                if poseGraph.edges[ii,pii]['posematch']['mbinfrac_ActiveOvrlp']>=params["Side_Combine_Overlap"]:
+                    lp.append(ii)
+            pii=ii
+        lp=list(set(lp))
+            
+        
+    else:
+        lp=L[-1]
+    # for lp in L:
+    X=[poseGraph.nodes[idx]['X']]
+    iHg=poseGraph.nodes[idx]['sHg']
+    for jj in lp:
+        if jj!=idx:
+            jHg = poseGraph.nodes[jj]['sHg']
+            iHj=np.matmul(iHg,nplinalg.inv(jHg))
+          
+            Xj=poseGraph.nodes[jj]['X']
+            
+            XX=np.matmul(iHj,np.vstack([Xj.T,np.ones(Xj.shape[0])])).T 
+            X.append(XX[:,:2])
+            
+    
+    
+    X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+    X=np.ascontiguousarray(X,dtype=dtype)
+
+    if Doclf:
+        res = getclf(X,params,doReWtopt=True)
+        clf = res['clf']
+    else:
+        clf = None
+        
+    return X,clf
+
+def poseGraph_keyFrame_matcher_long(poseGraph,idx1,idx2,params,PoseGrid,isPoseGridOffset,isBruteForce,histplot=False):
+    # fromidx is idx1, toidx is idx2 
+    # X1,clf1=getCombinedNode(poseGraph,idx1,5,params,Doclf=True)
+    # X2,_=getCombinedNode(poseGraph,idx2,5,params,Doclf=False)
+    
+    if params["USE_Side_Combine"]:
+        clf1=poseGraph.nodes[idx1]['clflc']
+        X1 = poseGraph.nodes[idx1]['Xlc']
+        X2 = poseGraph.nodes[idx2]['Xlc']
+    else:
+        clf1=poseGraph.nodes[idx1]['clf']
+        X1 = poseGraph.nodes[idx1]['X']
+        X2 = poseGraph.nodes[idx2]['X']
+    
     sHg_1 = poseGraph.nodes[idx1]['sHg']
     sHg_2 = poseGraph.nodes[idx2]['sHg']
     
     H21_est = np.matmul(sHg_2,nplinalg.inv(sHg_1))
+
     
+    
+    
+    
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    
+
+    if PoseGrid is None:
+        H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21_est)
+        posematch=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+        posematch['H']=H21
+        posematch['err']=err
+        posematch['hess_inv']=hess_inv
+    else:
+        print("-----------------Inside-----------------")
+        
+        if isPoseGridOffset:
+            t,th=nbpt2Dproc.extractPosAngle(H21_est) 
+            PoseGrid[:,0]+= th
+            PoseGrid[:,1:3]+= t
+        
+        elif isBruteForce:
+            m1 = np.mean(X1,axis=0)
+            m2 = np.mean(X2,axis=0)
+            v = m1-m2
+            thset = np.linspace(0,2*np.pi,PoseGrid[0])
+            txset = np.linspace(xedges_ovrlp[0],xedges_ovrlp[-1],PoseGrid[1])+v[0]
+            tyset = np.linspace(yedges_ovrlp[0],yedges_ovrlp[-1],PoseGrid[2])+v[1]
+            PoseGrid=getgridvec(thset,txset,tyset)
+        
+
+        M=-1
+        posematch=None
+        for i in range(PoseGrid.shape[0]):
+            th=PoseGrid[i,0]
+            t=np.array([PoseGrid[i,1],PoseGrid[i,2]])
+            HH = nbpt2Dproc.getHmat(th,t) 
+            H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=HH)
+            
+            posematch2=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+            if posematch2['mbinfrac_ActiveOvrlp']>M:
+                posematch=copy.deepcopy(posematch2)
+                posematch['H']=H21
+                posematch['err']=err
+                posematch['hess_inv']=hess_inv
+                M = posematch2['mbinfrac_ActiveOvrlp']
+  
+    if histplot:
+        plotposematch(xedges_ovrlp,yedges_ovrlp,Hist1_ovrlp,X1,X2,H21,params)
+    return posematch
+
+def poseGraph_keyFrame_matcher_binmatch(poseGraph,idx1,idx2,params,dx0=1.5,L0=10,th0=np.pi/3,DoCLFmatch=False,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None):
+    if H21_est is None:
+        sHg_1 = poseGraph.nodes[idx1]['sHg']
+        sHg_2 = poseGraph.nodes[idx2]['sHg']
+        
+        H21_est = np.matmul(sHg_2,nplinalg.inv(sHg_1))
+        
     # H21_est = np.identity(3)
-    T1 = poseGraph.nodes[idx1]['time']
-    T2 = poseGraph.nodes[idx2]['time']
-    X1 = poseData[T1]['X']
-    X2 = poseData[T2]['X']
+    # H21_est[0,2]=2
+    X1 = poseGraph.nodes[idx1]['X']
+    X2 = poseGraph.nodes[idx2]['X']
     
-    # do a gmm fit first and check overlapp err
-    H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21_est)
+    H12_est = nplinalg.inv(H21_est)
+    X=np.matmul(H12_est,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
+    X22=X[:,:2]
     
     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
     
-    xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.getEdges(X1,dxcomp)
-    Hist1_ovrlp = nbpt2Dproc.numba_histogram2D(X1, xedges_ovrlp,yedges_ovrlp)
-    Hist1_ovrlp[Hist1_ovrlp>=1]=1
-    Hist1_ovrlp[Hist1_ovrlp<1]=0
-    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
     
+    # print("H21_est=",H21_est)
+    
+    flg=False
+    H21_corrected = H21_est
+    # print(r,dth,dxx)
+    for i in range(9):
+        # print(i)
+        if i==0:
+            dx=np.array([dx0,dx0],dtype=np.float64)
+            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
+            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+        
+            dxx = 0.9*dx
+            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
+            L=L0
+            
+            th0=th0
+            dth = 1*np.max(dx)/r
+            
+            
+        
+        else:
+            dx = dx*(0.5**i)
+            if np.all(dx<=dxcomp):
+                dx=0.9*dxcomp
+                flg=True
+            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
+            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+        
+            L=3*np.max(dx)
+            dxx = 0.9*dx
+            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
+            
+            dth = 1*np.max(dx)/r
+            th0=5*dth
+            
+        
+        # print("activebins1_ovrlp=",activebins1_ovrlp)
+                
+        thset = np.arange(-th0,th0+dth,dth)
+        txset = np.arange(-L,L+dxx[0],dxx[0]) # 
+        tyset = np.arange(-L,L+dxx[1],dxx[1]) #
+        PoseGrid=getgridvec(thset,txset,tyset)
+        
+        # print("PoseGrid.shape = ",PoseGrid.shape)
+        pose,mbinfrac_ActiveOvrlp = nbpt2Dproc.binScanMatcher(PoseGrid,Hist1_ovrlp,X22,xedges_ovrlp,yedges_ovrlp,1)
+        # print("mbinfrac_ActiveOvrlp=",mbinfrac_ActiveOvrlp)
+        
+        H12 = nbpt2Dproc.getHmat(pose[0],pose[1:]) 
+        H21=nplinalg.inv(H12)
+
+        H21_corrected=np.matmul(H21_corrected,H21)
+        H12_corrected=nplinalg.inv(H21_corrected)
+        # print("H21_corrected=",H21_corrected)
+        
+        if flg:
+            break
+        X=np.matmul(H12_corrected,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
+        X22=X[:,:2]
+        
+        
+        
+    # Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
+    # activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+            
+    if DoCLFmatch:
+        clf1=poseGraph.nodes[idx1]['clf']
+        H21_corrected,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21_corrected)
+        
+        posematch=eval_posematch(H21_corrected,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+        posematch['H']=H21_corrected
+        posematch['err']=err
+        posematch['hess_inv']=hess_inv
+    else:
+        posematch=eval_posematch(H21_corrected,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+        posematch['H']=H21_corrected
+        posematch['err']=1
+        posematch['hess_inv']=np.identity(3)
+        
+    # H21_corrected=np.matmul(H21_est,H21)
+
+    # print('H21_corrected=',H21_corrected)
+    # plotposematch(xedges_ovrlp,yedges_ovrlp,Hist1_ovrlp,X1,X2,H21_est,params)
+    # plotposematch(xedges_ovrlp,yedges_ovrlp,Hist1_ovrlp,X1,X2,H21_corrected,params)
+    # pt2dplot.plotcomparisons_points(X1,X2,idx1,idx2,clf1,UseLC=False,H21_est=H21_est,H12=nplinalg.inv( posematch['H']) ,err=posematch['mbinfrac_ActiveOvrlp'])
+    
+    # print('posematch[H]=',posematch['H'])
+    return posematch
+
+def plotposematch(xedges,yedges,Hist1,X1,X2,H21,params):
     H12 = nplinalg.inv(H21)
     Xn=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-    Xn=Xn[:,:2]    
-    mbin_and,mbin_or,Hist2_ovrlp=Commonbins(Hist1_ovrlp,Xn,xedges_ovrlp,yedges_ovrlp,1)
-    activebins2_ovrlp = np.sum(Hist2_ovrlp.reshape(-1))
-    # mbinfrac_ovrlp=max([mbin_ovrlp/activebins1_ovrlp,mbin_ovrlp/activebins2_ovrlp])
-    mbinfrac_ovrlp=mbin_and/mbin_or
+    Xn=Xn[:,:2]
     
-    if mbinfrac_ovrlp>=params['LOOPCLOSE_BIN_MIN_FRAC']:
-        return H21,err,mbin_and,mbinfrac_ovrlp,hess_inv
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    ax.pcolormesh(xedges,yedges,Hist1.T,shading='flat',alpha=0.4 )
+    ax.plot(X1[:,0],X1[:,1],'r.')
+    ax.plot(Xn[:,0],Xn[:,1],'bo')
+    ax.axis('equal')
     
+    plt.show()    
     
-    mx=np.max(X1,axis=0)
-    mn=np.min(X1,axis=0)
-    r = np.max(nplinalg.norm(X2,axis=1))
-
-    dx=params['LOOPCLOSE_BIN_MATCHER_dx']
-    L=params['LOOPCLOSE_BIN_MATCHER_L']
-
-    dth = 1*dx/r
-    dxx = 0.7*dx 
- 
-    
-    # thset = np.arange(-np.pi/3,np.pi/3+dth,dth)
-    # txset = np.arange(-L,L+dxx,dxx) # 
-    # tyset = np.arange(-L,L+dxx,dxx) #
-    
-    thset = np.arange(-np.pi/6,np.pi/6+dth,dth)
-    txset = np.arange(-L,L+dxx,dxx) # 
-    tyset = np.arange(-L,L+dxx,dxx) #
-    
-    Posegrid = getgridvec(thset,txset,tyset)
-    # print("Posegrid = ",Posegrid.shape)
-    
-    H21,mbin = scan2keyframe_bin_match(X1,X2,Posegrid,dx=dx,sHk=H21)
-    # H21[0:2,2] = H21[0:2,2]+dd
-    
-    if params['Do_BIN_DEBUG_PLOT-dx']:
-        xedges,yedges=nbpt2Dproc.getEdges(X1,dx)
-        Hist1 = nbpt2Dproc.numba_histogram2D(X1, xedges,yedges)
-        Hist1[Hist1>=1]=1
-        Hist1[Hist1<1]=0
-        print("first Hist1=",np.sum(Hist1.reshape(-1)))
-        print("first mbin=",mbin)
-        H12 = nplinalg.inv(H21)
-        X12=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-        X12=X12[:,:2]
-        
-        fig=plt.figure('Do_BIN_DEBUG_PLOT-dx')
-        ax=fig.add_subplot(111)
-        ax.pcolor(xedges,yedges,Hist1.T,shading='flat',alpha=0.4 )
-        ax.plot(X1[:,0],X1[:,1],'r.')
-        ax.plot(X12[:,0],X12[:,1],'bo')
-        ax.axis('equal')
-        
-    
-    
-    if params['Do_BIN_FINE_FIT']:
-        # txy,theta = nbpt2Dproc.extractPosAngle(H21)
-        
-        # X12=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-        # X12=X12[:,:2]
-        
-        thset = np.linspace(-2*dx/r,2*dx/r,11)
-        txset = np.arange(-dx,dx+0.14,0.14) # 
-        tyset = np.arange(-dx,dx+0.14,0.14) #
-        Posegrid = getgridvec(thset,txset,tyset)
-        H21,mbin = scan2keyframe_bin_match(X1,X2,Posegrid,dx=0.16,sHk=H21)
-    
-    
-    
-    
-    
-    if params['Do_GMM_FINE_FIT']:
-        H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21)
-    
-        
-        
-        
-    H12 = nplinalg.inv(H21)
-    Xn=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-    Xn=Xn[:,:2]    
-    mbin_and,mbin_or,Hist2_ovrlp=Commonbins(Hist1_ovrlp,Xn,xedges_ovrlp,yedges_ovrlp,1)
-    activebins2_ovrlp = np.sum(Hist2_ovrlp.reshape(-1))
-    # mbinfrac_ovrlp=max([mbin_ovrlp/activebins1_ovrlp,mbin_ovrlp/activebins2_ovrlp])
-    mbinfrac_ovrlp=mbin_and/mbin_or
-    
-    if params['Do_GMM_FINE_FIT'] is False:
-        err=1-mbinfrac_ovrlp
-        hess_inv = 0.5*np.identity(3)
-        
-        
-    if params['Do_BIN_DEBUG_PLOT']:
-        H12 = nplinalg.inv(H21)
-        X12=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-        X12=X12[:,:2]
-        
-        fig=plt.figure('Do_BIN_DEBUG_PLOT')
-        ax=fig.add_subplot(111)
-        ax.pcolor(xedges_ovrlp,yedges_ovrlp,Hist1_ovrlp.T,shading='flat',alpha=0.4 )
-        ax.plot(X1[:,0],X1[:,1],'r.')
-        ax.plot(X12[:,0],X12[:,1],'bo')
-        ax.axis('equal')
-
     
     
     
 
-    # mbinfrac=mbin/activebins1
-    
-    return H21,err,mbin_and,mbinfrac_ovrlp,hess_inv
+
+
 
 
 
@@ -518,42 +754,138 @@ def poseGraph_keyFrame_matcher(poseGraph,poseData,idx1,idx2,params):
 
 #%% poseGraph manipulation
 
-def addedge2midscan(poseGraph,poseData,idx,KeyFrame_prevIdx,sHk,params,keepOtherScans=False):
+def addNewKeyFrame(poseGraph,KeyFrameClf,X_previdx,XXidx,idx,KeyFrame_prevIdx,sHk_idx,sHg_idx,sHk_prevframe,params,keepOtherScans=False):
     """
     idx : current keyframe id
     KeyFrame_prevIdx: previous keyframe id
     
     Find the mid frame (which should be a scan frame)
     
+    Make combined X for KeyFrame_prevIdx, delete the scans of the previous to KeyFrame_prevIdx
     """
-    Lidxs = list(poseGraph.successors(KeyFrame_prevIdx))
-    Lidxs = list(filter(lambda x: poseGraph.nodes[x]['frametype']!="keyframe",Lidxs)) # get all non-keyframes
-    if len(Lidxs)>0:
-        scanid = Lidxs[int(np.floor(len(Lidxs)/2))]
-        # estimate pose to new keyframe
-        Tscanid = poseGraph.nodes[scanid]['time']
-        Xs = poseData[Tscanid]['X']
-
-        KeyFrameClf = poseGraph.nodes[idx]['clf']
-        Tidx = poseGraph.nodes[idx]['time']
-        Xclf = poseData[Tidx]['X']
-        msHk = poseGraph.edges[KeyFrame_prevIdx,scanid]['H']
-        sHk_newkeyframe =  np.matmul(msHk,nplinalg.inv(sHk))
-        
-        sHk_corrected,err,hess_inv = scan2keyframe_match(KeyFrameClf,Xclf,Xs,params,sHk=sHk_newkeyframe)
-        
-        # if np.isfinite(err)==0:
-        #     plotcomparisons_posegraph(poseGraph,idx,scanid,H12=nplinalg.inv( sHk_newkeyframe) )
-        #     plotcomparisons(scanid,idx,H12=sHk_newkeyframe)
+    KeyPrevIdxs_succ = list(poseGraph.successors(KeyFrame_prevIdx))
+    KeyPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_succ))
+    1
+    KeyPrevPrev = list(poseGraph.predecessors(KeyFrame_prevIdx))
+    KeyPrevPrev = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",KeyPrevPrev))
+    # KeyPrevIdxs_pred = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_pred))
+    
+    if len(KeyPrevPrev)==0: # no prev prev keyframe
+        KeyPrevPrev_idx=[]
+        KeyPrevPrevIdxs_succ=[]
+    else:
+        KeyPrevPrev_idx = max(KeyPrevPrev)        
+        KeyPrevPrevIdxs_succ = list(poseGraph.successors(KeyPrevPrev_idx))
+        KeyPrevPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevPrevIdxs_succ))
+    
+    # pdb.set_trace()
+    sHg_prevIdx=poseGraph.nodes[KeyFrame_prevIdx]['sHg']
+    
+    scansCombinedprevprev=[]
+    scansCombined=[]
+    
+    X= [poseGraph.nodes[KeyFrame_prevIdx]['X']]
+    for ix in KeyPrevPrevIdxs_succ:
+        posematch=poseGraph.edges[KeyPrevPrev_idx,ix]['posematch']
+        if poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
+            sHg=poseGraph.nodes[ix]['sHg']
+            gHs = nplinalg.inv(sHg)
+            H = np.matmul(sHg_prevIdx,gHs)
+            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+            X.append(XX[:,:2])
+            scansCombinedprevprev.append(ix)
             
-        poseGraph.add_edge(idx,scanid,H=sHk_corrected,H_prevframe=sHk_newkeyframe,err=err,hess_inv=hess_inv,edgetype="Key2Scan",color='r')
+    Xidx = [XXidx]
+    for ix in KeyPrevIdxs_succ:
+        posematch=poseGraph.edges[KeyFrame_prevIdx,ix]['posematch']
+        if poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
+            sHg=poseGraph.nodes[ix]['sHg']
+            gHs = nplinalg.inv(sHg)
+            H = np.matmul(sHg_prevIdx,gHs)
+            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+            X.append(XX[:,:2])
+            
+            H = np.matmul(sHg_idx,gHs)
+            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+            Xidx.append(XX[:,:2])
+            
+            scansCombined.append(ix)
+    
+    
+    Xprevidx=binnerDownSampler(np.vstack(X),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
+    # Xprevidx=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+    poseGraph.nodes[KeyFrame_prevIdx]['X']=Xprevidx
+    if 'SideScansCombine' in poseGraph.nodes[KeyFrame_prevIdx]:
+        poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']+scansCombined
+    else:
+        poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=scansCombined+scansCombinedprevprev
         
-        # delete rest of the scan-ids as they are useless
-        if keepOtherScans is False:
-            for i in Lidxs:
-                if i!=scanid and poseGraph.in_degree(i)==1:
-                    poseGraph.remove_node(i)
-                    
+        
+        
+    # res = getclf(X,params,doReWtopt=True,means_init=None)
+    # clf=res['clf']
+    poseGraph.nodes[KeyFrame_prevIdx]['clf']=None
+    
+    idbmx = params['INTER_DISTANCE_BINS_max']
+    idbdx=params['INTER_DISTANCE_BINS_dx']
+    # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
+    h=np.array([0,0])
+    poseGraph.nodes[KeyFrame_prevIdx]['h']=h
+    
+    ## now add the idx node as a keyframe
+    Xidx=binnerDownSampler(np.vstack(Xidx),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
+    # Xidx=binnerDownSamplerProbs(Xidx,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+    res = getclf(Xidx,params,doReWtopt=True,means_init=None)
+    clf=res['clf']    
+    
+    sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,X_previdx,Xidx,params,sHk=sHk_prevframe)
+    
+    kHg = poseGraph.nodes[KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
+    sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
+    gHs=nplinalg.inv(sHg) 
+       
+    tpos=np.matmul(gHs,np.array([0,0,1])) 
+
+    idbmx = params['INTER_DISTANCE_BINS_max']
+    idbdx=params['INTER_DISTANCE_BINS_dx']
+    # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
+    h=np.array([0,0])
+    poseGraph.add_node(idx,frametype="keyframe",X=Xidx,clf=clf,time=idx,sHg=sHg_idx,pos=(tpos[0],tpos[1]),h=h,color='g',LoopDetectDone=False,SideScansCombine=scansCombined)
+    
+    poseGraph.add_edge(KeyFrame_prevIdx,idx,H=sHk,H_prevframe=sHk_idx,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+            
+    
+
+    # bin match key frame to keyframe
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xprevidx,Xidx,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    H12=poseGraph.edges[KeyFrame_prevIdx,idx]['H']
+    posematch=eval_posematch(H12,Xidx,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+    posematch['method']='GMMmatch'
+    posematch["H"]=H12
+    poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+    print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])
+    if posematch['mbinfrac_ActiveOvrlp']<params["Key2Key_Overlap"]:
+        posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/6,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=sHk_prevframe)
+        posematch['method']='binmatch'
+        print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])
+        
+        poseGraph.edges[KeyFrame_prevIdx,idx]['H']=posematch['H']
+        poseGraph.edges[KeyFrame_prevIdx,idx]['posematchGMM']=poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']
+        poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+        
+        sHg = np.matmul(posematch['H'],kHg)
+        gHs=nplinalg.inv(sHg)    
+        tpos=np.matmul(gHs,np.array([0,0,1])) 
+        poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+        poseGraph.nodes[idx]['sHg']=sHg
+        
+    # delete rest of the scan-ids as they are useless
+    if keepOtherScans is False:
+        for ix in KeyPrevPrevIdxs_succ:
+            if poseGraph.nodes[ix]['frametype']=='scan':
+                poseGraph.remove_node(ix)
 
 #%% features
 
@@ -578,84 +910,624 @@ def loopExists(poseGraph,idx1,idx2):
         if poseGraph.in_degree(idx)>1:
             return True
 
-        
-# def detectLoopClosures(poseGraph,idx,LOOP_CLOSURE_D_THES,LOOP_CLOSURE_POS_THES,LOOP_CLOSURE_ERR_THES,returnCopy=False):
-#     """
-#     idx is index of current "keyframe"
-#     idx is the current pose. detect loop closures to all previous key frames
+def ProgressiveLoopClosures(idx,poseGraph,params,returnCopy=False):
+    """
+    Do loop closure to all the previous nodes to idx
+    Do a subgraph combine  for idx and combine it to some 
 
-#     """
-#     Lkeyprevious = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-#     Lkeyprevious = list(filter(lambda i: i<idx, Lkeyprevious))
+    """
+    params['SubGraphCombine_mbin']
+    params['SubGraphCombine_err']
+    params['SubGraphCombine_UseOdom']
     
-#     h1=poseGraph.nodes[idx]['h']
-#     p1=poseGraph.nodes[idx]['pos']
     
-#     flag=False
-#     for previdx in Lkeyprevious:
-#         if previdx < idx-2 and poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:        
-#             h2=poseGraph.nodes[previdx]['h']        
-#             p2=poseGraph.nodes[previdx]['pos']
-#             d=nplinalg.norm(h1-h2,ord=1)
-#             if d<=LOOP_CLOSURE_D_THES and nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=LOOP_CLOSURE_POS_THES:
-#                 # add loop closure edge
-#                 print("Potential Loop closure")
-#                 piHi,pi_err_i=poseGraph_keyFrame_matcher(poseGraph,idx,previdx)
-#                 # iHpi,i_err_pi=poseGraph_keyFrame_matcher(poseGraph,previdx,idx)
-#                 if pi_err_i < LOOP_CLOSURE_ERR_THES:
-#                     poseGraph.add_edge(idx,previdx,H=piHi,edgetype="Key2Key-LoopClosure",d=d,color='b')
-#                     print("Adding Loop closure")
-#                 else:
-#                     print("No loop closure this time")
-    
-#     if returnCopy:
-#         return copy.deepcopy(poseGraph)
-    
-#     return poseGraph
 
-def matchdetect(qin,qout,ExitFlag,Lkey,poseGraph,poseData,params) :
+
+def matchdetect(qin,qout,ExitFlag,Lkey,poseGraph,params) :
     while(True):
         idx = None
+        previdx = None
         try:
-            idx = qin.get(True,0.2)
+            idx,previdx = qin.get(True,0.2)
         except queue.Empty:
             idx = None
+            previdx = None
+        
+        if idx is not None and previdx is not None:
+            h1=poseGraph.nodes[idx]['h']
+            p1=poseGraph.nodes[idx]['pos']
+            i1=Lkey.index(idx)
+            i2=Lkey.index(previdx)
+            if poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
+                
+                h2=poseGraph.nodes[previdx]['h']
+                
+                p2=poseGraph.nodes[previdx]['pos']
+                d=nplinalg.norm(h1-h2,ord=1)
+                
+                c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
+                c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
+                if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
+                    # add loop closure edge
+                    
+                    posematch=poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['NearLoopClose']['PoseGrid'],
+                                                          params['NearLoopClose']['isPoseGridOffset'],
+                                                          params['NearLoopClose']['isBruteForce'])
+                    
+                    # a1=posematch['err'] < params['LOOP_CLOSURE_ERR_THES']
+                    # a2=posematch['mbinfrac']>=params['LOOPCLOSE_BIN_MIN_FRAC']
+                    a3=posematch['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']
+                    # print("Potential Loop closure ",a1,a2,a3)
+                    if a3:
+                        qout.put(['edge',idx,previdx,posematch['H'],posematch['err'],posematch['hess_inv'],d,posematch])
             
-        if idx is not None:
-            if poseGraph.nodes[idx]['LoopDetectDone'] is False:          
-                h1=poseGraph.nodes[idx]['h']
-                p1=poseGraph.nodes[idx]['pos']
-                for previdx in Lkey:
-                    if previdx < idx-2 and poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
-                        
-                        h2=poseGraph.nodes[previdx]['h']
-                        
-                        p2=poseGraph.nodes[previdx]['pos']
-                        d=nplinalg.norm(h1-h2,ord=1)
-                        
-                        c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
-                        c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
-                        if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
-                            # add loop closure edge
-                            # print("Potential Loop closure")
-                            
-                            piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
-                            # piHi,pi_err_i,hess_inv_err_i=0,0,0
-                            a1=pi_err_i < params['LOOP_CLOSURE_ERR_THES']
-                            a2=mbinfrac>=params['LOOPCLOSE_BIN_MIN_FRAC']
-                            if a2:
-                                qout.put(['edge',idx,previdx,piHi,pi_err_i,hess_inv_err_i,d])
-                
-                
-                qout.put(['status',idx,'LoopDetectDone',True])
+            
+            # qout.put(['status',idx,'LoopDetectDone',True])
                 
             
         if (ExitFlag.is_set() and qin.empty()):
             break
     
     print("thread done")              
+
+def matchdetectLong(qin,qout,ExitFlag,Lkey,poseGraph,params) :
+    while(True):
+        idx = None
+        previdx = None
+        try:
+            idx,previdx = qin.get(True,0.2)
+        except queue.Empty:
+            idx = None
+            previdx = None
+            
+        if idx is not None and previdx is not None:
+            h1=poseGraph.nodes[idx]['h']
+            p1=poseGraph.nodes[idx]['pos']
+            i1=Lkey.index(idx)
+            i2=Lkey.index(previdx)
+            if poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
+                
+                h2=poseGraph.nodes[previdx]['h']
+                
+                p2=poseGraph.nodes[previdx]['pos']
+                d=nplinalg.norm(h1-h2,ord=1)
+                
+                c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
+                c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
+                if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
+                    # add loop closure edge
+                    
+                    posematch=poseGraph_keyFrame_matcher_long(poseGraph,idx,previdx,params,params['LongLoopClose']['PoseGrid'],
+                                                          params['LongLoopClose']['isPoseGridOffset'],
+                                                          params['LongLoopClose']['isBruteForce'])
+                    # posematch2=poseGraph_keyFrame_matcher_long(poseGraph,previdx,idx,params,params['LongLoopClose']['PoseGrid'],
+                    #                                      params['LongLoopClose']['isPoseGridOffset'],
+                    #                                      params['LongLoopClose']['isBruteForce'])
+                    
+                    # posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,idx,previdx,params,dx0=params['LongLoopClose']['Bin_Match_dx0'],L0=params['LongLoopClose']['Bin_Match_L0'],th0=params['LongLoopClose']['Bin_Match_th0'],DoCLFmatch=params['LongLoopClose']['DoCLFmatch'],PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+                    
+                    
+                    # a1=posematch['err'] < params['LOOP_CLOSURE_ERR_THES']
+                    # a2=posematch['mbinfrac']>=params['LOOPCLOSE_BIN_MIN_FRAC']
+                    a3=posematch['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']
+                    if a3:
+                        qout.put(['edge',idx,previdx,posematch['H'],posematch['err'],posematch['hess_inv'],d,posematch])
+                        # print(idx,previdx)
+                        
+                    # print("Potential Loop closure ",a1,a2,a3)
+                    
+                    
+                    # if posematch1['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current'] and posematch1['mbinfrac_ActiveOvrlp']>posematch2['mbinfrac_ActiveOvrlp']:
+                    #     # qout.put(['edge',idx,previdx,posematch['H'],posematch['err'],posematch['hess_inv'],d,posematch])
+                    #     qout.put(['edge',idx,previdx,posematch1['H'],posematch1['err'],posematch1['hess_inv'],d,posematch1])
+                    # elif posematch2['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current'] and posematch2['mbinfrac_ActiveOvrlp']>posematch1['mbinfrac_ActiveOvrlp']:
+                    #     posematch2['H']=nplinalg.inv(posematch2['H'])
+                    #     qout.put(['edge',idx,previdx,posematch2['H'],posematch2['err'],posematch2['hess_inv'],d,posematch2])
+                    # elif posematch1['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current']:
+                    #     qout.put(['edge',idx,previdx,posematch1['H'],posematch1['err'],posematch1['hess_inv'],d,posematch1])
+                    # elif posematch2['mbinfrac_ActiveOvrlp']>=params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current']:
+                    #     posematch2['H']=nplinalg.inv(posematch2['H'])
+                    #     qout.put(['edge',idx,previdx,posematch2['H'],posematch2['err'],posematch2['hess_inv'],d,posematch2])    
+            # qout.put(['status',idx,'LoopDetectDone',True])
+                
+            
+        if (ExitFlag.is_set() and qin.empty()):
+            break
+    
+    print("thread done")  
+       
+def detectAllLoopClosures_closebyNodes(poseGraph,params,returnCopy=False,parallel=True):
+    """
+    idx is index of current "keyframe"
+    idx is the current pose. detect loop closures to all previous key frames
+
+    """
+    
+    ctx = mp
+
+    qin = ctx.Queue()
+    qout = ctx.Queue()
+    ExitFlag = ctx.Event()
+    ExitFlag.clear()
+
+    Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+    
+    for nn in Lkeys:
+        if poseGraph.nodes[nn]['clf'] is None:
+            X = poseGraph.nodes[nn]['X']
+            res = getclf(X,params,doReWtopt=True,means_init=None)
+            clf=res['clf']
+            poseGraph.nodes[nn]['clf']=clf
+    
+    if params["USE_Side_Combine"]:
+        mxndcmb=params['MAX_NODES_ADJ_COMBINE']
+        for nn in Lkeys:
+            if poseGraph.nodes[nn].get('DoneAdjCombine',False) is False:
+                X1,clf1=getCombinedNode(poseGraph,nn,mxndcmb,params,Doclf=True)
+                poseGraph.nodes[nn]['clflc']=clf1
+                poseGraph.nodes[nn]['Xlc']=X1
+                poseGraph.nodes[nn]['DoneAdjCombine']=True
+            
+    
+    params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current'] = params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']
+    
+    Ncore = params['#ThreadsLoopClose']
+    processes = []
+    if parallel:
+        for i in range(Ncore):
+            p = ctx.Process(target=matchdetect, args=(qin,qout,ExitFlag,Lkeys,poseGraph,params))
+            processes.append( p )
+            p.start()
+            print("created thread")    
+            time.sleep(0.01)  
+    
+
+    nn2=params['LOOP_CLOSURE_COMBINE_MAX_NODES']    
+    offsetNodesBy=params['offsetNodesBy']    
+    for idx in Lkeys[:-offsetNodesBy]:
+        if 'LocalLoopClosed' in poseGraph.nodes[idx]:
+            if poseGraph.nodes[idx]['LocalLoopClosed']==True:
+                continue
+            
+        PPidx = Lkeys[max([Lkeys.index(idx)-nn2,0]):max([Lkeys.index(idx)-1,0])]
+        for previdx in PPidx:
+            if 'LocalLoopClosed' in poseGraph.nodes[previdx]:
+                if poseGraph.nodes[previdx]['LocalLoopClosed']==True:
+                    continue
+                
+            qin.put([idx,previdx])
         
-def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False):
+    for idx in Lkeys[:-offsetNodesBy]:
+        poseGraph.nodes[idx]['LocalLoopClosed']=True
+    
+    if not parallel:
+        ExitFlag.set()
+        matchdetect(qin,qout,ExitFlag,Lkeys,poseGraph,params)
+        
+    flg=0
+    while True:
+        res=None
+        try:
+            res=qout.get(block=True, timeout=0.1)
+        except queue.Empty:
+            time.sleep(0.01)
+            
+            
+        if res is not None:
+            if 'status' == res[0]:
+                poseGraph.nodes[res[1]][res[2]] = res[3]
+            elif 'edge' == res[0]:
+                poseGraph.add_edge(res[1],res[2],H=res[3],err = res[4],hess_inv = res[5],edgetype="Key2Key-LoopClosure",d=res[6],color='m',posematch=res[7],isCloseByNodes=True)
+            flg=0
+            
+        
+        
+        if qin.empty() and qout.empty():
+            ExitFlag.set()
+            Palive=0
+            for i in range(len(processes)):
+                if parallel:
+                    if processes[i].is_alive():
+                        Palive+=1
+            
+            if Palive==0:
+                break
+    
+    if parallel:
+        for i in range(len(processes)):
+            print("Joining %d"%i)
+            processes[i].join()
+                
+
+        
+    if returnCopy:
+        return copy.deepcopy(poseGraph)
+    
+    params.pop('LOOPCLOSE_BIN_MAXOVRL_FRAC_current')
+    print("detect loop closes done")
+    return poseGraph
+
+def LoopCLose_CloseByNodes(poseGraph,params):
+    Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+     
+    LkeyCloseByloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure" and poseGraph.edges[x]['isCloseByNodes']==True ,poseGraph.edges))
+    if len(LkeyCloseByloop_edges)<=2:
+        G=poseGraph
+    else:
+        LkeyCloseByloop_nodes = np.array(LkeyCloseByloop_edges).reshape(-1)
+        mnnode = min(LkeyCloseByloop_nodes)
+        mxnode = max(LkeyCloseByloop_nodes)
+        G=poseGraph.subgraph([ss for ss in Lkeys if ss>=mnnode and ss<=mxnode])
+        
+    Seqs=[]      
+    for seq in nx.simple_cycles(G):
+        seq = sorted(list(seq))
+        Seqs.append(seq)
+        
+    # Seqs=sorted(Seqs,key=lambda x: len(x),reverse=True)
+    Seqs=sorted(Seqs,key=lambda x: len(x))
+    Seqs_todo = []
+    for seq in Seqs:
+        S=[Lkeys.index(s) for s in seq]
+        LloopCls = []
+        flg=False
+        for s1 in seq:
+            for s2 in poseGraph.successors(s1):
+                if poseGraph.edges[s1,s2]['edgetype']=='Key2Key-LoopClosure':
+                    if poseGraph.edges[s1,s2].get('isCloseByNodes',False)==True:
+                        flg=True
+                        break
+                
+        if flg and np.all(np.abs(np.diff(S))==1) and len(S)<=params['LOOP_CLOSURE_COMBINE_MAX_NODES']: 
+           Seqs_todo.append(seq)
+    
+    # pdb.set_trace()
+    
+    print("Seqs_todo = ",Seqs_todo)  
+    if len(Seqs_todo)==0:
+        Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+    
+        for ee in Lkeyloop:
+            if 'isCloseByNodes' in poseGraph.edges[ee]:
+                if poseGraph.edges[ee]['isCloseByNodes']:
+                    poseGraph.remove_edge(ee[0],ee[1])
+                    
+        return poseGraph
+    
+    removedNodes=[]
+    # Seqs_todo is the list of sorted decreasing sequences
+    # do pose optimization and update all the global poses
+
+    Seqs_todo=sorted(Seqs_todo,key=lambda x: len(x),reverse=True)
+    for i,seq in enumerate(Seqs_todo):
+
+        if set(seq) & set(poseGraph.nodes)!=set(seq):
+            continue
+        
+        # if max(seq)<=3502 or min(seq)>=3952:# def fails upto 8070 ; 3898 is bad     ; 3111 is okay  ;3952 and idx>=3502
+        s1 = seq[0]
+        s2 = seq[-1]
+        st=time.time()
+        res,sHg_updated,sHg_previous=adjustPoses(poseGraph,s1,s2,maxiter=None,algo='trf',xtol=1e-4)
+        if res.success:
+            poseGraph=updateGlobalPoses(copy.deepcopy(poseGraph),sHg_updated,updateRelPoses=True)
+        else:
+            print(seq)
+            print("opt is failure")
+            print(res)
+        
+        mn = seq[int(len(seq)/2)]
+        pii=mn
+        lp=[mn]
+        for ii in seq[seq.index(mn)+1:]:
+            if poseGraph.edges[pii,ii]['posematch']['mbinfrac_ActiveOvrlp']>=params["Side_Combine_Overlap"]:
+                lp.append(ii)
+            pii=ii
+        lp2=[]
+        pii=mn
+        for ii in seq[:seq.index(mn)][::-1]:
+            if poseGraph.edges[ii,pii]['posematch']['mbinfrac_ActiveOvrlp']>=params["Side_Combine_Overlap"]:
+                lp2.append(ii)
+            pii=ii
+        lp=lp2[::-1]+lp
+        if set(lp) == set(seq):
+            seq=lp
+        else:
+            continue
+           
+        mn = seq[int(len(seq)/2)]
+
+        X=[poseGraph.nodes[mn]['X']]
+        mnHg=poseGraph.nodes[mn]['sHg']
+        gHmn=nplinalg.inv(mnHg)
+        for nn in seq:
+            if nn==mn:
+                continue
+            nnHg=poseGraph.nodes[nn]['sHg']
+            gHnn = nplinalg.inv(nnHg)
+            mnHnn = np.matmul(mnHg,gHnn)
+            XX=np.matmul(mnHnn,np.vstack([poseGraph.nodes[nn]['X'].T,np.ones(poseGraph.nodes[nn]['X'].shape[0])])).T  
+            X.append(XX[:,:2])
+            
+            
+        X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+        poseGraph.nodes[mn]['X']=X
+        res = getclf(X,params,doReWtopt=True,means_init=None)
+        clf=res['clf']
+        poseGraph.nodes[mn]['clf']=clf
+        idbmx = params['INTER_DISTANCE_BINS_max']
+        idbdx=params['INTER_DISTANCE_BINS_dx']
+        # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
+        h=np.array([0,0])
+        poseGraph.nodes[mn]['h']=h
+        
+        poseGraph.nodes[mn]['LocalLoopClosed']=True
+        
+        ln = seq[-1]
+        for sidx in poseGraph.successors(ln):
+            if poseGraph.nodes[sidx]['frametype']=="keyframe" and poseGraph.edges[ln,sidx]['edgetype']=="Key2Key":
+                sHln = poseGraph.edges[ln,sidx]['H']
+                
+                lnHg=poseGraph.nodes[ln]['sHg']
+                lnHmn = np.matmul(lnHg,gHmn)
+                
+                sHmn = np.matmul(sHln,lnHmn)
+                
+                H_prevframe=poseGraph.edges[ln,sidx]['H_prevframe']
+                
+                serrk=poseGraph.edges[ln,sidx]['err']
+                shessk_inv=poseGraph.edges[ln,sidx]['hess_inv']
+                poseGraph.add_edge(mn,sidx,H=sHmn,H_prevframe=H_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+    
+                break
+        
+        fn = seq[0]
+        for pidx in poseGraph.predecessors(fn):
+            if poseGraph.nodes[pidx]['frametype']=="keyframe" and poseGraph.edges[pidx,fn]['edgetype']=="Key2Key":
+                fnHp = poseGraph.edges[pidx,fn]['H']
+                
+                fnHg=poseGraph.nodes[fn]['sHg']
+                gHfn=nplinalg.inv(fnHg)
+                mnHfn = np.matmul(mnHg,gHfn)
+                
+                mnHp = np.matmul(mnHfn,fnHp)
+                
+                H_prevframe=poseGraph.edges[pidx,fn]['H_prevframe']
+                
+                serrk=poseGraph.edges[pidx,fn]['err']
+                shessk_inv=poseGraph.edges[pidx,fn]['hess_inv']
+                poseGraph.add_edge(pidx,mn,H=mnHp,H_prevframe=H_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+    
+                break
+        
+        for nn in seq:
+            if nn!=mn:
+                removedNodes.append(nn)
+                poseGraph.remove_node(nn)
+
+                    
+    Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+    
+    for ee in Lkeyloop:
+        if 'isCloseByNodes' in poseGraph.edges[ee]:
+            if poseGraph.edges[ee]['isCloseByNodes']:
+                poseGraph.remove_edge(ee[0],ee[1])
+    
+
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    for ee in poseGraph.edges:
+        if poseGraph.edges[ee[0],ee[1]].get('posematch',None) is None:
+            Xclf = poseGraph.nodes[ee[0]]['X']
+            X = poseGraph.nodes[ee[1]]['X']
+            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,X,dxcomp)
+            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+            H12=poseGraph.edges[ee[0],ee[1]]['H']
+            posematch=eval_posematch(H12,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+            poseGraph.edges[ee[0],ee[1]]['posematch']=posematch
+            # print("posematch['mbinfrac_ActiveOvrlp']=",posematch['mbinfrac_ActiveOvrlp'])
+            # if posematch['mbinfrac_ActiveOvrlp']<0.5:
+            #     posematch = pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+            #     poseGraph.edges[KeyFrame_prevIdx,idx]['H']=posematch['H']
+            #     poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+                
+            #     sHg = np.matmul(posematch['H'],kHg)
+            #     gHs=nplinalg.inv(sHg)    
+            #     tpos=np.matmul(gHs,np.array([0,0,1])) 
+            #     poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+            #     poseGraph.nodes[idx]['sHg']=sHg
+        
+    return poseGraph
+
+
+def LoopCLose_CloseByNodes_orig(poseGraph,params):
+    Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+    
+    Seqs=[]
+    
+    for seq in nx.simple_cycles(poseGraph):
+        seq = sorted(list(seq))
+        Seqs.append(seq)
+        
+    # Seqs=sorted(Seqs,key=lambda x: len(x),reverse=True)
+    Seqs=sorted(Seqs,key=lambda x: x[0])
+    Seqs_todo = []
+    for seq in Seqs:
+        S=[Lkeys.index(s) for s in seq]
+        LloopCls = []
+        flg=False
+        for s1 in seq:
+            for s2 in poseGraph.successors(s1):
+                if poseGraph.edges[s1,s2]['edgetype']=='Key2Key-LoopClosure':
+                    if poseGraph.edges[s1,s2].get('isCloseByNodes',False)==True:
+                        flg=True
+                        break
+                
+        if flg and np.all(np.abs(np.diff(S))==1) and len(S)<=params['LOOP_CLOSURE_COMBINE_MAX_NODES']: 
+           Seqs_todo.append(seq)
+    
+    # pdb.set_trace()
+    
+    print("Seqs_todo = ",Seqs_todo)  
+    if len(Seqs_todo)==0:
+        Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+    
+        for ee in Lkeyloop:
+            if 'isCloseByNodes' in poseGraph.edges[ee]:
+                if poseGraph.edges[ee]['isCloseByNodes']:
+                    poseGraph.remove_edge(ee[0],ee[1])
+                    
+        return poseGraph
+    
+    removedNodes=[]
+    # Seqs_todo is the list of sorted decreasing sequences
+    # do pose optimization and update all the global poses
+    SS=[]
+    for i,seq in enumerate(Seqs_todo):
+        # if max(seq)<=3502 or min(seq)>=3952:# def fails upto 8070 ; 3898 is bad     ; 3111 is okay  ;3952 and idx>=3502
+        s1 = seq[0]
+        s2 = seq[-1]
+        st=time.time()
+        res,sHg_updated,sHg_previous=adjustPoses(poseGraph,s1,s2,maxiter=None,algo='trf',xtol=1e-4)
+        if res.success:
+            poseGraph=updateGlobalPoses(copy.deepcopy(poseGraph),sHg_updated,updateRelPoses=True)
+        else:
+            print("opt is failure")
+            print(res)
+        
+        mn = seq[int(len(seq)/2)]
+        pii=mn
+        lp=[mn]
+        for ii in seq[seq.index(mn)+1:]:
+            if poseGraph.edges[pii,ii]['posematch']['mbinfrac_ActiveOvrlp']>=0.5:
+                lp.append(ii)
+            pii=ii
+        lp2=[]
+        pii=mn
+        for ii in seq[:seq.index(mn)][::-1]:
+            if poseGraph.edges[ii,pii]['posematch']['mbinfrac_ActiveOvrlp']>=0.5:
+                lp2.append(ii)
+            pii=ii
+        lp=lp2[::-1]+lp
+        if set(lp) == set(seq):
+            SS.append(lp)
+        
+        # print(mn,"----",seq,lp)
+        
+    Seqs_todo = SS
+    
+    Seqs_todo=sorted(Seqs_todo,key=lambda x: len(x),reverse=True)
+    for i,seq in enumerate(Seqs_todo):
+        if set(seq) & set(poseGraph.nodes)!=set(seq):
+            continue
+            
+        mn = seq[int(len(seq)/2)]
+        
+        
+        
+        X=[poseGraph.nodes[mn]['X']]
+        mnHg=poseGraph.nodes[mn]['sHg']
+        gHmn=nplinalg.inv(mnHg)
+        for nn in seq:
+            if nn==mn:
+                continue
+            nnHg=poseGraph.nodes[nn]['sHg']
+            gHnn = nplinalg.inv(nnHg)
+            mnHnn = np.matmul(mnHg,gHnn)
+            XX=np.matmul(mnHnn,np.vstack([poseGraph.nodes[nn]['X'].T,np.ones(poseGraph.nodes[nn]['X'].shape[0])])).T  
+            X.append(XX[:,:2])
+            
+            
+        X=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+        poseGraph.nodes[mn]['X']=X
+        res = getclf(X,params,doReWtopt=True,means_init=None)
+        clf=res['clf']
+        poseGraph.nodes[mn]['clf']=clf
+        idbmx = params['INTER_DISTANCE_BINS_max']
+        idbdx=params['INTER_DISTANCE_BINS_dx']
+        # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
+        h=np.array([0,0])
+        poseGraph.nodes[mn]['h']=h
+        
+        poseGraph.nodes[mn]['LocalLoopClosed']=True
+        
+        ln = seq[-1]
+        for sidx in poseGraph.successors(ln):
+            if poseGraph.nodes[sidx]['frametype']=="keyframe" and poseGraph.edges[ln,sidx]['edgetype']=="Key2Key":
+                sHln = poseGraph.edges[ln,sidx]['H']
+                
+                lnHg=poseGraph.nodes[ln]['sHg']
+                lnHmn = np.matmul(lnHg,gHmn)
+                
+                sHmn = np.matmul(sHln,lnHmn)
+                
+                H_prevframe=poseGraph.edges[ln,sidx]['H_prevframe']
+                
+                serrk=poseGraph.edges[ln,sidx]['err']
+                shessk_inv=poseGraph.edges[ln,sidx]['hess_inv']
+                poseGraph.add_edge(mn,sidx,H=sHmn,H_prevframe=H_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+    
+                break
+        
+        fn = seq[0]
+        for pidx in poseGraph.predecessors(fn):
+            if poseGraph.nodes[pidx]['frametype']=="keyframe" and poseGraph.edges[pidx,fn]['edgetype']=="Key2Key":
+                fnHp = poseGraph.edges[pidx,fn]['H']
+                
+                fnHg=poseGraph.nodes[fn]['sHg']
+                gHfn=nplinalg.inv(fnHg)
+                mnHfn = np.matmul(mnHg,gHfn)
+                
+                mnHp = np.matmul(mnHfn,fnHp)
+                
+                H_prevframe=poseGraph.edges[pidx,fn]['H_prevframe']
+                
+                serrk=poseGraph.edges[pidx,fn]['err']
+                shessk_inv=poseGraph.edges[pidx,fn]['hess_inv']
+                poseGraph.add_edge(pidx,mn,H=mnHp,H_prevframe=H_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+    
+                break
+        
+        for nn in seq:
+            if nn!=mn:
+                removedNodes.append(nn)
+                poseGraph.remove_node(nn)
+
+                    
+    Lkeyloop = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+    
+    for ee in Lkeyloop:
+        if 'isCloseByNodes' in poseGraph.edges[ee]:
+            if poseGraph.edges[ee]['isCloseByNodes']:
+                poseGraph.remove_edge(ee[0],ee[1])
+    
+
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    for ee in poseGraph.edges:
+        if poseGraph.edges[ee[0],ee[1]].get('posematch',None) is None:
+            Xclf = poseGraph.nodes[ee[0]]['X']
+            X = poseGraph.nodes[ee[1]]['X']
+            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,X,dxcomp)
+            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+            H12=poseGraph.edges[ee[0],ee[1]]['H']
+            posematch=eval_posematch(H12,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+            poseGraph.edges[ee[0],ee[1]]['posematch']=posematch
+            # print("posematch['mbinfrac_ActiveOvrlp']=",posematch['mbinfrac_ActiveOvrlp'])
+            # if posematch['mbinfrac_ActiveOvrlp']<0.5:
+            #     posematch = pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+            #     poseGraph.edges[KeyFrame_prevIdx,idx]['H']=posematch['H']
+            #     poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+                
+            #     sHg = np.matmul(posematch['H'],kHg)
+            #     gHs=nplinalg.inv(sHg)    
+            #     tpos=np.matmul(gHs,np.array([0,0,1])) 
+            #     poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+            #     poseGraph.nodes[idx]['sHg']=sHg
+        
+    return poseGraph
+
+
+
+def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
     """
     idx is index of current "keyframe"
     idx is the current pose. detect loop closures to all previous key frames
@@ -670,20 +1542,131 @@ def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False):
 
     Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     
+    #for KeyFrameIdx in Lkeys:
+    #    for idx in poseGraph.successors(KeyFrameIdx):
+    #        if poseGraph.edges[KeyFrameIdx,idx].get('DoneBinMatch',False) is False:
+    #            posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrameIdx,idx,params,DoCLFmatch=True,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+    #            poseGraph.edges[KeyFrameIdx,idx]['H']=posematch['H']
+    #            poseGraph.edges[KeyFrameIdx,idx]['DoneBinMatch']=True
+            
+    
+    for nn in Lkeys:
+        if poseGraph.nodes[nn]['clf'] is None or 'clf' not in poseGraph.nodes[nn]:
+            X = poseGraph.nodes[nn]['X']
+            res = getclf(X,params,doReWtopt=True,means_init=None)
+            clf=res['clf']
+            poseGraph.nodes[nn]['clf']=clf
+            poseGraph.nodes[nn]['modified'] = True 
+            
+    nn2=params['LOOP_CLOSURE_COMBINE_MAX_NODES']    
+    if params["USE_Side_Combine"]:
+        mxndcmb=params['MAX_NODES_ADJ_COMBINE']
+        for nn in Lkeys:
+            if poseGraph.nodes[nn].get('DoneAdjCombine',False) is False:
+                X1,clf1=getCombinedNode(poseGraph,nn,mxndcmb,params,Doclf=True)
+                poseGraph.nodes[nn]['clflc']=clf1
+                poseGraph.nodes[nn]['Xlc']=X1
+                poseGraph.nodes[nn]['DoneAdjCombine']=True
+            
+    
+    
     Ncore = params['#ThreadsLoopClose']
     processes = []
-    for i in range(Ncore):
-        p = ctx.Process(target=matchdetect, args=(qin,qout,ExitFlag,Lkeys,poseGraph,poseData,params))
-        processes.append( p )
-        p.start()
-        print("created thread")    
-        time.sleep(0.01)  
+    if parallel:
+        for i in range(Ncore):
+            p = ctx.Process(target=matchdetectLong, args=(qin,qout,ExitFlag,Lkeys,poseGraph,params))
+            processes.append( p )
+            p.start()
+            print("created thread")    
+            time.sleep(0.1)  
+            
     
+    lenlist= params['LongLoopClose']['AlongPathNearFracLength']
+    Npickstotal = params['LongLoopClose']['#TotalRandomPicks']
+    Npickfrac= int(params['LongLoopClose']['AlongPathNearFracCountNodes']*Npickstotal)
+    an=params['LongLoopClose']['AdjSkipList']
+            
     cnt=0
-    for idx in Lkeys:
-        # print(cnt,len(Lkeys))
-        cnt+=1
-        qin.put(idx)
+    offsetNodesBy=params['offsetNodesBy']    
+    for idx in Lkeys[:-offsetNodesBy][::-1]:
+        # if poseGraph.nodes[idx]['LoopDetectDone'] is True:
+        #     continue
+        
+            
+        if 'LocalLoopClosed' in poseGraph.nodes[idx]:
+            if poseGraph.nodes[idx]['LocalLoopClosed']==False:
+                continue
+        
+        # poseGraph.nodes[idx]['LoopDetectDone'] = True     
+        
+        poseGraph.nodes[idx]['modified'] = True 
+        if 'LongLoopDonePrevIdxs' not in poseGraph.nodes[idx]:
+            poseGraph.nodes[idx]['LongLoopDonePrevIdxs']=[]
+        
+        
+        
+        LL=[]
+        SkipIt=[]
+        for previdx in Lkeys[:max([Lkeys.index(idx)-1,0])]:
+            if previdx >=idx:
+                continue
+            if previdx in SkipIt:
+                continue
+            if previdx in poseGraph.nodes[idx]['LongLoopDonePrevIdxs']:
+                continue
+        
+            if poseGraph.has_edge(idx,previdx) is True or poseGraph.has_edge(previdx,idx) is True:
+                mn1 = max([0,Lkeys.index(previdx)-an])
+                mx1 = min([len(Lkeys)-1,Lkeys.index(previdx)+an])
+                
+                SkipIt=SkipIt+Lkeys[mn1:mx1]
+                continue
+            
+            p1=poseGraph.nodes[idx]['pos']
+            p2=poseGraph.nodes[previdx]['pos']
+            
+            
+            c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
+            c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
+            if c1 and c2:
+                LL.append(previdx)
+                
+        LL=list(set(LL))
+        LL.sort(reverse=True)
+        LL1=copy.deepcopy(LL[:int(lenlist*len(LL))])
+        LL2=copy.deepcopy(LL[int(lenlist*len(LL)):])
+        PrevIdxList=[]
+        
+        for i in range(Npickfrac):
+            if len(LL1)==0:
+                break
+            
+            a=random.choice(LL1)
+            if a not in PrevIdxList:
+                PrevIdxList.append(a)
+                LL1.remove(a)
+                    
+        for i in range(Npickstotal-Npickfrac):
+            if len(LL2)==0:
+                break
+            a=random.choice(LL2)
+            if a not in PrevIdxList:
+                PrevIdxList.append(a)
+                LL2.remove(a)
+        # print(idx,PrevIdxList)        
+        for previdx in PrevIdxList:
+            cnt+=1
+            qin.put([idx,previdx])
+            poseGraph.nodes[idx]['LongLoopDonePrevIdxs'].append(previdx)
+            
+    print("cnt = ",cnt)   
+    
+    # params['LOOPCLOSE_BIN_MAXOVRL_FRAC_current'] = params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']
+    
+            
+    if not parallel:
+        ExitFlag.set()
+        matchdetectLong(qin,qout,ExitFlag,Lkeys,poseGraph,params)
         
     flg=0
     while True:
@@ -691,16 +1674,18 @@ def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False):
         try:
             res=qout.get(block=True, timeout=0.1)
         except queue.Empty:
-            time.sleep(0.01)
+            time.sleep(0.1)
             
             
         if res is not None:
             if 'status' == res[0]:
                 poseGraph.nodes[res[1]][res[2]] = res[3]
-                print(res)
+                poseGraph.nodes[res[1]]['modified']=True
             elif 'edge' == res[0]:
-                poseGraph.add_edge(res[1],res[2],H=res[3],err = res[4],hess_inv = res[5],edgetype="Key2Key-LoopClosure",d=res[6],color='b')
+                poseGraph.add_edge(res[1],res[2],H=res[3],err = res[4],hess_inv = res[5],edgetype="Key2Key-LoopClosure",d=res[6],color='b',posematch=res[7],modified=True)
             
+            # print("res=",res[:3])
+                
             flg=0
             
         
@@ -709,73 +1694,33 @@ def detectAllLoopClosures(poseGraph,poseData,params,returnCopy=False):
             ExitFlag.set()
             Palive=0
             for i in range(len(processes)):
-                if processes[i].is_alive():
-                    Palive+=1
+                if parallel:
+                    if processes[i].is_alive():
+                        Palive+=1
             
             if Palive==0:
                 break
     
-    for i in range(len(processes)):
-        print("Joining %d"%i)
-        processes[i].join()
-                
-                
+    if parallel:
+        for i in range(len(processes)):
+            print("Joining %d"%i)
+            processes[i].join()
+
+    # params.pop('LOOPCLOSE_BIN_MAXOVRL_FRAC_current')
+    print("detect loop closes done")
+    
     if returnCopy:
         return copy.deepcopy(poseGraph)
     
-    print("detect loop closes done")
-    return poseGraph
-
-def detectAllLoopClosures_noParallel(poseGraph,poseData,params,returnCopy=False):
-    """
-    idx is index of current "keyframe"
-    idx is the current pose. detect loop closures to all previous key frames
-
-    """
-
-
-    Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     
-
-    for idx in Lkeys:
-        if poseGraph.nodes[idx]['LoopDetectDone'] is False:          
-                h1=poseGraph.nodes[idx]['h']
-                p1=poseGraph.nodes[idx]['pos']
-                for previdx in Lkeys:
-                    if previdx < idx-2 and poseGraph.has_edge(idx,previdx) is False and poseGraph.has_edge(previdx,idx) is False:
-                        
-                        h2=poseGraph.nodes[previdx]['h']
-                        
-                        p2=poseGraph.nodes[previdx]['pos']
-                        d=nplinalg.norm(h1-h2,ord=1)
-                        
-                        c1 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)<=params['LOOP_CLOSURE_POS_THES']
-                        c2 = nplinalg.norm(np.array(p1)-np.array(p2),ord=2)>=params['LOOP_CLOSURE_POS_MIN_THES']
-                        if d<=params['LOOP_CLOSURE_D_THES'] and c1 and c2:
-                            # add loop closure edge
-                            # print("Potential Loop closure")
-                            
-                            piHi,pi_err_i,mbin,mbinfrac,hess_inv_err_i=poseGraph_keyFrame_matcher(poseGraph,poseData,idx,previdx,params)
-                            # piHi,pi_err_i,hess_inv_err_i=0,0,0
-                            
-                            a1=pi_err_i < params['LOOP_CLOSURE_ERR_THES']
-                            a2=mbinfrac>=params['LOOPCLOSE_BIN_MIN_FRAC']
-                            if a2:
-                                poseGraph.add_edge(idx,previdx,H=piHi,err = pi_err_i,hess_inv = hess_inv_err_i,edgetype="Key2Key-LoopClosure",d=d,color='b')
-                                
-                                
-                
-                poseGraph.nodes[idx]['LoopDetectDone'] = True
-
-        
-    if returnCopy:
-        return copy.deepcopy(poseGraph)
     
-    print("detect loop closes done")
+    
     return poseGraph
 
 
-def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
+
+
+def adjustPoses(poseGraph,idx1,idx2,maxiter=None,algo='BFGS',tol=1e-3,xtol=1e-4):
     # adjust the bundle from idx1 to idx2
     # i.e. optimize the global pose matrices, with constraint local poses 
     # idx1 is assumed to be fixed (like origin)
@@ -795,10 +1740,28 @@ def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
             if idx_prev not in Lkey_dict:
                 continue
             i = Lkey_dict[idx_prev]
-            jHi=poseGraph.edges[idx_prev,idx]['H']
+            if 'updated' in poseGraph.edges[idx_prev,idx]:
+                jHi=poseGraph.edges[idx_prev,idx]['updated'].get('H',poseGraph.edges[idx_prev,idx]['H'])
+            else:
+                jHi=poseGraph.edges[idx_prev,idx]['H']
             j_hess_inv_i = poseGraph.edges[idx_prev,idx]['hess_inv']
-            j_hess_i = nplinalg.inv(j_hess_inv_i)
+            if poseGraph.edges[idx_prev,idx]['edgetype']=="Key2Key-LoopClosure":
+                j_hess_i = 1*nplinalg.inv(j_hess_inv_i)
+            else:
+                j_hess_i = 1*nplinalg.inv(j_hess_inv_i)
+            
+            # if np.abs(i-j)>=3 and np.abs(i-j)<=30:
+            #     continue
+                
+            j_hess_i = 1*j_hess_i
             tji,thji = nbpt2Dproc.extractPosAngle(jHi)
+            
+            idxpos=np.array(poseGraph.nodes[idx]['pos'])
+            idxprevpos=np.array(poseGraph.nodes[idx_prev]['pos'])
+            # if nplinalg.norm(idxpos-idxprevpos)>15:
+            #     print(idxpos,idxprevpos)
+            #     continue
+            
             Hrels.append([thji,tji[0],tji[1] ])        
             Hessrels.append(j_hess_i.reshape(-1))
             Hrelsidx.append([i,j])
@@ -818,7 +1781,10 @@ def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
     bounds=[[-np.pi/4,np.pi/4],[-2,2],[-2,2]]*(len(Lkey)-1)
     for j in range(1,len(Lkey)):
         idx = Lkey[j]
-        sHg=poseGraph.nodes[idx]['sHg']
+        if 'updated' in poseGraph.nodes[idx]:
+            sHg=poseGraph.nodes[idx]['updated'].get('sHg',poseGraph.nodes[idx]['sHg'])
+        else:
+            sHg=poseGraph.nodes[idx]['sHg']
         sHg_original[idx] = sHg
         
         jHf=np.matmul(sHg,gHfirst) # first to j (local global frame)
@@ -838,7 +1804,7 @@ def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
         bounds[(j-1)*3+2][1]=tj[1]+bounds[(j-1)*3+2][1]
         
     x0=x0.reshape(-1)
-    # x0 = x0+0.01*np.random.randn(len(x0))
+    # x0 = x0+1*np.random.randn(len(x0))
     
     lb = np.array([bnd[0] for bnd in bounds])
     ub = np.array([bnd[1] for bnd in bounds])
@@ -861,17 +1827,18 @@ def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
     st=time.time()
     if algo in ['lm','trf']:
         # res = least_squares(nbpt2Dproc.globalPoseCostHess_lsq, x0,args=(Hrelsidx,Hrels,Hessrels),method=algo)
-        res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),method=algo)
+        # res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),jac=nbpt2Dproc.globalPoseCost_lsq_jac,method=algo,xtol=1e-3) #
+        # res = least_squares(nbpt2Dproc.globalPoseCostHess_lsq, x0,args=(Hrelsidx,Hrels,Hessrels) ,method='trf',xtol=1e-3)
         
-        # res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),jac=nbpt2Dproc.globalPoseCost_lsq_jac ,method='trf')
+        res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),jac=nbpt2Dproc.globalPoseCost_lsq_jac ,method='trf',xtol=xtol)
     # res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),jac=nbpt2Dproc.globalPoseCost_lsq_jac ,method='lm',xtol=1e-4,ftol=1e-4) #max_nfev
     # res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels),method='lm')
     
     # res = least_squares(nbpt2Dproc.globalPoseCostHess_lsq, x0,args=(Hrelsidx,Hrels,Hessrels) ,method='lm')
     # res = least_squares(nbpt2Dproc.globalPoseCost_lsq, x0,args=(Hrelsidx,Hrels) ,method='trf',loss='huber')
     # res = least_squares(nbpt2Dproc.globalPoseCostHess_lsq, x0,args=(Hrelsidx,Hrels,Hessrels) ,method='trf',loss='huber')
-    if algo in ['BFGS']:
-        res = minimize(nbpt2Dproc.globalPoseCost_Fjac, x0,args=(Hrelsidx,Hrels,Hessrels) ,jac=True,tol=1e-6,method=algo,options={'maxiter':maxiter}) #
+    if algo in ['BFGS','CG','Newton-CG']:
+        res = minimize(nbpt2Dproc.globalPoseCost_Fjac, x0,args=(Hrelsidx,Hrels,Hessrels) ,jac=True,method=algo,options={'maxiter':maxiter}) #
     
     # res = minimize(nbpt2Dproc.globalPoseCost, x0,args=(Hrelsidx,Hrels) ,method='BFGS', tol=1e-4,options={'maxiter':3})
     
@@ -896,7 +1863,7 @@ def adjustPoses(poseGraph,idx1,idx2,maxiter=10000,algo='BFGS'):
         
     return res,sHg_updated,sHg_original
 
-def updateGlobalPoses(poseGraph,sHg_updated):
+def updateGlobalPoses(poseGraph,sHg_updated,updateRelPoses=True):
     # loop closure optimization
     # Lkeycycle = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))    
     # Lkeycycle=list(nx.simple_cycles(poseGraph.subgraph(Lkeycycle)))
@@ -904,19 +1871,44 @@ def updateGlobalPoses(poseGraph,sHg_updated):
     # Lkeycycle.sort(key=lambda x: len(x))
     
 
-
+    # first update the global poses of the updated ones
     for ns in sHg_updated.keys():
         sHg = sHg_updated[ns]
         gHs=nplinalg.inv(sHg)
         tpos=np.matmul(gHs,np.array([0,0,1]))
         poseGraph.nodes[ns]['pos'] = (tpos[0],tpos[1])
         poseGraph.nodes[ns]['sHg'] = sHg
+        poseGraph.nodes[ns]['modified'] = True
         
-    # now update other non-keyframes
-    for ns in poseGraph.nodes:
-        if poseGraph.nodes[ns]['frametype']!="keyframe":
-            for pidx in poseGraph.predecessors(ns):
-                if poseGraph.nodes[pidx]['frametype']=="keyframe": # and pidx in sHg_updated
+    # now update the relative poses of the ones between the updated poses
+    
+    for n1 in sHg_updated.keys():
+        for n2 in poseGraph.successors(n1):
+            if n2 in sHg_updated.keys():
+                n1Hg = poseGraph.nodes[n1]['sHg']
+                n2Hg = poseGraph.nodes[n2]['sHg']
+                if updateRelPoses:
+                    poseGraph.edges[n1,n2]['H'] = np.matmul(n2Hg,nplinalg.inv(n1Hg))
+                    poseGraph.edges[n1,n2]['modified'] = True
+                else:
+                    if 'updated' not in poseGraph.edges[n1,n2]:
+                        poseGraph.edges[n1,n2]['updated']={}
+                    poseGraph.edges[n1,n2]['updated']['H'] = np.matmul(n2Hg,nplinalg.inv(n1Hg))
+                    poseGraph.edges[n1,n2]['updated']['modified'] = True
+                    # elif poseGraph.has_edge(n2,n1):
+                    #     poseGraph.edges[n2,n1]['H'] = np.matmul(n1Hg,nplinalg.inv(n2Hg))
+                    
+    
+    lastupdatedNode = max(sHg_updated.keys())
+    
+    # now update other frames key/scan frames that were not part of the optimization
+    # Lkeys = list(filter(lambda x: x>lastupdatedNode,Lkeys))
+    # Lkeys.sort()
+    
+    for ns in list(poseGraph.nodes):
+        for pidx in poseGraph.predecessors(ns):
+            if poseGraph.nodes[pidx]['frametype']=="keyframe": # and pidx in sHg_updated
+                if poseGraph.edges[pidx,ns]['edgetype']=="Key2Key" or poseGraph.edges[pidx,ns]['edgetype']=="Key2Scan":
                     psHg=poseGraph.nodes[pidx]['sHg']
                     nsHps=poseGraph.edges[pidx,ns]['H']
                     nsHg = nsHps.dot(psHg)
@@ -924,17 +1916,28 @@ def updateGlobalPoses(poseGraph,sHg_updated):
                     gHns=nplinalg.inv(nsHg)
                     tpos=np.matmul(gHns,np.array([0,0,1]))
                     poseGraph.nodes[ns]['pos'] = (tpos[0],tpos[1])
-        
+                    poseGraph.nodes[ns]['modified'] = True
+                    
+                    if 'updated' not in poseGraph.edges[n1,n2]:
+                        poseGraph.edges[n1,n2]['updated']={}
+                    if 'updated' not in poseGraph.nodes[ns]:
+                        poseGraph.nodes[ns]['updated']={}
+                        
+                    if 'H' in poseGraph.edges[n1,n2]['updated']:
+                        nsHps=poseGraph.edges[pidx,ns]['updated']['H']
+                        nsHg = nsHps.dot(psHg)
+                        poseGraph.nodes[ns]['updated']['sHg']=nsHg
+                        gHns=nplinalg.inv(nsHg)
+                        tpos=np.matmul(gHns,np.array([0,0,1]))
+                        poseGraph.nodes[ns]['updated']['pos'] = (tpos[0],tpos[1])
+                        poseGraph.nodes[ns]['modified'] = True
+                    
+                    
                     break
     
     return poseGraph
 
 
-def adjustPoses_byPtAlign(posegraph,idx1,idx2):
-    # adjust the bundle from idx1 to idx2
-    # i.e. optimize the global pose matrices, with Gaussian overlap with scan data
-    # idx1 is assumed to be fixed (like origin)
-    pass
 
 
 #%%        

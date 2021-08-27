@@ -43,7 +43,7 @@ from lidarprocessing import point2Dprocessing as pt2dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import codecs
 import turtlebot_helper as ttlhelp        
-from turtlebot_helper import params
+# from turtlebot_helper import params
 
 #https://quaternion.readthedocs.io/en/latest/
 import quaternion
@@ -61,17 +61,17 @@ from rclpy.qos import QoSPresetProfiles
 from rclpy.qos import QoSProfile
 from rclpy.qos import QoSReliabilityPolicy
 
-qos_closedposegraphPoses_profile = QoSProfile(
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10,
-            reliability=QoSReliabilityPolicy.RELIABLE,
-            durability=QoSDurabilityPolicy.VOLATILE,
-            lifespan=Duration(seconds=4),
-            deadline=Duration(seconds=5),
-            # liveliness=QoSLivelinessPolicy.MANUAL_BY_TOPIC,
-            # liveliness_lease_duration=Duration(nanoseconds=12),
-            avoid_ros_namespace_conventions=True
-        )
+# qos_closedposegraphPoses_profile = QoSProfile(
+#             history=QoSHistoryPolicy.KEEP_LAST,
+#             depth=1,
+#             reliability=QoSReliabilityPolicy.RELIABLE,
+#             durability=QoSDurabilityPolicy.VOLATILE,
+#             lifespan=Duration(seconds=4),
+#             deadline=Duration(seconds=5),
+#             # liveliness=QoSLivelinessPolicy.MANUAL_BY_TOPIC,
+#             # liveliness_lease_duration=Duration(nanoseconds=12),
+#             avoid_ros_namespace_conventions=True
+#         )
 
     
 
@@ -90,7 +90,8 @@ qos_closedposegraphPoses_profile = QoSProfile(
 
 class ProcessLoopClose:
     def __init__(self):
-        self.poseData={}
+        # self.working=False
+        pass
     
     def setlidarloopclose_publisher(self,loopclosedposes_pub):
         self.loopclosedposes_pub=loopclosedposes_pub
@@ -103,7 +104,7 @@ class ProcessLoopClose:
         
     def getPoseGraph(self,msg):
         unpickled = pkl.loads(codecs.decode(msg.data.encode(), "base64"))
-        self.poseGraph,self.poseData = unpickled
+        poseGraph,params = unpickled
         
         # # replace T in poseData with corresponding idx
         # for idx in self.poseGraph.nodes:
@@ -119,37 +120,58 @@ class ProcessLoopClose:
         #     if ns not in posGtimeDict.values():
         #         self.poseData.pop(ns)
         
-        self.optimizeLoopClosures()
+        # if self.working is False:
+        self.optimizeLoopClosures(copy.deepcopy(poseGraph),copy.deepcopy(params))
     
-    def optimizeLoopClosures(self):            
-        # do the optimization to adjust global poses
+    
         
-        Lkeys = list(filter(lambda x: self.poseGraph.nodes[x]['frametype']=="keyframe",self.poseGraph.nodes))
+    
+    def optimizeLoopClosures(self,poseGraph,params):  
+        # self.working=True          
+        # do the optimization to adjust global poses
+        # poseGraph = copy.deepcopy(self.poseGraph)
+        
+        Lkeys = list(filter(lambda x:poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
         
         if len(Lkeys)>2:
             print("doing loop closure")
-            self.poseGraph=pt2dproc.detectAllLoopClosures(self.poseGraph,self.poseData,params,returnCopy=False)
-            idx0=min(Lkeys)
-            idx1=max(Lkeys)
-
-            # res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(self.poseGraph,Lkeys[max([0,len(Lkeys)-500])],idx1,maxiter=None,algo='BFGS')            
-            # self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,sHg_updated)
+            # self.poseGraph=pt2dproc.detectAllLoopClosures_closebyNodes(self.poseGraph,self.params,returnCopy=False,parallel=self.params['Loop_CLOSURE_PARALLEL'])
+            # self.poseGraph=pt2dproc.LoopCLose_CloseByNodes(self.poseGraph,self.params)
+            
+            poseGraph=pt2dproc.detectAllLoopClosures(poseGraph,params,returnCopy=True,parallel=True) #
+            
+            Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+            
+            res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(poseGraph,Lkeys[0],Lkeys[-1],maxiter=None,algo='trf')
+    
+            # if res.success:
+            #     poseGraph=pt2dproc.updateGlobalPoses(copy.deepcopy(poseGraph),sHg_updated,updateRelPoses=True)              
+            # else:
+            #     print("opt is failure")
+            #     print(res)
+            
+            node_modified_fields=['clf','LongLoopDonePrevIdxs','updated']
+            edge_modified_fields=['updated']
+            
+            L=[]
+            for n in  poseGraph.nodes:
+                poseGraph.nodes[n]['X']=None
+                if poseGraph.nodes[n]["frametype"]=="scan":
+                    L.append(n)    
+            poseGraph.remove_nodes_from(L)
             
             
-            res,sHg_updated,sHg_previous=pt2dproc.adjustPoses(self.poseGraph,idx0,idx1,maxiter=None,algo='BFGS')
-            self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,sHg_updated)
-                
-                
             # if res.success:
             msg = String()
-            # LoopDetectionsDoneDict = nx.get_node_attributes(self.poseGraph,'LoopDetectDone')
-            pickled = codecs.encode(pkl.dumps(self.poseGraph), "base64").decode()
+            # LoopDetectionsDoneDict = nx.get_node_attributes(poseGraph,'LoopDetectDone')
+            pickled = codecs.encode(pkl.dumps([poseGraph,sHg_updated,node_modified_fields,edge_modified_fields]), "base64").decode()
             msg.data = pickled
             self.loopclosedposes_pub.publish(msg)
             print("sending loop closed poses")
         else:
             print("not enought keyframes")
-    
+        
+        # self.working=False
 #%% TEST::::::: Pose estimation by keyframe
 
 
@@ -162,10 +184,10 @@ def main(args=None):
     
     plc=ProcessLoopClose()
     
-    loopclosedposes_pub = node.create_publisher(String,'posegraphClosedPoses',qos_closedposegraphPoses_profile)
+    loopclosedposes_pub = node.create_publisher(String,'posegraphClosedPoses',ttlhelp.qos_closedposegraphPoses_profile)
     plc.setlidarloopclose_publisher(loopclosedposes_pub)
 
-    node.create_subscription(String,'posegraphclose',plc.getPoseGraph,qos_closedposegraphPoses_profile)
+    node.create_subscription(String,'posegraphclose',plc.getPoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
     
     # node.create_subscription(LaserScan,'scan',plc.processScanPts,qos_profile_sensor_data)
     
