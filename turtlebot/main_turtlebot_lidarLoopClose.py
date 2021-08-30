@@ -135,8 +135,8 @@ class ProcessLoopClose:
         
         if len(Lkeys)>2:
             print("doing loop closure")
-            # self.poseGraph=pt2dproc.detectAllLoopClosures_closebyNodes(self.poseGraph,self.params,returnCopy=False,parallel=self.params['Loop_CLOSURE_PARALLEL'])
-            # self.poseGraph=pt2dproc.LoopCLose_CloseByNodes(self.poseGraph,self.params)
+            # poseGraph=pt2dproc.detectAllLoopClosures_closebyNodes(poseGraph,params,returnCopy=False,parallel=params['Loop_CLOSURE_PARALLEL'])
+            # poseGraph=pt2dproc.LoopCLose_CloseByNodes(poseGraph,params)
             
             poseGraph=pt2dproc.detectAllLoopClosures(poseGraph,params,returnCopy=True,parallel=True) #
             
@@ -150,12 +150,12 @@ class ProcessLoopClose:
             #     print("opt is failure")
             #     print(res)
             
-            node_modified_fields=['clf','LongLoopDonePrevIdxs','updated']
-            edge_modified_fields=['updated']
+            node_modified_fields=['clf','LongLoopDonePrevIdxs',]
+            edge_modified_fields=[]
             
             L=[]
             for n in  poseGraph.nodes:
-                poseGraph.nodes[n]['X']=None
+                # poseGraph.nodes[n]['X']=None
                 if poseGraph.nodes[n]["frametype"]=="scan":
                     L.append(n)    
             poseGraph.remove_nodes_from(L)
