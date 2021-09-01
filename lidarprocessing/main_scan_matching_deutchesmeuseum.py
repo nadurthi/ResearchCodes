@@ -590,19 +590,20 @@ Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",pos
 pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
 
-
-for nn in Lkeys:
-    if poseGraph.nodes[nn]['clf'] is None or 'clf' not in poseGraph.nodes[nn]:
-        X = poseGraph.nodes[nn]['X']
-        res = pt2dproc2.getclf(X,params,doReWtopt=True,means_init=None)
-        clf=res['clf']
-        poseGraph.nodes[nn]['clf']=clf
+# Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+# for nn in Lkeys:
+#     if poseGraph.nodes[nn]['clf'] is None or 'clf' not in poseGraph.nodes[nn]:
+#         X = poseGraph.nodes[nn]['X']
+#         res = pt2dproc2.getclf(X,params,doReWtopt=True,means_init=None)
+#         clf=res['clf']
+#         poseGraph.nodes[nn]['clf']=clf
 Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
 # Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
 # Ledges = poseGraph.edges
 
+
 for previdx,idx  in Lkeyloop_edges:
-    # if previdx>=11435 and previdx<=11503:
+    # if previdx>=1646:
     #     pass
     # else:
     #     continue
@@ -618,21 +619,27 @@ for previdx,idx  in Lkeyloop_edges:
         # mbinfrac=posematch['mbinfrac']
         # mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
         
-        # piHi=posematch['H']
+    # piHi=posematch['H']
         
     piHi=poseGraph.edges[previdx,idx]['H']
     
-    pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematch['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
-    fig = plt.figure("ComparisonPlot")
-    fig.savefig("debugplots/Key2Key-%d-%d_gmm.png"%(idx, previdx))
-    plt.close(fig)
+    # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematch['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+    # fig = plt.figure("ComparisonPlot")
+    # fig.savefig("debugplots/Key2Key-%d-%d_gmm.png"%(idx, previdx))
+    # plt.close(fig)
 
-        # piHi=posematchbin['H']
-        # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematchbin['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
-        # fig = plt.figure("ComparisonPlot")
-        # fig.savefig("debugplots/Key2Key-%d-%d_bin.png"%(idx, previdx))
-        # plt.close(fig)
-        
+    # piHi=posematchbin['H']
+    # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematchbin['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+    # fig = plt.figure("ComparisonPlot")
+    # fig.savefig("debugplots/Key2Key-%d-%d_bin.png"%(idx, previdx))
+    # plt.close(fig)
+
+    
+    idHpid=poseGraph.edges[previdx,idx]['H']
+    idHg=poseGraph.nodes[idx]['sHg']
+    pidHg=poseGraph.nodes[previdx]['sHg']
+    np.matmul(idHg,nplinalg.inv(pidHg))
+    print(previdx,idx,nplinalg.norm(idHpid-np.matmul(idHg,nplinalg.inv(pidHg))))
 #%%
 X1=getscanpts_deutches(16197)
 X2=getscanpts_deutches(16198)

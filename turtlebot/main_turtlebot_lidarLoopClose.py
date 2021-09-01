@@ -155,7 +155,7 @@ class ProcessLoopClose:
             
             L=[]
             for n in  poseGraph.nodes:
-                # poseGraph.nodes[n]['X']=None
+                poseGraph.nodes[n]['X']=None
                 if poseGraph.nodes[n]["frametype"]=="scan":
                     L.append(n)    
             poseGraph.remove_nodes_from(L)
