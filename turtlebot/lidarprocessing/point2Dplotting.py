@@ -101,7 +101,7 @@ def plotGraph(poseGraph,Lkey,ax=None):
     nx.draw_networkx(poseGraph,pos=pos,nodelist =Lkey,edgelist=edgelist,edge_color=edge_color,with_labels=True,font_size=6,node_size=200,ax=ax)
     ax.axis('equal')
 
-def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
                       forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
@@ -145,8 +145,8 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     Xcomb=[]
     for i in Lkey:
         gHs = nplinalg.inv(poseGraph.nodes[i]['sHg'])
-        Ti = poseGraph.nodes[i]['time']
-        XX = poseData[Ti]['X']
+        # Ti = poseGraph.nodes[i]['time']
+        XX = poseGraph.nodes[i]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
         Xcomb.append(XX)
         if i==Lkey[-1]:
@@ -154,7 +154,8 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
             
     Xcomb=np.vstack(Xcomb)
     # Xcomb=pt2dproc.binnerDensitySampler(Xcomb,dx=0.05,MaxFrac=0.5)
-    Xcomb=pt2dproc.binnerDownSampler(Xcomb,dx=0.05,cntThres=2)
+    # Xcomb=pt2dproc.binnerDownSamplerProbs(Xcomb,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])
+    Xcomb=pt2dproc.binnerDownSampler(Xcomb,dx=0.1,cntThres=2)
     # Xcomb=pt2dproc.SubMapGridmaker(Xcomb,len(Lkey),dx=0.05,r=0.8)
     
     ax.plot(Xcomb[:,0],Xcomb[:,1],'k.',linewidth=0.2, markersize=2)
@@ -173,8 +174,8 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     
     if forcePlotLastidx:
         gHs = nplinalg.inv(poseGraph.nodes[idx2]['sHg'])
-        Tidx2 = poseGraph.nodes[idx2]['time']
-        XX = poseData[Tidx2]['X']
+        # Tidx2 = poseGraph.nodes[idx2]['time']
+        XX = poseGraph.nodes[idx2]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
         ax.plot(XX[:,0],XX[:,1],'r.',linewidth=0.2, markersize=2)
     # gHs=nplinalg.inv(poseGraph.nodes[idx]['sHg'])
@@ -223,24 +224,22 @@ def plot_keyscan_path(poseGraph,poseData,idx1,idx2,makeNew=False,skipScanFrame=T
     else:
         return fig,ax,None,None
     
-def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
-    # H12: from 2 to 1
+    
+def plotcomparisons_points(X1,X2,idx1,idx2,clf1,UseLC=False,H21_est=None,H12=None,err=None):
+    # X12: points in 2 , transformed to 1
     
     fig = plt.figure("ComparisonPlot",figsize=(20,10))
-    if H12 is None:
-        ax = fig.subplots(nrows=1, ncols=2)
-    else:
-        ax = fig.subplots(nrows=1, ncols=3)
-    # idx=6309
-    # idx2=8761
-    T1 = poseGraph.nodes[idx1]['time']
-    T2 = poseGraph.nodes[idx2]['time']
-    X1=poseData[T1]['X']
-    X2=poseData[T2]['X']
-    # X12: points in 2 , transformed to 1
+    ax = fig.subplots(nrows=1, ncols=4)
+    
+    # H21_est = nplinalg.inv(H12)
+    
     X12 = np.dot(H12,np.hstack([X2,np.ones((X2.shape[0],1))]).T).T
     X12=X12[:,0:2]
 
+    if H21_est is not None:
+        H12_est = nplinalg.inv(H21_est)
+        X12est = np.dot(H12_est,np.hstack([X2,np.ones((X2.shape[0],1))]).T).T
+        X12est=X12est[:,0:2]
     
     # X12=X12-np.mean(X1,axis=0)            
     # X1=X1-np.mean(X1,axis=0)
@@ -248,34 +247,50 @@ def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
     
     ax[0].cla()
     ax[1].cla()
+    ax[2].cla()
+    ax[3].cla()
+    
     ax[0].plot(X1[:,0],X1[:,1],'b.')
     ax[1].plot(X2[:,0],X2[:,1],'r.')
-    ax[0].set_xlim(-4,4)
-    ax[1].set_xlim(-4,4)
-    ax[0].set_ylim(-4,4)
-    ax[1].set_ylim(-4,4)
+    ax[2].plot(X1[:,0],X1[:,1],'b.')
+    if H21_est is not None:
+        ax[2].plot(X12est[:,0],X12est[:,1],'r.')
+    ax[3].plot(X1[:,0],X1[:,1],'b.')
+    ax[3].plot(X12[:,0],X12[:,1],'r.')
+    
+    # ax[0].set_xlim(-4,4)
+    # ax[1].set_xlim(-4,4)
+    # ax[2].set_xlim(-4,4)
+    
+    # ax[0].set_ylim(-4,4)
+    # ax[1].set_ylim(-4,4)
+    # ax[2].set_ylim(-4,4)
+    
+    
     ax[0].set_title(str(idx1))
     ax[1].set_title(str(idx2))
+    
     ax[0].axis('equal')
     ax[1].axis('equal')
-    if H12 is not None:
-        ax[2].cla()
-        ax[2].plot(X1[:,0],X1[:,1],'b.')
-        ax[2].plot(X12[:,0],X12[:,1],'r.')
-        ax[2].set_xlim(-4,4)
-        ax[2].set_ylim(-4,4)
-        ax[2].axis('equal')
+    ax[2].axis('equal')
+    ax[3].axis('equal')
+
+        
+        
+        
+        
+        
     
-    clf1=poseGraph.nodes[idx1]['clf']
+        
     for i in range(clf1.n_components):
         # print("ok")
         m = clf1.means_[i]
         P = clf1.covariances_[i]
         Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
         ax[0].plot(Xe[:,0],Xe[:,1],'g')
-        ax[2].plot(Xe[:,0],Xe[:,1],'g')
+        ax[3].plot(Xe[:,0],Xe[:,1],'g')
     
-    ax[2].set_title("err = %f"%(err,))
+    ax[3].set_title("err = %f"%(err,))
     
     plt.draw()
     # plt.show()
@@ -283,6 +298,29 @@ def plotcomparisons(poseGraph,poseData,idx1,idx2,H12=None,err=None):
     
     plt.pause(1)
     return fig,ax
+def plotcomparisons(poseGraph,idx1,idx2,UseLC=False,H12=None,err=None):
+    # H12: from 2 to 1
+    sHg_1 = poseGraph.nodes[idx1]['sHg']
+    sHg_2 = poseGraph.nodes[idx2]['sHg']
+    
+    H21_est = np.matmul(sHg_2,nplinalg.inv(sHg_1))
+    
+    if UseLC:
+        clf1=poseGraph.nodes[idx1]['clflc']
+    else:
+        clf1=poseGraph.nodes[idx1]['clf']
+    
+    # idx=6309
+    # idx2=8761
+    if UseLC:
+        X1 = poseGraph.nodes[idx1]['Xlc']
+        X2 = poseGraph.nodes[idx2]['Xlc']
+    else:
+        X1 = poseGraph.nodes[idx1]['X']
+        X2 = poseGraph.nodes[idx2]['X']
+        
+    plotcomparisons_points(X1,X2,idx1,idx2,clf1,UseLC=UseLC,H21_est=H21_est,H12=H12,err=err)
+    
     
 def plotcomparisons_posegraph(poseGraph,idx1,idx2,H12=None):
     # H12: from 2 to 1

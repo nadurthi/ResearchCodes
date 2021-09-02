@@ -23,6 +23,9 @@ import datetime
 import pickle as pkl
 import numpy as np
 import numpy.linalg as nplinalg
+import matplotlib
+matplotlib.use("TKAgg",warn=False, force=True)
+
 import matplotlib.pyplot as plt
 from numpy.linalg import multi_dot
 from matplotlib.colors import LogNorm
@@ -62,17 +65,17 @@ from rclpy.qos import QoSPresetProfiles
 from rclpy.qos import QoSProfile
 from rclpy.qos import QoSReliabilityPolicy
 
-qos_closedposegraphPoses_profile = QoSProfile(
-            history=QoSHistoryPolicy.KEEP_LAST,
-            depth=10,
-            reliability=QoSReliabilityPolicy.RELIABLE,
-            durability=QoSDurabilityPolicy.VOLATILE,
-            lifespan=Duration(seconds=4),
-            deadline=Duration(seconds=5),
-            # liveliness=QoSLivelinessPolicy.MANUAL_BY_TOPIC,
-            # liveliness_lease_duration=Duration(nanoseconds=12),
-            avoid_ros_namespace_conventions=True
-        )
+# qos_closedposegraphPoses_profile = QoSProfile(
+#             history=QoSHistoryPolicy.KEEP_LAST,
+#             depth=10,
+#             reliability=QoSReliabilityPolicy.RELIABLE,
+#             durability=QoSDurabilityPolicy.VOLATILE,
+#             lifespan=Duration(seconds=4),
+#             deadline=Duration(seconds=5),
+#             # liveliness=QoSLivelinessPolicy.MANUAL_BY_TOPIC,
+#             # liveliness_lease_duration=Duration(nanoseconds=12),
+#             avoid_ros_namespace_conventions=True
+#         )
 
 
  #%%
@@ -87,13 +90,13 @@ qos_closedposegraphPoses_profile = QoSProfile(
     #                : edges carry the H matrix transformation between the frames.
     
     
-REL_POS_THRESH=0.3 # meters after which a keyframe is made
-ERR_THRES=1.2 # error threshold after which a keyframe is made
+# REL_POS_THRESH=0.3 # meters after which a keyframe is made
+# ERR_THRES=1.2 # error threshold after which a keyframe is made
 
 
-LOOP_CLOSURE_D_THES=1.5 # the histogram threshold for matching
-LOOP_CLOSURE_POS_THES=4 # match two keyframes only if they are within this threshold
-LOOP_CLOSURE_ERR_THES=-0.70 # match two keyframes only if error is less than this threshold
+# LOOP_CLOSURE_D_THES=1.5 # the histogram threshold for matching
+# LOOP_CLOSURE_POS_THES=4 # match two keyframes only if they are within this threshold
+# LOOP_CLOSURE_ERR_THES=-0.70 # match two keyframes only if error is less than this threshold
 
 
 class TurtlebotPlotter:
@@ -101,7 +104,7 @@ class TurtlebotPlotter:
         self.poseGraph=None
         self.Lodom={'trans':[],'q':[],'t':[]}
         self.Llidarpose={'trans':[],'q':[],'t':[],'gHs':[]}
-        self.poseData={}
+
     def save(self,filename):
         print("Saving")
         with open(filename,'wb') as fh:
@@ -116,7 +119,7 @@ class TurtlebotPlotter:
         
     def getPoseGraph(self,msg):
         unpickled = pkl.loads(codecs.decode(msg.data.encode(), "base64"))
-        self.poseGraph,self.poseData = unpickled
+        self.poseGraph,self.params = unpickled
         
         self.plotposegraph()
         # print(self.poseGraph.nodes)
@@ -172,8 +175,10 @@ class TurtlebotPlotter:
         Lkeys = list(filter(lambda x: self.poseGraph.nodes[x]['frametype']=="keyframe",self.poseGraph.nodes))
         idx0=min(Lkeys)
         idx1=max(Lkeys)
-        self.fig,self.ax,self.figg,self.axgraph=pt2dplot.plot_keyscan_path(self.poseGraph,self.poseData,idx0,idx1,makeNew=False,skipScanFrame=True,plotGraphbool=False,
-                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
+        self.fig,self.ax,self.figg,self.axgraph=pt2dplot.plot_keyscan_path(self.poseGraph,idx0,idx1,self.params,makeNew=False,skipScanFrame=True,plotGraphbool=False,
+                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+        
         et = time.time()
         print("plotting time : ",et-st)
 
@@ -198,7 +203,9 @@ def main(args=None):
     node = rclpy.create_node('turtlebotPlotter')
     ttlplt=TurtlebotPlotter()
 
-    node.create_subscription(String,'posegraphclose',ttlplt.getPoseGraph,qos_closedposegraphPoses_profile)
+    node.create_subscription(String,'posegraphplot',ttlplt.getPoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
+
+    
     node.create_subscription(Odometry,'odom',ttlplt.odom_listener_callback,qos_profile_sensor_data)
     node.create_subscription(PoseStamped,'lidarPose',ttlplt.lidar_pose_callback,qos_profile_sensor_data)
     # node.create_subscription(LaserScan,'scan',ttlplt.processScanPts,qos_profile_sensor_data)

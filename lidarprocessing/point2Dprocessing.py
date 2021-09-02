@@ -1078,9 +1078,9 @@ def LoopCLose_CloseByNodes(poseGraph,params):
                     if poseGraph.edges[s1,s2].get('isCloseByNodes',False)==True:
                         flg=True
                         break
-
+                
         if flg and np.all(np.abs(np.diff(S))==1) and len(S)<=params['LOOP_CLOSURE_COMBINE_MAX_NODES']: 
-            Seqs_todo.append(seq)
+           Seqs_todo.append(seq)
     
     # pdb.set_trace()
     
@@ -1098,6 +1098,7 @@ def LoopCLose_CloseByNodes(poseGraph,params):
     removedNodes=[]
     # Seqs_todo is the list of sorted decreasing sequences
     # do pose optimization and update all the global poses
+    SS=[]
     for i,seq in enumerate(Seqs_todo):
         # if max(seq)<=3502 or min(seq)>=3952:# def fails upto 8070 ; 3898 is bad     ; 3111 is okay  ;3952 and idx>=3502
         s1 = seq[0]
@@ -1109,6 +1110,27 @@ def LoopCLose_CloseByNodes(poseGraph,params):
         else:
             print("opt is failure")
             print(res)
+        
+        mn = seq[int(len(seq)/2)]
+        pii=mn
+        lp=[mn]
+        for ii in seq[seq.index(mn)+1:]:
+            if poseGraph.edges[pii,ii]['posematch']['mbinfrac_ActiveOvrlp']>=0.5:
+                lp.append(ii)
+            pii=ii
+        lp2=[]
+        pii=mn
+        for ii in seq[:seq.index(mn)][::-1]:
+            if poseGraph.edges[ii,pii]['posematch']['mbinfrac_ActiveOvrlp']>=0.5:
+                lp2.append(ii)
+            pii=ii
+        lp=lp2[::-1]+lp
+        if set(lp) == set(seq):
+            SS.append(lp)
+        
+        # print(mn,"----",seq,lp)
+        
+    Seqs_todo = SS
     
     Seqs_todo=sorted(Seqs_todo,key=lambda x: len(x),reverse=True)
     for i,seq in enumerate(Seqs_todo):
@@ -1116,6 +1138,9 @@ def LoopCLose_CloseByNodes(poseGraph,params):
             continue
             
         mn = seq[int(len(seq)/2)]
+        
+        
+        
         X=[poseGraph.nodes[mn]['X']]
         mnHg=poseGraph.nodes[mn]['sHg']
         gHmn=nplinalg.inv(mnHg)

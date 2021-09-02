@@ -22,3 +22,4 @@ pyperclip
 numba
 fastdist
 networkx
+numpy-quaternion
