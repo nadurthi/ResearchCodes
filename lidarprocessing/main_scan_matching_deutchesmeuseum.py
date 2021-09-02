@@ -602,10 +602,10 @@ Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key"
 # Ledges = poseGraph.edges
 
 for previdx,idx  in Lkeyloop_edges:
-    if previdx>=3187:
-        pass
-    else:
-        continue
+    # if previdx>=3187:
+    #     pass
+    # else:
+    #     continue
     if 'posematch' not in poseGraph.edges[previdx,idx]:
         print("no posematch for %d-%d"%(previdx,idx))
         posematch={'mbinfrac_ActiveOvrlp':-1}

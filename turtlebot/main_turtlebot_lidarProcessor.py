@@ -92,10 +92,10 @@ params['n_components']=15
 params['reg_covar']=0.002
 
 params["Key2Key_Overlap"]=0.3
-params["Scan2Key_Overlap"]=0.2
+params["Scan2Key_Overlap"]=0.3
 
 params['BinDownSampleKeyFrame_dx']=0.1
-params['BinDownSampleKeyFrame_probs']=0.01
+params['BinDownSampleKeyFrame_probs']=0.001
 
 params['Plot_BinDownSampleKeyFrame_dx']=0.05
 params['Plot_BinDownSampleKeyFrame_probs']=0.01
@@ -110,7 +110,7 @@ params['LOOP_CLOSURE_POS_MIN_THES']=0.1
 params['LOOP_CLOSURE_ERR_THES']= 3
 # params['LOOPCLOSE_BIN_MATCHER_dx'] = 4
 # params['LOOPCLOSE_BIN_MATCHER_L'] = 13
-params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.25,0.25],dtype=np.float64)
+params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6

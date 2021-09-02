@@ -954,6 +954,7 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     # Xprevidx=binnerDownSampler(np.vstack(X),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
     Xprevidx=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
     poseGraph.nodes[KeyFrame_prevIdx]['X']=Xprevidx
+    poseGraph.nodes[KeyFrame_prevIdx]['Xorig']=poseGraph.nodes[KeyFrame_prevIdx]['X']
     if 'SideScansCombine' in poseGraph.nodes[KeyFrame_prevIdx]:
         poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']+scansCombined
     else:
@@ -979,6 +980,7 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']=scansCombined
     poseGraph.nodes[KeyFrame_newIdx]['clf']=clf
     poseGraph.nodes[KeyFrame_newIdx]['X']=X_newKeyidx
+    poseGraph.nodes[KeyFrame_newIdx]['Xorig']=poseGraph.nodes[KeyFrame_newIdx]['X']
     poseGraph.nodes[KeyFrame_newIdx]['frametype']="keyframe"
     poseGraph.nodes[KeyFrame_newIdx]['color']="g"
     poseGraph.nodes[KeyFrame_newIdx]['LoopDetectDone']=False
@@ -993,7 +995,18 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     
     sHk_prevframe = poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['H']
     sHk,serrk,shessk_inv = scan2keyframe_match(clfkeyprev,Xkeyprev,X_newKeyidx,params,sHk=sHk_prevframe)
-    
+    if 'ScanMatch' in poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]:
+        poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['ScanMatch2']={'input':[clfkeyprev,Xkeyprev,X_newKeyidx,sHk_prevframe],
+                                                                    'output':[sHk,serrk,shessk_inv],
+                                                                    'clf_X_sidecombine':poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine'],
+                                                                    'X_sidecombine':poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']}
+    else:
+        poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['ScanMatch']={'input':[clfkeyprev,Xkeyprev,X_newKeyidx,sHk_prevframe],
+                                                                    'output':[sHk,serrk,shessk_inv],
+                                                                    'clf_X_sidecombine':poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine'],
+                                                                    'X_sidecombine':poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']}
+
+
     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['H']=sHk
     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['H_prevframe']=sHk_prevframe
     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['err']=serrk
@@ -1034,6 +1047,26 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['posematch']=posematch
     print("key %d- key %d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,KeyFrame_newIdx),posematch['mbinfrac_ActiveOvrlp'])
     
+    # if posematch['mbinfrac_ActiveOvrlp']<0.1:
+    #     # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None)
+    #     # clf=res['clf']
+    #     # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
+        
+    #     posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,params,DoCLFmatch=True,dx0=0.8,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
+    #     posematch['method']='binmatch'
+    #     print("%d-%d-posematch['mbinfrac_ActiveOvrlp'] with binmatch="%(KeyFrame_prevIdx,KeyFrame_newIdx),posematch['mbinfrac_ActiveOvrlp'])
+        
+    #     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['H']=posematch['H']
+    #     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['posematchGMM']=poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['posematch']
+    #     poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['posematch']=posematch
+        
+    #     kHg = poseGraph.nodes[KeyFrame_prevIdx]['sHg']
+    #     sHg = np.matmul(posematch['H'],kHg)
+    #     gHs=nplinalg.inv(sHg)    
+    #     tpos=np.matmul(gHs,np.array([0,0,1])) 
+    #     poseGraph.nodes[KeyFrame_newIdx]['pos']=(tpos[0],tpos[1])
+    #     poseGraph.nodes[KeyFrame_newIdx]['sHg']=sHg
+        
     
     # now add the scan frame
     KeyFrameClf = poseGraph.nodes[KeyFrame_newIdx]['clf']
@@ -1041,7 +1074,9 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     sHk_prevframe = np.identity(3)
     
     sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,Xclf,Xscan,params,sHk=sHk_prevframe)
-
+    
+   
+    
     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
     Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,Xscan,dxcomp)
     activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
@@ -1058,26 +1093,38 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     poseGraph.add_edge(KeyFrame_newIdx,ScanFrame_idx,H=sHk,H_prevframe=sHk_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Scan",color='r')
     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']=posematch
     
+    if 'ScanMatch' in poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]:
+        poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['ScanMatch2']={'input':[KeyFrameClf,Xclf,Xscan,params,sHk_prevframe],
+                                                                    'output':[sHk,serrk,shessk_inv],
+                                                                    'clf_X_sidecombine':poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine'],
+                                                                    'X_sidecombine':None}
+    else:
+        poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['ScanMatch']={'input':[KeyFrameClf,Xclf,Xscan,params,sHk_prevframe],
+                                                                    'output':[sHk,serrk,shessk_inv],
+                                                                    'clf_X_sidecombine':poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine'],
+                                                                    'X_sidecombine':None}
+        
     print("key %d- scan %d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_newIdx,ScanFrame_idx),posematch['mbinfrac_ActiveOvrlp'])
     
-    # if posematch['mbinfrac_ActiveOvrlp']<params["Key2Key_Overlap"]:
+    # if posematch['mbinfrac_ActiveOvrlp']<0.1:
     #     # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None)
     #     # clf=res['clf']
     #     # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
         
-    #     posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=5,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=sHk_prevframe)
+    #     posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_newIdx,ScanFrame_idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
     #     posematch['method']='binmatch'
-    #     print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])
+    #     print("%d-%d-posematch['mbinfrac_ActiveOvrlp'] scan to key in addkeyandscan="%(KeyFrame_newIdx,ScanFrame_idx),posematch['mbinfrac_ActiveOvrlp'])
         
-    #     poseGraph.edges[KeyFrame_prevIdx,idx]['H']=posematch['H']
-    #     poseGraph.edges[KeyFrame_prevIdx,idx]['posematchGMM']=poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']
-    #     poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']=posematch
+    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['H']=posematch['H']
+    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematchGMM']=poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']
+    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']=posematch
         
+    #     kHg = poseGraph.nodes[KeyFrame_newIdx]['sHg']
     #     sHg = np.matmul(posematch['H'],kHg)
     #     gHs=nplinalg.inv(sHg)    
     #     tpos=np.matmul(gHs,np.array([0,0,1])) 
-    #     poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
-    #     poseGraph.nodes[idx]['sHg']=sHg
+    #     poseGraph.nodes[ScanFrame_idx]['pos']=(tpos[0],tpos[1])
+    #     poseGraph.nodes[ScanFrame_idx]['sHg']=sHg
         
     # delete rest of the scan-ids as they are useless
     if keepOtherScans is False:

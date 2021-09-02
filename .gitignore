@@ -3,6 +3,7 @@ devel/
 install/
 docs/
 doc/
+debugplots/
 
 checkpoints/
 trainedmodels/
