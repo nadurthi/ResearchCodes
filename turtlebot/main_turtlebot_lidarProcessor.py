@@ -91,7 +91,7 @@ params['ERR_THRES']=4
 params['n_components']=15
 params['reg_covar']=0.002
 
-params["Key2Key_Overlap"]=0.3
+params["Key2Key_Overlap"]=0.2
 params["Scan2Key_Overlap"]=0.2
 
 params['BinDownSampleKeyFrame_dx']=0.1
@@ -114,10 +114,10 @@ params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.6
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.4
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 8
 
-params['offsetNodesBy'] = 2
+params['offsetNodesBy'] = 5
 
 
 params['MAX_NODES_ADJ_COMBINE']=5
@@ -147,7 +147,7 @@ params['LongLoopClose']['DoCLFmatch'] = True
 params['LongLoopClose']['AlongPathNearFracCountNodes'] = 0.3
 params['LongLoopClose']['AlongPathNearFracLength'] = 0.3
 params['LongLoopClose']['#TotalRandomPicks'] = 10
-params['LongLoopClose']['AdjSkipList'] = 10
+params['LongLoopClose']['AdjSkipList'] = 5
 params['LongLoopClose']['TotalCntComp'] = 500
 
 # params['Do_GMM_FINE_FIT']=False
@@ -161,13 +161,13 @@ params['xy_hess_inv_thres']=100000000*0.4
 params['th_hess_inv_thres']=100000000*0.4
 
 
-params['#ThreadsLoopClose']=8
+params['#ThreadsLoopClose']=4
 
 params['INTER_DISTANCE_BINS_max']=120
 params['INTER_DISTANCE_BINS_dx']=1
 
 
-params['LOOPCLOSE_AFTER_#KEYFRAMES']=10
+params['LOOPCLOSE_AFTER_#KEYFRAMES']=2
 
 poseData={}
 # mutex = mp.Lock()
@@ -245,7 +245,7 @@ class ProcessLidarData:
 
     def computePose(self,Tstamp,T,X):
         # mutex.acquire()
-        # self.setUpdatedPoseGraph()
+        self.setUpdatedPoseGraph()
         # self.setUpdatedPoseGraph_LocalLoopClosed()
         
         # first frame is automatically a keyframe
@@ -392,20 +392,20 @@ class ProcessLidarData:
         
         if self.poseGraph_closed is not None:
             
-            self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
+            
             
             for nn in self.poseGraph_closed.edges:
                 if nn not in self.poseGraph.edges:
-                    # print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
+                    print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
                     self.poseGraph.add_edge(nn[0],nn[1])
-                    
                     for k,v in  self.poseGraph_closed.edges[nn].items():
                         self.poseGraph.edges[nn][k]=v
                 elif self.poseGraph_closed.edges[nn].get('modified',False) is True:
                     for k,v in  self.poseGraph_closed.edges[nn].items():
                         if k in self.edge_modified_fields:
                             self.poseGraph.edges[nn][k]=v
-            
+                            print("updatted edge ",nn," for ",k,v)
+                            
             for nn in self.poseGraph.edges:
                 self.poseGraph.edges[nn]['modified']=False
             
@@ -418,12 +418,15 @@ class ProcessLidarData:
                             self.poseGraph.nodes[nn][k]=v
                 elif self.poseGraph_closed.nodes[nn].get('modified',False) is True:
                     for k,v in  self.poseGraph_closed.nodes[nn].items():
-                        if k in self.node_modified_fields:
+                        if k in self.node_modified_fields and k!='X':
                             self.poseGraph.nodes[nn][k]=v
-                
+                            print("updatted node ",nn," for ",k,v)
             for nn in self.poseGraph.nodes:
                 self.poseGraph.nodes[nn]['modified']=False
-        
+            
+            
+            self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
+            
             self.poseGraph_closed = None
     
     def setUpdatedPoseGraph_LocalLoopClosed(self):

@@ -835,24 +835,31 @@ def addNewKeyFrame(poseGraph,KeyFrameClf,X_previdx,XXidx,idx,KeyFrame_prevIdx,sH
     ## now add the idx node as a keyframe
     # Xidx=binnerDownSampler(np.vstack(Xidx),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
     Xidx=binnerDownSamplerProbs(Xidx,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+    # clf=None
     res = getclf(Xidx,params,doReWtopt=True,means_init=None)
     clf=res['clf']    
     
-    sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,X_previdx,Xidx,params,sHk=sHk_prevframe)
+    # sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,X_previdx,Xidx,params,sHk=sHk_prevframe)
     
-    kHg = poseGraph.nodes[KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
-    sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
-    gHs=nplinalg.inv(sHg) 
+    # kHg = poseGraph.nodes[KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
+    # sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
+    # gHs=nplinalg.inv(sHg) 
        
-    tpos=np.matmul(gHs,np.array([0,0,1])) 
+    # tpos=np.matmul(gHs,np.array([0,0,1])) 
 
-    idbmx = params['INTER_DISTANCE_BINS_max']
-    idbdx=params['INTER_DISTANCE_BINS_dx']
+    # idbmx = params['INTER_DISTANCE_BINS_max']
+    # idbdx=params['INTER_DISTANCE_BINS_dx']
     # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
-    h=np.array([0,0])
-    poseGraph.add_node(idx,frametype="keyframe",X=Xidx,clf=clf,time=idx,sHg=sHg_idx,pos=(tpos[0],tpos[1]),h=h,color='g',LoopDetectDone=False,SideScansCombine=scansCombined)
+    # h=np.array([0,0])
+    poseGraph.nodes[idx]['frametype']="keyframe"
+    poseGraph.nodes[idx]['X']=Xidx
+    poseGraph.nodes[idx]['SideScansCombine']=scansCombined
+    poseGraph.nodes[idx]['clf']=clf
+
+    poseGraph.edges[KeyFrame_prevIdx,idx]['edgetype']="Key2Key"
+    # poseGraph.add_node(idx,frametype="keyframe",X=Xidx,clf=clf,time=idx,sHg=sHg,pos=(tpos[0],tpos[1]),h=h,color='g',LoopDetectDone=False,SideScansCombine=scansCombined)
     
-    poseGraph.add_edge(KeyFrame_prevIdx,idx,H=sHk,H_prevframe=sHk_idx,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
+    # poseGraph.add_edge(KeyFrame_prevIdx,idx,H=sHk_idx,H_prevframe=sHk_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
             
     
 
@@ -1557,10 +1564,10 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
     # for KeyFrame_prevIdx in Lkeys:
     #     for idx in poseGraph.successors(KeyFrameIdx):
     #         posematch=poseGraph.edges[KeyFrame_prevIdx,idx]['posematch']
-    #         print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])
+            
     #         if posematch['mbinfrac_ActiveOvrlp']<params["Key2Key_Overlap"]:
-                
-    #             posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=sHk_prevframe)
+    #             print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])    
+    #             posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_prevIdx,idx,params,DoCLFmatch=True,dx0=0.8,L0=5,th0=np.pi/6,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=sHk_prevframe)
     #             posematch['method']='binmatch'
     #             print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_prevIdx,idx),posematch['mbinfrac_ActiveOvrlp'])
                 
@@ -1611,7 +1618,7 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
             
     cnt=0
     offsetNodesBy=params['offsetNodesBy']    
-    for idx in Lkeys[:-offsetNodesBy][::-1]:
+    for idx in Lkeys[:-offsetNodesBy][::-1]: #
         # if poseGraph.nodes[idx]['LoopDetectDone'] is True:
         #     continue
         
@@ -1910,7 +1917,7 @@ def updateGlobalPoses(poseGraph,sHg_updated,updateRelPoses=True):
     
     for n1 in sHg_updated.keys():
         for n2 in poseGraph.successors(n1):
-            if n2 in sHg_updated.keys():
+            if n2 in sHg_updated.keys() and poseGraph.edges[n1,n2]['edgetype']=="Key2Key":
                 n1Hg = poseGraph.nodes[n1]['sHg']
                 n2Hg = poseGraph.nodes[n2]['sHg']
                 if updateRelPoses:
@@ -1924,7 +1931,7 @@ def updateGlobalPoses(poseGraph,sHg_updated,updateRelPoses=True):
                     # elif poseGraph.has_edge(n2,n1):
                     #     poseGraph.edges[n2,n1]['H'] = np.matmul(n1Hg,nplinalg.inv(n2Hg))
                     
-    
+        
     lastupdatedNode = max(sHg_updated.keys())
     
     # now update other frames key/scan frames that were not part of the optimization
