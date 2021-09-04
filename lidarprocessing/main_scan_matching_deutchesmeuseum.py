@@ -613,8 +613,9 @@ for previdx,idx  in Lkeyloop_edges:
         posematch=poseGraph.edges[previdx,idx]['posematch']        
     # if posematch['mbinfrac_ActiveOvrlp']<=0.9:
         # posematchbin= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
-    
-    
+        posematch=pt2dproc2.poseGraph_keyFrame_matcher_long(poseGraph,previdx,idx,params,params['LongLoopClose']['PoseGrid'],
+                                                           params['LongLoopClose']['isPoseGridOffset'],
+                                                           params['LongLoopClose']['isBruteForce'])
         # mbinfrac=posematch['mbinfrac']
         # mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
         

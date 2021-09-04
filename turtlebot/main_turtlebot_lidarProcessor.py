@@ -53,7 +53,7 @@ import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 from threading import Thread, Lock
 #https://quaternion.readthedocs.io/en/latest/
 import quaternion
-
+import queue
 
 
 import datetime
@@ -85,17 +85,17 @@ from rclpy.qos import QoSReliabilityPolicy
     
 params={}
 
-params['REL_POS_THRESH']=5# meters after which a keyframe is made
-params['REL_ANGLE_THRESH']=90*np.pi/180
-params['ERR_THRES']=4
-params['n_components']=15
+params['REL_POS_THRESH']=100# meters after which a keyframe is made
+params['REL_ANGLE_THRESH']=180*np.pi/180
+params['ERR_THRES']=40
+params['n_components']=25
 params['reg_covar']=0.002
 
 params["Key2Key_Overlap"]=0.3
-params["Scan2Key_Overlap"]=0.3
+params["Scan2Key_Overlap"]=0.4
 
-params['BinDownSampleKeyFrame_dx']=0.1
-params['BinDownSampleKeyFrame_probs']=0.001
+params['BinDownSampleKeyFrame_dx']=0.15
+params['BinDownSampleKeyFrame_probs']=0.1
 
 params['Plot_BinDownSampleKeyFrame_dx']=0.05
 params['Plot_BinDownSampleKeyFrame_probs']=0.01
@@ -114,7 +114,7 @@ params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.6
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.3
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 8
 
 params['offsetNodesBy'] = 2
@@ -167,7 +167,7 @@ params['INTER_DISTANCE_BINS_max']=120
 params['INTER_DISTANCE_BINS_dx']=1
 
 
-params['LOOPCLOSE_AFTER_#KEYFRAMES']=5
+params['LOOPCLOSE_AFTER_#KEYFRAMES']=3
 
 poseData={}
 # mutex = mp.Lock()
@@ -178,7 +178,8 @@ class ProcessLidarData:
         self.idx0 = 0
         self.loopClosedFrameidx = 0
         self.poseGraph_closed=None
-        self.qscan = mp.Queue()
+        # self.qscan = mp.Queue()
+        self.qscan = queue.Queue()
         
     def setlidarpose_publisher(self,lidarpose_pub):
         self.lidarpose_pub = lidarpose_pub
@@ -292,7 +293,8 @@ class ProcessLidarData:
         posematch=pt2dproc.eval_posematch(sHk,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
         posematch['method']='GMMmatch'
         
-        print("idx = ",self.idx," Error = ",serrk," , and time taken = ",et-st," posematch=",posematch['mbinfrac_ActiveOvrlp'])
+        
+        print("qsize = ",self.qscan.qsize(),"idx = ",self.idx," Error = ",serrk," , and time taken = ",et-st," posematch=",posematch['mbinfrac_ActiveOvrlp'])
         
         # now get the global pose to the frame
         kHg = self.poseGraph.nodes[self.KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
@@ -394,39 +396,43 @@ class ProcessLidarData:
         
         if self.poseGraph_closed is not None:
             
+            Lkeyloop_edges = list(filter(lambda x: self.poseGraph_closed.edges[x]['edgetype']=="Key2Key-LoopClosure",self.poseGraph_closed.edges))
             
-            
-            for nn in self.poseGraph_closed.edges:
+            for nn in Lkeyloop_edges:
                 if nn not in self.poseGraph.edges:
                     # print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
                     self.poseGraph.add_edge(nn[0],nn[1])
                     
                     for k,v in  self.poseGraph_closed.edges[nn].items():
                         self.poseGraph.edges[nn][k]=v
-                elif self.poseGraph_closed.edges[nn].get('modified',False) is True:
-                    for k,v in  self.poseGraph_closed.edges[nn].items():
-                        if k in self.edge_modified_fields:
-                            self.poseGraph.edges[nn][k]=v
-            
+                # elif self.poseGraph_closed.edges[nn].get('modified',False) is True:
+                #     for k,v in  self.poseGraph_closed.edges[nn].items():
+                #         if k in self.edge_modified_fields:
+                #             self.poseGraph.edges[nn][k]=v
+                
+                
             for nn in self.poseGraph.edges:
                 self.poseGraph.edges[nn]['modified']=False
             
             for nn in self.poseGraph_closed.nodes:
-                if nn not in self.poseGraph.nodes:
-                    self.poseGraph.add_node(nn)
-                    print("added new node: ",nn)
-                    for k,v in  self.poseGraph_closed.nodes[nn].items():
-                        if k!='X':
-                            self.poseGraph.nodes[nn][k]=v
-                elif self.poseGraph_closed.nodes[nn].get('modified',False) is True:
-                    for k,v in  self.poseGraph_closed.nodes[nn].items():
-                        if k in self.node_modified_fields:
-                            self.poseGraph.nodes[nn][k]=v
+                # if nn not in self.poseGraph.nodes:
+                #     self.poseGraph.add_node(nn)
+                #     print("added new node: ",nn)
+                #     for k,v in  self.poseGraph_closed.nodes[nn].items():
+                #         if k!='X':
+                #             self.poseGraph.nodes[nn][k]=v
+                # # elif self.poseGraph_closed.nodes[nn].get('modified',False) is True:
+                # #     for k,v in  self.poseGraph_closed.nodes[nn].items():
+                # #         if k in self.node_modified_fields:
+                # #             self.poseGraph.nodes[nn][k]=v
+                # else:
+                if 'LongLoopDonePrevIdxs' in self.poseGraph_closed.nodes[nn]:
+                    self.poseGraph.nodes[nn]['LongLoopDonePrevIdxs']=self.poseGraph_closed.nodes[nn]['LongLoopDonePrevIdxs']
                 
             for nn in self.poseGraph.nodes:
                 self.poseGraph.nodes[nn]['modified']=False
             
-            # self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
+            self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
             
             self.poseGraph_closed = None
     
@@ -583,18 +589,18 @@ def main(args=None):
         
     # subscribe to scan data
     # node.create_subscription(LaserScan,'scan',pld.pushScanMsg,qos_profile_sensor_data)
-    node.create_subscription(MultiEchoLaserScan,'/horizontal_laser_2d',pld.pushScanMsg,ttlhelp.qos_scans_profile)
+    node.create_subscription(MultiEchoLaserScan,'/horizontal_laser_2d',pld.pushScanMsg)
     
     # subscribe to recieve the closed global poses.
     node.create_subscription(String,'posegraphClosedPoses',pld.updatePoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
     
     node.create_timer(0.01,pld.processScanPts)
-    
+    # node.create_timer(0.01,pld.pushScanMsg)
     print("ready")
     try:
-        # while True:
-            # rclpy.spin_once(node,timeout_sec=0.001)
-        rclpy.spin(node)
+        while True:
+            rclpy.spin_once(node,timeout_sec=0.001)
+        # rclpy.spin(node)
     except KeyboardInterrupt:
     	pass
     
