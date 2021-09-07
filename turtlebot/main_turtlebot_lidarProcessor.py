@@ -54,7 +54,8 @@ from threading import Thread, Lock
 #https://quaternion.readthedocs.io/en/latest/
 import quaternion
 import queue
-
+import asyncio
+import threading
 
 import datetime
 dtype = np.float64
@@ -92,7 +93,7 @@ params['n_components']=25
 params['reg_covar']=0.002
 
 params["Key2Key_Overlap"]=0.3
-params["Scan2Key_Overlap"]=0.4
+params["Scan2Key_Overlap"]=0.3
 
 params['BinDownSampleKeyFrame_dx']=0.15
 params['BinDownSampleKeyFrame_probs']=0.1
@@ -147,7 +148,7 @@ params['LongLoopClose']['DoCLFmatch'] = True
 params['LongLoopClose']['AlongPathNearFracCountNodes'] = 0.3
 params['LongLoopClose']['AlongPathNearFracLength'] = 0.3
 params['LongLoopClose']['#TotalRandomPicks'] = 10
-params['LongLoopClose']['AdjSkipList'] = 10
+params['LongLoopClose']['AdjSkipList'] = 3
 params['LongLoopClose']['TotalCntComp'] = 500
 
 # params['Do_GMM_FINE_FIT']=False
@@ -171,6 +172,15 @@ params['LOOPCLOSE_AFTER_#KEYFRAMES']=3
 
 poseData={}
 # mutex = mp.Lock()
+loop = asyncio.get_event_loop()
+
+def publishPlotPose(obj):
+    msg=String()
+    # we need to use this weird codecs to encode non-ASCI characters in the pickled string
+    # ros does not accept non-ASCI characters. 
+    pickled = codecs.encode(pkl.dumps([obj.poseGraph,params]), "base64").decode()
+    msg.data = pickled
+    obj.plotpose_pub.publish(msg)
 
 class ProcessLidarData:
     def __init__(self):
@@ -180,6 +190,7 @@ class ProcessLidarData:
         self.poseGraph_closed=None
         # self.qscan = mp.Queue()
         self.qscan = queue.Queue()
+        self.idx=0
         
     def setlidarpose_publisher(self,lidarpose_pub):
         self.lidarpose_pub = lidarpose_pub
@@ -194,6 +205,12 @@ class ProcessLidarData:
         msg=String()
         # we need to use this weird codecs to encode non-ASCI characters in the pickled string
         # ros does not accept non-ASCI characters. 
+        for nn in self.poseGraph.edges:
+            self.poseGraph.edges[nn]['modified']=[]
+        for nn in self.poseGraph.nodes:
+            self.poseGraph.nodes[nn]['modified']=[]
+        
+        
         pickled = codecs.encode(pkl.dumps([self.poseGraph,params]), "base64").decode()
         msg.data = pickled
         self.lidarposegraph_pub.publish(msg)
@@ -229,7 +246,8 @@ class ProcessLidarData:
     
     def pushScanMsg(self,scanmsg):
         self.qscan.put(scanmsg)
-
+        # self.idx+=1
+        # print(self.idx,scanmsg.header)
         
     def processScanPts(self):
         try:
@@ -292,7 +310,7 @@ class ProcessLidarData:
         activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
         posematch=pt2dproc.eval_posematch(sHk,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
         posematch['method']='GMMmatch'
-        
+        posematch['when']="Scan to key in main"
         
         print("qsize = ",self.qscan.qsize(),"idx = ",self.idx," Error = ",serrk," , and time taken = ",et-st," posematch=",posematch['mbinfrac_ActiveOvrlp'])
         
@@ -373,8 +391,18 @@ class ProcessLidarData:
         self.idx+=1
         self.publishPose(Tstamp,gHs)
         
+        
+        
         if self.idx%50==0:
-            self.publishPlotPose()
+            st=time.time()
+            # self.publishPlotPose()
+            # self.task1 = loop.create_task(self.publishPlotPose) 
+            self.thread1 = threading.Thread(target=self.publishPlotPose,args=())
+            self.thread1.daemon=True
+            self.thread1.start()
+            et=time.time()
+            print("time taken to publish posegraph for plot = ",et-st)
+            # self.thread1.join()
             pass
         
         # request a loop closure after every say 50 frames
@@ -387,7 +415,13 @@ class ProcessLidarData:
         if Lkey.index(ilast)-Lkey.index(self.loopClosedFrameidx) > params['LOOPCLOSE_AFTER_#KEYFRAMES'] :
             self.loopClosedFrameidx = ilast
             print("publish posegraph to call for loop closure")
-            self.publishPoseGraph()
+            st=time.time()
+            self.thread2 = threading.Thread(target=self.publishPoseGraph,args=())
+            self.thread2.daemon=True
+            self.thread2.start()
+            
+            et=time.time()
+            print("time taken to publish posegraph for loop close = ",et-st)
              # with lots of frames saving the points X, the posegrph will be large
              # for now let it be, but later we can think of saving the scan points in a separate node/server
     
@@ -396,41 +430,35 @@ class ProcessLidarData:
         
         if self.poseGraph_closed is not None:
             
-            Lkeyloop_edges = list(filter(lambda x: self.poseGraph_closed.edges[x]['edgetype']=="Key2Key-LoopClosure",self.poseGraph_closed.edges))
+            Lkeyloop_edges = list(filter(lambda x: self.poseGraph_closed.edges[x]['edgetype']=="Key2Key-LoopClosure" or self.poseGraph_closed.edges[x]['edgetype']=="Key2Key",self.poseGraph_closed.edges))
             
             for nn in Lkeyloop_edges:
                 if nn not in self.poseGraph.edges:
                     # print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
                     self.poseGraph.add_edge(nn[0],nn[1])
-                    
-                    for k,v in  self.poseGraph_closed.edges[nn].items():
-                        self.poseGraph.edges[nn][k]=v
-                # elif self.poseGraph_closed.edges[nn].get('modified',False) is True:
-                #     for k,v in  self.poseGraph_closed.edges[nn].items():
-                #         if k in self.edge_modified_fields:
-                #             self.poseGraph.edges[nn][k]=v
+                    self.poseGraph.edges[nn[0],nn[1]].update(self.poseGraph_closed.edges[nn])
+
+                else:
+                    for k in self.poseGraph_closed.edges[nn]['modified']:
+                        self.poseGraph.edges[nn][k]=self.poseGraph_closed.edges[nn][k]
                 
                 
             for nn in self.poseGraph.edges:
-                self.poseGraph.edges[nn]['modified']=False
+                self.poseGraph.edges[nn]['modified']=[]
             
             for nn in self.poseGraph_closed.nodes:
-                # if nn not in self.poseGraph.nodes:
-                #     self.poseGraph.add_node(nn)
-                #     print("added new node: ",nn)
-                #     for k,v in  self.poseGraph_closed.nodes[nn].items():
-                #         if k!='X':
-                #             self.poseGraph.nodes[nn][k]=v
-                # # elif self.poseGraph_closed.nodes[nn].get('modified',False) is True:
-                # #     for k,v in  self.poseGraph_closed.nodes[nn].items():
-                # #         if k in self.node_modified_fields:
-                # #             self.poseGraph.nodes[nn][k]=v
-                # else:
-                if 'LongLoopDonePrevIdxs' in self.poseGraph_closed.nodes[nn]:
-                    self.poseGraph.nodes[nn]['LongLoopDonePrevIdxs']=self.poseGraph_closed.nodes[nn]['LongLoopDonePrevIdxs']
+                if nn not in self.poseGraph.nodes:
+                    self.poseGraph.add_node(nn)
+                    print("added new node: ",nn)
+                    for k,v in  self.poseGraph_closed.nodes[nn].items():
+                        if k!='X':
+                            self.poseGraph.nodes[nn][k]=v
+                else:
+                    for k in self.poseGraph_closed.nodes[nn]['modified']:
+                        self.poseGraph.nodes[nn][k]=self.poseGraph_closed.nodes[nn][k]
                 
             for nn in self.poseGraph.nodes:
-                self.poseGraph.nodes[nn]['modified']=False
+                self.poseGraph.nodes[nn]['modified']=[]
             
             self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
             
@@ -455,8 +483,10 @@ class ProcessLidarData:
         
     def updatePoseGraph(self,msgpkl_sHg_updated):
         print("updating loop closed poses")
-        self.poseGraph_closed,self.sHg_updated,self.node_modified_fields,self.edge_modified_fields = pkl.loads(codecs.decode(msgpkl_sHg_updated.data.encode(), "base64"))
-        
+        st=time.time()
+        self.poseGraph_closed,self.sHg_updated = pkl.loads(codecs.decode(msgpkl_sHg_updated.data.encode(), "base64"))
+        et=time.time()
+        print("time taken to recieve loopclosed posegraph = ",et-st)
         # self.mutex.acquire()
         # unpickle the loop closed global frames
         
@@ -589,7 +619,7 @@ def main(args=None):
         
     # subscribe to scan data
     # node.create_subscription(LaserScan,'scan',pld.pushScanMsg,qos_profile_sensor_data)
-    node.create_subscription(MultiEchoLaserScan,'/horizontal_laser_2d',pld.pushScanMsg)
+    node.create_subscription(MultiEchoLaserScan,'/scan1',pld.pushScanMsg)
     
     # subscribe to recieve the closed global poses.
     node.create_subscription(String,'posegraphClosedPoses',pld.updatePoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
