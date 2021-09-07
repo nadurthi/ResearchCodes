@@ -53,8 +53,9 @@ import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 from threading import Thread, Lock
 #https://quaternion.readthedocs.io/en/latest/
 import quaternion
-
-
+import queue
+import asyncio
+import threading
 
 import datetime
 dtype = np.float64
@@ -85,16 +86,16 @@ from rclpy.qos import QoSReliabilityPolicy
     
 params={}
 
-params['REL_POS_THRESH']=5# meters after which a keyframe is made
-params['REL_ANGLE_THRESH']=90*np.pi/180
-params['ERR_THRES']=4
-params['n_components']=15
+params['REL_POS_THRESH']=100# meters after which a keyframe is made
+params['REL_ANGLE_THRESH']=180*np.pi/180
+params['ERR_THRES']=40
+params['n_components']=25
 params['reg_covar']=0.002
 
-params["Key2Key_Overlap"]=0.2
-params["Scan2Key_Overlap"]=0.2
+params["Key2Key_Overlap"]=0.3
+params["Scan2Key_Overlap"]=0.3
 
-params['BinDownSampleKeyFrame_dx']=0.1
+params['BinDownSampleKeyFrame_dx']=0.15
 params['BinDownSampleKeyFrame_probs']=0.1
 
 params['Plot_BinDownSampleKeyFrame_dx']=0.05
@@ -114,10 +115,10 @@ params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.4
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.3
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 8
 
-params['offsetNodesBy'] = 5
+params['offsetNodesBy'] = 2
 
 
 params['MAX_NODES_ADJ_COMBINE']=5
@@ -147,7 +148,7 @@ params['LongLoopClose']['DoCLFmatch'] = True
 params['LongLoopClose']['AlongPathNearFracCountNodes'] = 0.3
 params['LongLoopClose']['AlongPathNearFracLength'] = 0.3
 params['LongLoopClose']['#TotalRandomPicks'] = 10
-params['LongLoopClose']['AdjSkipList'] = 5
+params['LongLoopClose']['AdjSkipList'] = 3
 params['LongLoopClose']['TotalCntComp'] = 500
 
 # params['Do_GMM_FINE_FIT']=False
@@ -161,16 +162,25 @@ params['xy_hess_inv_thres']=100000000*0.4
 params['th_hess_inv_thres']=100000000*0.4
 
 
-params['#ThreadsLoopClose']=4
+params['#ThreadsLoopClose']=8
 
 params['INTER_DISTANCE_BINS_max']=120
 params['INTER_DISTANCE_BINS_dx']=1
 
 
-params['LOOPCLOSE_AFTER_#KEYFRAMES']=2
+params['LOOPCLOSE_AFTER_#KEYFRAMES']=3
 
 poseData={}
 # mutex = mp.Lock()
+loop = asyncio.get_event_loop()
+
+def publishPlotPose(obj):
+    msg=String()
+    # we need to use this weird codecs to encode non-ASCI characters in the pickled string
+    # ros does not accept non-ASCI characters. 
+    pickled = codecs.encode(pkl.dumps([obj.poseGraph,params]), "base64").decode()
+    msg.data = pickled
+    obj.plotpose_pub.publish(msg)
 
 class ProcessLidarData:
     def __init__(self):
@@ -178,7 +188,9 @@ class ProcessLidarData:
         self.idx0 = 0
         self.loopClosedFrameidx = 0
         self.poseGraph_closed=None
-        self.qscan = mp.Queue()
+        # self.qscan = mp.Queue()
+        self.qscan = queue.Queue()
+        self.idx=0
         
     def setlidarpose_publisher(self,lidarpose_pub):
         self.lidarpose_pub = lidarpose_pub
@@ -193,6 +205,12 @@ class ProcessLidarData:
         msg=String()
         # we need to use this weird codecs to encode non-ASCI characters in the pickled string
         # ros does not accept non-ASCI characters. 
+        for nn in self.poseGraph.edges:
+            self.poseGraph.edges[nn]['modified']=[]
+        for nn in self.poseGraph.nodes:
+            self.poseGraph.nodes[nn]['modified']=[]
+        
+        
         pickled = codecs.encode(pkl.dumps([self.poseGraph,params]), "base64").decode()
         msg.data = pickled
         self.lidarposegraph_pub.publish(msg)
@@ -228,7 +246,8 @@ class ProcessLidarData:
     
     def pushScanMsg(self,scanmsg):
         self.qscan.put(scanmsg)
-
+        # self.idx+=1
+        # print(self.idx,scanmsg.header)
         
     def processScanPts(self):
         try:
@@ -291,8 +310,9 @@ class ProcessLidarData:
         activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
         posematch=pt2dproc.eval_posematch(sHk,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
         posematch['method']='GMMmatch'
+        posematch['when']="Scan to key in main"
         
-        print("idx = ",self.idx," Error = ",serrk," , and time taken = ",et-st)
+        print("qsize = ",self.qscan.qsize(),"idx = ",self.idx," Error = ",serrk," , and time taken = ",et-st," posematch=",posematch['mbinfrac_ActiveOvrlp'])
         
         # now get the global pose to the frame
         kHg = self.poseGraph.nodes[self.KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
@@ -311,14 +331,16 @@ class ProcessLidarData:
         if serrk>params['ERR_THRES'] or nplinalg.norm(sHk[:2,2])>params['REL_POS_THRESH'] or posematch['mbinfrac_ActiveOvrlp']<params["Scan2Key_Overlap"] or thdiff>params['REL_ANGLE_THRESH']:
             # make the previous idx as the previous keyframe and add idx as a scan to this keyframe
             
-            idxprevScan=self.idx-1
-            XprevScan = self.poseGraph.nodes[self.idx-1]['X']
-            sHk_prevScan = self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx-1]['H']
-            sHg_prevScan = self.poseGraph.nodes[self.idx-1]['sHg']
+            # idxprevScan=self.idx-1
+            # XprevScan = self.poseGraph.nodes[self.idx-1]['X']
+            # sHk_prevScan = self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx-1]['H']
+            # sHg_prevScan = self.poseGraph.nodes[self.idx-1]['sHg']
             
             print("New Keyframe")
             st = time.time()
-            pt2dproc.addNewKeyFrame(self.poseGraph,KeyFrameClf,Xclf,XprevScan,idxprevScan,self.KeyFrame_prevIdx,sHk_prevScan,sHg_prevScan,sHk_prevScan,params,keepOtherScans=False)
+            # pt2dproc.addNewKeyFrameAndScan(self.poseGraph,KeyFrameClf,Xclf,XprevScan,idxprevScan,self.KeyFrame_prevIdx,sHk_prevScan,sHg_prevScan,sHk_prevScan,params,keepOtherScans=False)
+            pt2dproc.addNewKeyFrameAndScan(self.poseGraph,self.KeyFrame_prevIdx,self.idx-1,self.idx,X,T,
+                          params,keepOtherScans=False)
             et=time.time()
             print("time taken for new keyframe = ",et-st)
             
@@ -326,32 +348,32 @@ class ProcessLidarData:
             
             #Now add the scan frame to the new keyframe
             # estimate pose to last keyframe
-            KeyFrameClf = self.poseGraph.nodes[self.KeyFrame_prevIdx]['clf']
-            Xclf = self.poseGraph.nodes[self.KeyFrame_prevIdx]['X']
+            # KeyFrameClf = self.poseGraph.nodes[self.KeyFrame_prevIdx]['clf']
+            # Xclf = self.poseGraph.nodes[self.KeyFrame_prevIdx]['X']
             
-            # get a initial guess for pose optimization using prev frame pose. 
-            if (self.idx-self.KeyFrame_prevIdx)<=1: # if it is too close use Idenity as initial guess of pose
-                sHk_prevframe = np.identity(3)
-            else: # or else get the H pose matrix between prev frame and prev scan frame
-                sHk_prevframe = self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx-1]['H']
+            # # get a initial guess for pose optimization using prev frame pose. 
+            # if (self.idx-self.KeyFrame_prevIdx)<=1: # if it is too close use Idenity as initial guess of pose
+            #     sHk_prevframe = np.identity(3)
+            # else: # or else get the H pose matrix between prev frame and prev scan frame
+            #     sHk_prevframe = self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx-1]['H']
 
-            sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=sHk_prevframe)
+            # sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=sHk_prevframe)
 
             
-            dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
-            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,X,dxcomp)
-            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
-            posematch=pt2dproc.eval_posematch(sHk,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-            posematch['method']='GMMmatch'
+            # dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+            # Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xclf,X,dxcomp)
+            # activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+            # posematch=pt2dproc.eval_posematch(sHk,X,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+            # posematch['method']='GMMmatch'
             
-            kHg = self.poseGraph.nodes[self.KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
-            sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
-            gHs=nplinalg.inv(sHg) # current frame to global
+            # kHg = self.poseGraph.nodes[self.KeyFrame_prevIdx]['sHg'] #global pose to the prev keyframe
+            # sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
+            # gHs=nplinalg.inv(sHg) # current frame to global
             
-            tpos=np.matmul(gHs,np.array([0,0,1]))
-            self.poseGraph.add_node(self.idx,frametype="scan",time=T,X=X,sHg=sHg,pos=(tpos[0],tpos[1]),color='r',LoopDetectDone=False)
-            self.poseGraph.add_edge(self.KeyFrame_prevIdx,self.idx,H=sHk,H_prevframe=sHk_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Scan",color='r')
-            self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx]['posematch']=posematch
+            # tpos=np.matmul(gHs,np.array([0,0,1]))
+            # self.poseGraph.add_node(self.idx,frametype="scan",time=T,X=X,sHg=sHg,pos=(tpos[0],tpos[1]),color='r',LoopDetectDone=False)
+            # self.poseGraph.add_edge(self.KeyFrame_prevIdx,self.idx,H=sHk,H_prevframe=sHk_prevframe,err=serrk,hess_inv=shessk_inv,edgetype="Key2Scan",color='r')
+            # self.poseGraph.edges[self.KeyFrame_prevIdx,self.idx]['posematch']=posematch
             
                 
         else: #not a keyframe
@@ -369,8 +391,18 @@ class ProcessLidarData:
         self.idx+=1
         self.publishPose(Tstamp,gHs)
         
+        
+        
         if self.idx%50==0:
-            self.publishPlotPose()
+            st=time.time()
+            # self.publishPlotPose()
+            # self.task1 = loop.create_task(self.publishPlotPose) 
+            self.thread1 = threading.Thread(target=self.publishPlotPose,args=())
+            self.thread1.daemon=True
+            self.thread1.start()
+            et=time.time()
+            print("time taken to publish posegraph for plot = ",et-st)
+            # self.thread1.join()
             pass
         
         # request a loop closure after every say 50 frames
@@ -383,7 +415,13 @@ class ProcessLidarData:
         if Lkey.index(ilast)-Lkey.index(self.loopClosedFrameidx) > params['LOOPCLOSE_AFTER_#KEYFRAMES'] :
             self.loopClosedFrameidx = ilast
             print("publish posegraph to call for loop closure")
-            self.publishPoseGraph()
+            st=time.time()
+            self.thread2 = threading.Thread(target=self.publishPoseGraph,args=())
+            self.thread2.daemon=True
+            self.thread2.start()
+            
+            et=time.time()
+            print("time taken to publish posegraph for loop close = ",et-st)
              # with lots of frames saving the points X, the posegrph will be large
              # for now let it be, but later we can think of saving the scan points in a separate node/server
     
@@ -392,22 +430,21 @@ class ProcessLidarData:
         
         if self.poseGraph_closed is not None:
             
+            Lkeyloop_edges = list(filter(lambda x: self.poseGraph_closed.edges[x]['edgetype']=="Key2Key-LoopClosure" or self.poseGraph_closed.edges[x]['edgetype']=="Key2Key",self.poseGraph_closed.edges))
             
-            
-            for nn in self.poseGraph_closed.edges:
+            for nn in Lkeyloop_edges:
                 if nn not in self.poseGraph.edges:
-                    print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
+                    # print("added edge: ",nn,nn[0] in self.poseGraph.nodes,nn[1] in self.poseGraph.nodes)
                     self.poseGraph.add_edge(nn[0],nn[1])
-                    for k,v in  self.poseGraph_closed.edges[nn].items():
-                        self.poseGraph.edges[nn][k]=v
-                elif self.poseGraph_closed.edges[nn].get('modified',False) is True:
-                    for k,v in  self.poseGraph_closed.edges[nn].items():
-                        if k in self.edge_modified_fields:
-                            self.poseGraph.edges[nn][k]=v
-                            print("updatted edge ",nn," for ",k,v)
-                            
+                    self.poseGraph.edges[nn[0],nn[1]].update(self.poseGraph_closed.edges[nn])
+
+                else:
+                    for k in self.poseGraph_closed.edges[nn]['modified']:
+                        self.poseGraph.edges[nn][k]=self.poseGraph_closed.edges[nn][k]
+                
+                
             for nn in self.poseGraph.edges:
-                self.poseGraph.edges[nn]['modified']=False
+                self.poseGraph.edges[nn]['modified']=[]
             
             for nn in self.poseGraph_closed.nodes:
                 if nn not in self.poseGraph.nodes:
@@ -416,14 +453,12 @@ class ProcessLidarData:
                     for k,v in  self.poseGraph_closed.nodes[nn].items():
                         if k!='X':
                             self.poseGraph.nodes[nn][k]=v
-                elif self.poseGraph_closed.nodes[nn].get('modified',False) is True:
-                    for k,v in  self.poseGraph_closed.nodes[nn].items():
-                        if k in self.node_modified_fields and k!='X':
-                            self.poseGraph.nodes[nn][k]=v
-                            print("updatted node ",nn," for ",k,v)
+                else:
+                    for k in self.poseGraph_closed.nodes[nn]['modified']:
+                        self.poseGraph.nodes[nn][k]=self.poseGraph_closed.nodes[nn][k]
+                
             for nn in self.poseGraph.nodes:
-                self.poseGraph.nodes[nn]['modified']=False
-            
+                self.poseGraph.nodes[nn]['modified']=[]
             
             self.poseGraph=pt2dproc.updateGlobalPoses(self.poseGraph,self.sHg_updated,updateRelPoses=True)
             
@@ -448,8 +483,10 @@ class ProcessLidarData:
         
     def updatePoseGraph(self,msgpkl_sHg_updated):
         print("updating loop closed poses")
-        self.poseGraph_closed,self.sHg_updated,self.node_modified_fields,self.edge_modified_fields = pkl.loads(codecs.decode(msgpkl_sHg_updated.data.encode(), "base64"))
-        
+        st=time.time()
+        self.poseGraph_closed,self.sHg_updated = pkl.loads(codecs.decode(msgpkl_sHg_updated.data.encode(), "base64"))
+        et=time.time()
+        print("time taken to recieve loopclosed posegraph = ",et-st)
         # self.mutex.acquire()
         # unpickle the loop closed global frames
         
@@ -582,18 +619,18 @@ def main(args=None):
         
     # subscribe to scan data
     # node.create_subscription(LaserScan,'scan',pld.pushScanMsg,qos_profile_sensor_data)
-    node.create_subscription(MultiEchoLaserScan,'/horizontal_laser_2d',pld.pushScanMsg,ttlhelp.qos_scans_profile)
+    node.create_subscription(MultiEchoLaserScan,'/scan1',pld.pushScanMsg)
     
     # subscribe to recieve the closed global poses.
     node.create_subscription(String,'posegraphClosedPoses',pld.updatePoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
     
     node.create_timer(0.01,pld.processScanPts)
-    
+    # node.create_timer(0.01,pld.pushScanMsg)
     print("ready")
     try:
-        # while True:
-            # rclpy.spin_once(node,timeout_sec=0.001)
-        rclpy.spin(node)
+        while True:
+            rclpy.spin_once(node,timeout_sec=0.001)
+        # rclpy.spin(node)
     except KeyboardInterrupt:
     	pass
     

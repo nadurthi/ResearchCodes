@@ -3,7 +3,8 @@ devel/
 install/
 docs/
 doc/
-
+debugplots/
+debugPlots/
 checkpoints/
 trainedmodels/
 .spyproject/

@@ -150,8 +150,7 @@ class ProcessLoopClose:
             #     print("opt is failure")
             #     print(res)
             
-            node_modified_fields=['clf','LongLoopDonePrevIdxs',]
-            edge_modified_fields=[]
+
             
             L=[]
             for n in  poseGraph.nodes:
@@ -164,7 +163,7 @@ class ProcessLoopClose:
             # if res.success:
             msg = String()
             # LoopDetectionsDoneDict = nx.get_node_attributes(poseGraph,'LoopDetectDone')
-            pickled = codecs.encode(pkl.dumps([poseGraph,sHg_updated,node_modified_fields,edge_modified_fields]), "base64").decode()
+            pickled = codecs.encode(pkl.dumps([poseGraph,sHg_updated]), "base64").decode()
             msg.data = pickled
             self.loopclosedposes_pub.publish(msg)
             print("sending loop closed poses")
