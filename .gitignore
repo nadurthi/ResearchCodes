@@ -60,7 +60,7 @@ MANIFEST
 *.spec
 
 turtlebot.zip
-turtlebot
+
 
 # Installer logs
 pip-log.txt
