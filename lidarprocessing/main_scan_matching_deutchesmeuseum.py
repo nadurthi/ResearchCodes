@@ -53,7 +53,11 @@ dtype = np.float64
 # scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2015-07-07-11-27-05.pkl'
 # scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2015-07-07-11-27-05/'
 # scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46.pkl'
-scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46/'
+# scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2014-11-24-14-33-46/'
+
+# scanfilepath = 'lidarprocessing/datasets/DeutchMeuseum/b2-2016-04-27-12-31-41.pkl'
+scanfilefolder = 'lidarprocessing/datasets/DeutchMeuseum/b2-2016-04-27-12-31-41/'
+
 # os.makedirs(scanfilefolder)
 
 # with open(scanfilepath,'rb') as fh:
@@ -582,63 +586,234 @@ import turtlebot.lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dpr
 #     poseGraph,params=pkl.load(fh)
 
 with open("turtlebot/DeutchesMeuseum.pkl",'rb') as fh:
-    poseGraph,params=pkl.load(fh)
+    poseGraph,params,timeMetrics=pkl.load(fh)
     
-
+# for k in timeMetrics:
+#     plt.figure(k)
+#     plt.hist(timeMetrics[k],bins=100)
+    
 Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
 
 pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
 
 
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
+# Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+# Ledges = poseGraph.edges
+
+Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
 for nn in Lkeys:
     if poseGraph.nodes[nn]['clf'] is None or 'clf' not in poseGraph.nodes[nn]:
         X = poseGraph.nodes[nn]['X']
         res = pt2dproc2.getclf(X,params,doReWtopt=True,means_init=None)
         clf=res['clf']
         poseGraph.nodes[nn]['clf']=clf
-Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
-# Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
-# Ledges = poseGraph.edges
-
+        
 for previdx,idx  in Lkeyloop_edges:
-    # if previdx>=11435 and previdx<=11503:
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    Xp=poseGraph.nodes[previdx]['X']
+    Xi=poseGraph.nodes[idx]['X']
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc2.binScanEdges(Xp,Xi,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    sHk=poseGraph.edges[previdx,idx]['H']
+    posematch=pt2dproc2.eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+    if posematch['mbinfrac_ActiveOvrlp']<=0.2:
+        posematch2= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=5,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+        posematch2['when']="DoAllLoopClosures-Redo"
+        posematch2['method']='binmatch'
+        print(previdx,idx,posematch['mbinfrac_ActiveOvrlp'],posematch2['mbinfrac_ActiveOvrlp'])
+        if posematch2['mbinfrac_ActiveOvrlp']>posematch['mbinfrac_ActiveOvrlp']:        
+            poseGraph.edges[previdx,idx]['H']=posematch2['H']
+            poseGraph.edges[previdx,idx]['posematchBinMatchRedo']=poseGraph.edges[previdx,idx]['posematch']
+            poseGraph.edges[previdx,idx]['posematch']=posematch2
+
+
+poseGraph=pt2dproc2.updated_sHg(poseGraph)
+pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
+            
+for previdx,idx  in Lkeyloop_edges:
+    # if os.path.isfile("debugPlots/Key2Key-%d-%d_gmm.png"%(idx, previdx)):
+    #     continue
+    # if idx>=9208:
     #     pass
     # else:
     #     continue
-    if 'posematch' not in poseGraph.edges[previdx,idx]:
-        print("no posematch for %d-%d"%(previdx,idx))
-        posematch={'mbinfrac_ActiveOvrlp':-1}
-    else:
-        posematch=poseGraph.edges[previdx,idx]['posematch']        
-    # if posematch['mbinfrac_ActiveOvrlp']<=0.9:
-        # posematchbin= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+    
+    # if 'posematch' not in poseGraph.edges[previdx,idx]:
+    #     print("no posematch for %d-%d"%(previdx,idx))
+    #     posematch={'mbinfrac_ActiveOvrlp':-1}
+    # else:
+    #     posematch=poseGraph.edges[previdx,idx]['posematch']        
+    
+    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    Xp=poseGraph.nodes[previdx]['X']
+    Xi=poseGraph.nodes[idx]['X']
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc2.binScanEdges(Xp,Xi,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    sHk=poseGraph.edges[previdx,idx]['H']
+    posematch=pt2dproc.eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+    piHi=nplinalg.inv(sHk)
     
     
-        # mbinfrac=posematch['mbinfrac']
+    if posematch['mbinfrac_ActiveOvrlp']<=0.2:
+        print(previdx,idx)
+        posematch2= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+        # posematch2=pt2dproc2.poseGraph_keyFrame_matcher_long(poseGraph,previdx,idx,params,params['LongLoopClose']['PoseGrid'],
+        #                                                     params['LongLoopClose']['isPoseGridOffset'],
+        #                                                     params['LongLoopClose']['isBruteForce'])
+        # # mbinfrac=posematch['mbinfrac']
         # mbinfrac_ActiveOvrlp=posematch['mbinfrac_ActiveOvrlp']
         
         # piHi=posematch['H']
         
-    piHi=poseGraph.edges[previdx,idx]['H']
-    
-    pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematch['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
-    fig = plt.figure("ComparisonPlot")
-    fig.savefig("debugplots/Key2Key-%d-%d_gmm.png"%(idx, previdx))
-    plt.close(fig)
+        # poseGraph.edges[previdx,idx]['H']=posematch2['H']
+        # poseGraph.edges[previdx,idx]['posematchGMM']=posematch
+        # poseGraph.edges[previdx,idx]['posematch']=posematch2
+        
+        # kHg = poseGraph.nodes[previdx]['sHg']
+        # sHg = np.matmul(posematch2['H'],kHg)
+        # gHs=nplinalg.inv(sHg)    
+        # tpos=np.matmul(gHs,np.array([0,0,1])) 
+        # poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+        # poseGraph.nodes[idx]['sHg']=sHg
 
-        # piHi=posematchbin['H']
-        # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=nplinalg.inv(piHi),err=posematchbin['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+        # piHi=poseGraph.edges[previdx,idx]['H']
+        # piHi=poseGraph.edges[previdx,idx]['posematch']['H']
+        
+        pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=piHi,err=posematch['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
+        fig = plt.figure("ComparisonPlot")
+        fig.savefig("debugPlots/Key2Key-%d-%d_gmm.png"%(idx, previdx))
+        plt.pause(0.1)
+        plt.close(fig)
+        
+        # piHi=nplinalg.inv(posematch2['H'])
+        # pt2dplot2.plotcomparisons(poseGraph,previdx,idx,UseLC=False,H12=piHi,err=posematch2['mbinfrac_ActiveOvrlp']) #nplinalg.inv(piHi) 
         # fig = plt.figure("ComparisonPlot")
-        # fig.savefig("debugplots/Key2Key-%d-%d_bin.png"%(idx, previdx))
+        # fig.savefig("debugPlots/Key2Key-%d-%d_bin.png"%(idx, previdx))
         # plt.close(fig)
         
+        # break
+    
+
+poseGraph=pt2dproc2.updated_sHg(poseGraph)
+
+pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
+pt2dplot2.plot_keyscan_path(poseGraph,30387,Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+
+        
 #%%
-X1=getscanpts_deutches(16197)
-X2=getscanpts_deutches(16198)
-fig = plt.figure("ComparisonPlot")
-plt.plot(X2[:,0],X2[:,1],'r.')
-plt.show()
+previdx,idx=1488,1489
+posematch=poseGraph.edges[previdx,idx]['posematch']        
+print(poseGraph.edges[previdx,idx]['H'])
+print(posematch['H'])
+print(posematch['mbinfrac_ActiveOvrlp'])
+
+dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+H12=posematch['H']
+X1=poseGraph.nodes[previdx]['X']
+X2=poseGraph.nodes[idx]['X']
+Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
+activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+posematch=pt2dproc2.eval_posematch(H12,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+print(posematch['mbinfrac_ActiveOvrlp'])
+
+H21=nplinalg.inv(H12)
+pt2dproc2.plotposematch(xedges_ovrlp,yedges_ovrlp,Hist1_ovrlp,X1,X2,H12,params)
+
+X1o=poseGraph.nodes[previdx]['Xorig'][0]
+X1c=getscanpts_deutches(previdx)
+
+plt.figure()
+plt.plot(X1o[:,0],X1o[:,1],'ro')
+plt.plot(X1c[:,0],X1c[:,1],'b.')
+
+#%%
+plt.close("all")
+previdx,idx=1488,1489
+posematch=poseGraph.edges[previdx,idx]['posematch']  
+
+X=poseGraph.nodes[previdx]['X']
+
+st=time.time()
+clf = mixture.GaussianMixture(n_components=params['n_components'],
+                              means_init=None, 
+                              weights_init=None,
+                              precisions_init=None,
+                              covariance_type='full',reg_covar=params['reg_covar'],
+                              max_iter=5,warm_start=True)
+clf.fit(Xdb)
+et=time.time()
+print("time taken 1= ",et-st)
+
+
+fig = plt.figure("GMM fit test Plot 1")
+ax = fig.add_subplot(111)
+ax.plot(X[:,0],X[:,1],'k.')
+
+for i in range(clf.n_components):
+    m = clf.means_[i]
+    P = clf.covariances_[i]
+    Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
+    # XX=np.matmul(gHs,np.vstack([Xe.T,np.ones(Xe.shape[0])])).T   
+    ax.plot(Xe[:,0],Xe[:,1],'g')
+
+
+# st=time.time()
+# mn = np.min(X,axis=0)
+# mx = np.max(X,axis=0)
+# dx0=np.max(mx-mn)/5
+# Xm=pt2dproc2.binnerDownSampler(X,dx=0.5,cntThres=3)
+
+# # for dx in np.arange(dx0,dx0/5,-dx0/5):
+# #     Xm=pt2dproc2.binnerDownSampler(X,dx=dx,cntThres=3)
+# #     if Xm.shape[0]>=params['n_components']:
+# #         break
+# #     else:
+# #         continue
+
+# if Xm.shape[0]>params['n_components']:   
+#     means_init=Xm[:params['n_components'],:]
+#     n_components=params['n_components']
+# if Xm.shape[0]<=params['n_components']:   
+#     means_init=Xm
+#     n_components=Xm.shape[0]
+
+# weights_init=np.ones(n_components)/n_components
+# print(n_components)
+
+# Xdb=X   
+
+
+# clf = mixture.GaussianMixture(n_components=n_components,
+#                               means_init=means_init, 
+#                               weights_init=weights_init,
+#                               precisions_init=None,
+#                               covariance_type='full',reg_covar=params['reg_covar'])
+# clf.fit(Xdb)
+# et=time.time()
+# print("time taken 2= ",et-st)
+
+# MU=np.ascontiguousarray(clf.means_,dtype=dtype)
+# P=np.ascontiguousarray(clf.covariances_,dtype=dtype)
+# W=np.ascontiguousarray(clf.weights_,dtype=dtype)
+
+# fig = plt.figure("GMM fit test Plot 2")
+# ax = fig.add_subplot(111)
+# ax.plot(X[:,0],X[:,1],'k.')
+# ax.plot(means_init[:,0],means_init[:,1],'ro')
+
+# for i in range(clf.n_components):
+#     m = clf.means_[i]
+#     P = clf.covariances_[i]
+#     Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
+#     # XX=np.matmul(gHs,np.vstack([Xe.T,np.ones(Xe.shape[0])])).T   
+#     ax.plot(Xe[:,0],Xe[:,1],'g')
 #%%
 with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'rb') as fh:
     poseGraph,=pkl.load(fh)
