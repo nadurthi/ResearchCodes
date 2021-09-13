@@ -582,10 +582,10 @@ from turtlebot.lidarprocessing import point2Dplotting as pt2dplot2
 import turtlebot.lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc2
 
 
-# with open("turtlebot/Check_DeutchesMeuseum.pkl",'rb') as fh:
+# with open("turtlebot/DeutchesMeuseum.pkl",'rb') as fh:
 #     poseGraph,params=pkl.load(fh)
 
-with open("turtlebot/DeutchesMeuseum.pkl",'rb') as fh:
+with open("turtlebot/OKTloopClosed.pkl",'rb') as fh:
     poseGraph,params,timeMetrics=pkl.load(fh)
     
 # for k in timeMetrics:
@@ -598,8 +598,8 @@ pt2dplot2.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=Tr
                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
 
 
-Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
-# Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
+# Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-LoopClosure",poseGraph.edges))
 # Ledges = poseGraph.edges
 
 Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
@@ -642,25 +642,25 @@ for previdx,idx  in Lkeyloop_edges:
     # else:
     #     continue
     
-    # if 'posematch' not in poseGraph.edges[previdx,idx]:
-    #     print("no posematch for %d-%d"%(previdx,idx))
-    #     posematch={'mbinfrac_ActiveOvrlp':-1}
-    # else:
-    #     posematch=poseGraph.edges[previdx,idx]['posematch']        
+    if 'posematch' not in poseGraph.edges[previdx,idx]:
+        print("no posematch for %d-%d"%(previdx,idx))
+        posematch={'mbinfrac_ActiveOvrlp':-1}
+    else:
+        posematch=poseGraph.edges[previdx,idx]['posematch']        
     
-    dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
-    Xp=poseGraph.nodes[previdx]['X']
-    Xi=poseGraph.nodes[idx]['X']
-    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc2.binScanEdges(Xp,Xi,dxcomp)
-    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
-    sHk=poseGraph.edges[previdx,idx]['H']
-    posematch=pt2dproc.eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-    piHi=nplinalg.inv(sHk)
+    # dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    # Xp=poseGraph.nodes[previdx]['X']
+    # Xi=poseGraph.nodes[idx]['X']
+    # Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc2.binScanEdges(Xp,Xi,dxcomp)
+    # activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    # sHk=poseGraph.edges[previdx,idx]['H']
+    # posematch=pt2dproc.eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+    # piHi=nplinalg.inv(sHk)
     
     
-    if posematch['mbinfrac_ActiveOvrlp']<=0.2:
+    # if posematch['mbinfrac_ActiveOvrlp']<=0.2:
         print(previdx,idx)
-        posematch2= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+        # posematch2= pt2dproc2.poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
         # posematch2=pt2dproc2.poseGraph_keyFrame_matcher_long(poseGraph,previdx,idx,params,params['LongLoopClose']['PoseGrid'],
         #                                                     params['LongLoopClose']['isPoseGridOffset'],
         #                                                     params['LongLoopClose']['isBruteForce'])

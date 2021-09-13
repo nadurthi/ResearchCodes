@@ -95,8 +95,12 @@ params['reg_covar']=0.002
 params["Key2Key_Overlap"]=0.2
 params["Scan2Key_Overlap"]=0.3
 
-params['BinDownSampleKeyFrame_dx']=0.10
-params['BinDownSampleKeyFrame_probs']=0.10
+params['Key2KeyBinMatch_dx0']=0.8
+params['Key2KeyBinMatch_L0']=5
+params['Key2KeyBinMatch_th0']=np.pi/6
+
+params['BinDownSampleKeyFrame_dx']=0.05
+params['BinDownSampleKeyFrame_probs']=0.05
 
 params['Plot_BinDownSampleKeyFrame_dx']=0.05
 params['Plot_BinDownSampleKeyFrame_probs']=0.01
@@ -111,11 +115,11 @@ params['LOOP_CLOSURE_POS_MIN_THES']=0.1
 params['LOOP_CLOSURE_ERR_THES']= 3
 # params['LOOPCLOSE_BIN_MATCHER_dx'] = 4
 # params['LOOPCLOSE_BIN_MATCHER_L'] = 13
-params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
+params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.05,0.05],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.4
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.7
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 8
 
 params['offsetNodesBy'] = 2
@@ -403,7 +407,7 @@ class ProcessLidarData:
         
         
         
-        if self.idx%50==0:
+        if self.idx%5==0:
             self.sendPlot()
         
         # request a loop closure after every say 50 frames
@@ -644,7 +648,8 @@ def main(args=None):
         
     # subscribe to scan data
     # node.create_subscription(LaserScan,'scan',pld.pushScanMsg,qos_profile_sensor_data)
-    node.create_subscription(MultiEchoLaserScan,'/scan1',pld.pushScanMsg)
+    # node.create_subscription(MultiEchoLaserScan,'/scan1',pld.pushScanMsg)
+    node.create_subscription(LaserScan,'/tb3_0/scan',pld.pushScanMsg)
     
     # subscribe to recieve the closed global poses.
     node.create_subscription(String,'posegraphClosedPoses',pld.getUpdatedPoseGraph,ttlhelp.qos_closedposegraphPoses_profile)
