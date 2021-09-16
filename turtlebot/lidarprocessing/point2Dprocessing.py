@@ -324,74 +324,15 @@ def alignscan2keyframe(MU,P,W,X):
 
 def scan2keyframe_bin_match(X1,X2,dstop,H21):
     # X1 and X2 have to be in the scan frames not global frames
-    
+    # X1 is fixed and X2 is moved into X1
+    # dstop=[dx,dy,dth]
     H12 = nplinalg.inv(H21)
     Xk=np.matmul(H12,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
     X22=Xk[:,:2]
     
     
     
-    for i in range(9):
-        pass
-    # print("H21_est=",H21_est)
     
-    flg=False
-    H21_corrected = H21_est
-    # print(r,dth,dxx)
-    for i in range(9):
-        # print(i)
-        if i==0:
-            dx=np.array([dx0,dx0],dtype=np.float64)
-            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
-            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
-        
-            dxx = 0.9*dx
-            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
-            L=L0
-            
-            th0=th0
-            dth = 1*np.max(dx)/r
-            
-            
-        
-        else:
-            dx = dx*(0.5**i)
-            if np.all(dx<=dxcomp):
-                dx=0.9*dxcomp
-                flg=True
-            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
-            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
-        
-            L=3*np.max(dx)
-            dxx = 0.9*dx
-            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
-            
-            dth = 1*np.max(dx)/r
-            th0=5*dth
-            
-        
-        # print("activebins1_ovrlp=",activebins1_ovrlp)
-                
-        thset = np.arange(-th0,th0+dth,dth)
-        txset = np.arange(-L,L+dxx[0],dxx[0]) # 
-        tyset = np.arange(-L,L+dxx[1],dxx[1]) #
-        PoseGrid=getgridvec(thset,txset,tyset)
-        
-        # print("PoseGrid.shape = ",PoseGrid.shape)
-        pose,mbinfrac_ActiveOvrlp = nbpt2Dproc.binScanMatcher(PoseGrid,Hist1_ovrlp,X22,xedges_ovrlp,yedges_ovrlp,1)
-        # print("mbinfrac_ActiveOvrlp=",mbinfrac_ActiveOvrlp)
-        
-        H12 = nbpt2Dproc.getHmat(pose[0],pose[1:]) 
-        H21=nplinalg.inv(H12)
-
-        H21_corrected=np.matmul(H21_corrected,H21)
-        H12_corrected=nplinalg.inv(H21_corrected)
-        # print("H21_corrected=",H21_corrected)
-        
-        if flg:
-            break
-        X=np.matmul(H12_corrected,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-        X22=X[:,:2]
 
     
 def scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=np.identity(3)):
@@ -478,7 +419,7 @@ def eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrl
     mbinfrac_ActiveOvrlp = mbin_and/activebins1_ovrlp
     # print("\n",mbinfrac_ActiveOvrlp,mbin_and,activebins1_ovrlp,activebins2_ovrlp)
         
-    posematch={'activebins1_ovrlp':activebins1_ovrlp,'mbin':mbin_and,'mbinfrac':mbinfrac_ovrlp,'mbinfrac_ActiveOvrlp':mbinfrac_ActiveOvrlp,'xedges':xedges_ovrlp,'yedges':yedges_ovrlp}
+    posematch={'activebins1_ovrlp':activebins1_ovrlp,'mbin':mbin_and,'mbinfrac':mbinfrac_ovrlp,'mbinfrac_ActiveOvrlp':mbinfrac_ActiveOvrlp}
     
     return posematch
 
@@ -1234,28 +1175,28 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
         
     print("key %d- scan %d-posematch['mbinfrac_ActiveOvrlp']="%(KeyFrame_newIdx,ScanFrame_idx),posematch['mbinfrac_ActiveOvrlp'])
     
-    # if posematch['mbinfrac_ActiveOvrlp']<0.1:
-       # # with open("debugPlots/FailedNewScanFit_%d_%d_%d.pkl"%(KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_idx),'wb') as F:
-       # #     pkl.dump(args,F)
+    if posematch['mbinfrac_ActiveOvrlp']<0.1:
+        # with open("debugPlots/FailedNewScanFit_%d_%d_%d.pkl"%(KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_idx),'wb') as F:
+        #     pkl.dump(args,F)
             
-    #     # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None)
-    #     # clf=res['clf']
-    #     # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
+        # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None)
+        # clf=res['clf']
+        # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
         
-    #     posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_newIdx,ScanFrame_idx,params,DoCLFmatch=True,dx0=0.8,L0=1,th0=np.pi/12,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
-    #     posematch['method']='binmatch'
-    #     print("%d-%d-posematch['mbinfrac_ActiveOvrlp'] scan to key in addkeyandscan="%(KeyFrame_newIdx,ScanFrame_idx),posematch['mbinfrac_ActiveOvrlp'])
-        
-    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['H']=posematch['H']
-    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematchGMM']=poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']
-    #     poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']=posematch
-        
-    #     kHg = poseGraph.nodes[KeyFrame_newIdx]['sHg']
-    #     sHg = np.matmul(posematch['H'],kHg)
-    #     gHs=nplinalg.inv(sHg)    
-    #     tpos=np.matmul(gHs,np.array([0,0,1])) 
-    #     poseGraph.nodes[ScanFrame_idx]['pos']=(tpos[0],tpos[1])
-    #     poseGraph.nodes[ScanFrame_idx]['sHg']=sHg
+        posematch2 = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyFrame_newIdx,ScanFrame_idx,params,DoCLFmatch=True,dx0=0.8,L0=2,th0=np.pi/6,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
+        posematch2['method']='binmatch'
+        print("%d-%d-posematch['mbinfrac_ActiveOvrlp'] scan to key in addkeyandscan="%(KeyFrame_newIdx,ScanFrame_idx),posematch['mbinfrac_ActiveOvrlp'])
+        if posematch2['mbinfrac_ActiveOvrlp']>posematch['mbinfrac_ActiveOvrlp']:
+            poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['H']=posematch2['H']
+            poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematchGMM']=poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']
+            poseGraph.edges[KeyFrame_newIdx,ScanFrame_idx]['posematch']=posematch2
+            
+            kHg = poseGraph.nodes[KeyFrame_newIdx]['sHg']
+            sHg = np.matmul(posematch['H'],kHg)
+            gHs=nplinalg.inv(sHg)    
+            tpos=np.matmul(gHs,np.array([0,0,1])) 
+            poseGraph.nodes[ScanFrame_idx]['pos']=(tpos[0],tpos[1])
+            poseGraph.nodes[ScanFrame_idx]['sHg']=sHg
         
     # delete rest of the scan-ids as they are useless
     if keepOtherScans is False:
@@ -1431,7 +1372,7 @@ def evalposeMatch2(poseGraph,idx1,idx2,params,H12=None,Hdefault='global'):
     return posematch
     
     
-def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
+def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=False,parallel=True):
     """
     idx is index of current "keyframe"
     idx is the current pose. detect loop closures to all previous key frames
@@ -1445,7 +1386,20 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
     ExitFlag.clear()
 
     Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
+    if idxlb is None:
+        idxlb=Lkeys[0]    
+    if idxub is None:
+        idxub=Lkeys[-1]
+    LkeysPrevIdx = copy.deepcopy(Lkeys)
+    
+    Lkeys=[ll for ll in Lkeys if ll>=idxlb and ll<=idxub]
+    Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))       
+    Lkeyloop_edges=[ss for ss in Lkeyloop_edges if min(ss)>=idxlb and max(ss)<=idxub]
+    
     for nn in Lkeys:
+        if 'modified' not in poseGraph.nodes[nn]:
+            poseGraph.nodes[nn]['modified']=[]
+            
         if poseGraph.nodes[nn]['clf'] is None or 'clf' not in poseGraph.nodes[nn]:
             X = poseGraph.nodes[nn]['X']
             res = getclf(X,params,doReWtopt=True,means_init=None)
@@ -1453,9 +1407,12 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
             poseGraph.nodes[nn]['clf']=clf
             poseGraph.nodes[nn]['modified'].append('clf')
             
-    Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))       
+    
     for previdx,idx  in Lkeyloop_edges:
-
+        if 'modified' not in poseGraph.edges[previdx,idx]:
+            poseGraph.edges[previdx,idx]['modified']=[]
+            
+            
         posematch=poseGraph.edges[previdx,idx ]['posematch']
         
         if poseGraph.edges[previdx,idx ].get('DoneBinMatch',False) is False:
@@ -1550,7 +1507,7 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
         
         LL=[]
         SkipIt=[]
-        for previdx in Lkeys[:max([Lkeys.index(idx)-1,0])]:
+        for previdx in LkeysPrevIdx[:max([LkeysPrevIdx.index(idx)-1,0])]:
             if previdx >=idx:
                 continue
             if previdx in SkipIt:
@@ -1626,7 +1583,7 @@ def detectAllLoopClosures(poseGraph,params,returnCopy=False,parallel=True):
     processes = []
     if parallel:
         for i in range(Ncore):
-            p = ctx.Process(target=matchdetectLong, args=(qin,qout,ExitFlag,Lkeys,poseGraph,params))
+            p = ctx.Process(target=matchdetectLong, args=(qin,qout,ExitFlag,LkeysPrevIdx,poseGraph,params))
             processes.append( p )
             p.start()
             print("created thread")    
@@ -2340,7 +2297,7 @@ def updateGlobalPoses(poseGraph,sHg_updated,updateRelPoses=True):
         poseGraph.nodes[ns]['sHg'] = sHg
 
         
-    # now update the relative poses of the ones between the updated poses
+    # # now update the relative poses of the ones between the updated poses
     
     # for n1 in sHg_updated.keys():
     #     for n2 in poseGraph.successors(n1):
@@ -2357,9 +2314,9 @@ def updateGlobalPoses(poseGraph,sHg_updated,updateRelPoses=True):
     
     # lastupdatedNode = max(sHg_updated.keys())
     
-    # now update other frames key/scan frames that were not part of the optimization
-    # Lkeys = list(filter(lambda x: x>lastupdatedNode,Lkeys))
-    # Lkeys.sort()
+    # # now update other frames key/scan frames that were not part of the optimization
+    # # Lkeys = list(filter(lambda x: x>lastupdatedNode,Lkeys))
+    # # Lkeys.sort()
     
     # for ns in list(poseGraph.nodes):
     #     for pidx in poseGraph.predecessors(ns):

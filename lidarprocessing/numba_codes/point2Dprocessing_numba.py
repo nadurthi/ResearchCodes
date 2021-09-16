@@ -38,6 +38,9 @@ dtype=np.float64
 
 
 
+
+
+
 @jit(int32[:,:](float64[:,:], float64[:], float64[:]),nopython=True, nogil=True,cache=True) 
 def numba_histogram2D(X, xedges,yedges):
     x_min = np.min(xedges)
@@ -143,6 +146,15 @@ def binScanEdges(Xb,Xt,dx):
     P=np.sign(H)
     
     return P, xedges,yedges
+
+# @jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=True) 
+# def posematchMetrics(X1,X2,H12,dx):
+#     # transform points to X1 space, bin it and then compute the posematch cost
+#     R=H12[0:2,0:2]
+#     X12=H12.dot(X2.T)+H12[0:2,2]
+    
+            
+
 
 @jit(numba.types.Tuple((float64[:],float64))(float64[:,:], int32[:,:], float64[:,:],float64[:],float64[:], int32),nopython=True, nogil=True,cache=True) 
 def binScanMatcher(Posegrid,P,Xt,xedges,yedges,cntThres):
@@ -501,7 +513,10 @@ def globalPoseCost_lsq(x,Hrelsidx,Hrels):
         tji_var = Rj.T.dot(ti-tj)
         thji_var = anglediff(thi,thj)
         
-        c=1
+        if np.abs(i-j)<=2:
+            c=10
+        else:
+            c=1
 
 
         
@@ -595,19 +610,24 @@ def globalPoseCost_lsq_jac(x,Hrelsidx,Hrels):
         dydxj[1:,0]=dRjTdth.dot(ti-tj)
         dydxj[1:,1:]=-Rj.T
         
+        if np.abs(i-j)<=2:
+            c=10
+        else:
+            c=1
+            
         # dJjidj = np.matmul(dydxj.T,y)
         if i>0:
             pp=i-1
-            jac[3*idx,3*pp:3*pp+3] = dydxi[0] 
-            jac[3*idx+1,3*pp:3*pp+3] =  dydxi[1]
-            jac[3*idx+2,3*pp:3*pp+3] =  dydxi[2]
+            jac[3*idx,3*pp:3*pp+3] = c*dydxi[0] 
+            jac[3*idx+1,3*pp:3*pp+3] =  c*dydxi[1]
+            jac[3*idx+2,3*pp:3*pp+3] =  c*dydxi[2]
         
         # print("m,n,idx,i,j,Hrels.shape[0]",m,n,idx,i,j,Hrels.shape[0])
         if j>0:
             pp=j-1
-            jac[3*idx,3*pp:3*pp+3] =  dydxj[0] 
-            jac[3*idx+1,3*pp:3*pp+3] =  dydxj[1]
-            jac[3*idx+2,3*pp:3*pp+3] =  dydxj[2]
+            jac[3*idx,3*pp:3*pp+3] =  c*dydxj[0] 
+            jac[3*idx+1,3*pp:3*pp+3] =  c*dydxj[1]
+            jac[3*idx+2,3*pp:3*pp+3] =  c*dydxj[2]
 
         
         # F[idx*3] = (thji_var-thji)

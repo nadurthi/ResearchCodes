@@ -12,17 +12,7 @@ from numba import vectorize, float64,guvectorize,int64,double,int32,float32
 from numba import njit, prange,jit
 plt.close("all")
 
-import numpy.linalg as nplg
-import logging
-import numpy as np
-import pdb
-from numpy.linalg import multi_dot
-from scipy.stats import multivariate_normal
-import pdb
 
-from uq.uqutils import pdfs as uqutlpdfs
-from uq.stats import moments as uqstmom
-from uq.filters import kalmanfilter as uqfkf
 
 #%% Kalman Filter
 
@@ -60,7 +50,7 @@ class CAUMmodel_1:
         self.X=[x0]
         self.PP=[P0]
         
-    def propforward(dt,xk):
+    def f(dt,xk):
         """
         Constant Acceleration uniform motion type 1
     
@@ -125,7 +115,7 @@ class CAUMmodel_1:
         
         return F
 
-    def processNoise(dt,xk):
+    def Q(dt,xk):
         Q = np.diag([0.02**2,0.02**2,0.01**2,0.01**2,0.001**2,0.001**2,0.001**2,0.001**2])
         return Q
     
@@ -157,13 +147,16 @@ class CAUMmodel_1:
         return self.xk,self.Pk
     
         
-    def sensormodel(dt,xk,sensorlist=["lidar"]):
+    def h_inertial(dt,xk):
         """
-        Lidar measure [x,y,th]
-        odom measures [x,y,th]
+        Measurement model using IMU only for 
+        Constant Acceleration Constant Turn rate model of type 1
         IMU measures accelerations in body frame : (at,an) tangential and normal accelerations
         at is measured along forward direction of robot.
         IMU also measuresangular velocity along the vertical (upward) z direction.
+        [at;
+         an;
+         wz]
         """
         T = dt;
         x = xk[0]
@@ -181,7 +174,7 @@ class CAUMmodel_1:
         h = np.array([aimu[0],aimu[1],w])
     
         return h
-    def measNoise(dt,xk,sensorlist=["lidar"]):
+    def R_inertial(dt,xk):
         R=np.diag([0.001**2,0.001**2,0.001**2])
         
     def H_inertial(dt,xk):
@@ -232,6 +225,7 @@ class CACTmodel_1:
     def f(dt,xk):
         """
         Constant Acceleration Constant Turn rate model of type 1
+    
         """
         # xk= [x,y,v,th,a,w ] 
         T = dt;
