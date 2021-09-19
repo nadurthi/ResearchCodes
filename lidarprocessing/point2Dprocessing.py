@@ -1419,48 +1419,48 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
             print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(previdx,idx),posematch['mbinfrac_ActiveOvrlp'])
             if posematch['mbinfrac_ActiveOvrlp']<params["Key2Key_Overlap"]:
                 
-                posematch = poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=params['Key2KeyBinMatch_dx0'],L0=params['Key2KeyBinMatch_L0'],th0=params['Key2KeyBinMatch_th0'],PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
-                posematch['method']='binmatch'
+                posematch2 = poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=params['Key2KeyBinMatch_dx0'],L0=params['Key2KeyBinMatch_L0'],th0=params['Key2KeyBinMatch_th0'],PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=None)
+                posematch2['method']='binmatch'
                 print("%d-%d-posematch['mbinfrac_ActiveOvrlp']="%(previdx,idx),posematch['mbinfrac_ActiveOvrlp'])
-                
-                poseGraph.edges[previdx,idx]['H']=posematch['H']
-                poseGraph.edges[previdx,idx]['posematchGMM']=poseGraph.edges[previdx,idx]['posematch']
-                poseGraph.edges[previdx,idx]['posematch']=posematch
-                
-                poseGraph.edges[previdx,idx]['modified'].append('H')
-                poseGraph.edges[previdx,idx]['modified'].append('posematchGMM')
-                poseGraph.edges[previdx,idx]['modified'].append('posematch')
-                # sHg = np.matmul(posematch['H'],kHg)
-                # gHs=nplinalg.inv(sHg)    
-                # tpos=np.matmul(gHs,np.array([0,0,1])) 
-                # poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
-                # poseGraph.nodes[idx]['sHg']=sHg
+                if posematch2['mbinfrac_ActiveOvrlp']>posematch['mbinfrac_ActiveOvrlp']:
+                    poseGraph.edges[previdx,idx]['H']=posematch2['H']
+                    poseGraph.edges[previdx,idx]['posematchGMM']=poseGraph.edges[previdx,idx]['posematch']
+                    poseGraph.edges[previdx,idx]['posematch']=posematch2
+                    
+                    poseGraph.edges[previdx,idx]['modified'].append('H')
+                    poseGraph.edges[previdx,idx]['modified'].append('posematchGMM')
+                    poseGraph.edges[previdx,idx]['modified'].append('posematch')
+                    # sHg = np.matmul(posematch['H'],kHg)
+                    # gHs=nplinalg.inv(sHg)    
+                    # tpos=np.matmul(gHs,np.array([0,0,1])) 
+                    # poseGraph.nodes[idx]['pos']=(tpos[0],tpos[1])
+                    # poseGraph.nodes[idx]['sHg']=sHg
                 
         poseGraph.edges[previdx,idx ]['DoneBinMatch']=True
         poseGraph.edges[previdx,idx]['modified'].append('DoneBinMatch')
     
-    poseGraph=updated_sHg(poseGraph)
+    # poseGraph=updated_sHg(poseGraph)
     
-    Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
-    for previdx,idx  in Lkeyloop_edges[-50:]:
-        dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
-        Xp=poseGraph.nodes[previdx]['X']
-        Xi=poseGraph.nodes[idx]['X']
-        Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xp,Xi,dxcomp)
-        activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
-        sHk=poseGraph.edges[previdx,idx]['H']
-        posematch=eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-        if posematch['mbinfrac_ActiveOvrlp']<=0.1:
-            posematch2= poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=5,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
-            posematch2['when']="DoAllLoopClosures-Redo"
-            posematch2['method']='binmatch'
-            print(previdx,idx,posematch['mbinfrac_ActiveOvrlp'],posematch2['mbinfrac_ActiveOvrlp'])
-            if posematch2['mbinfrac_ActiveOvrlp']>posematch['mbinfrac_ActiveOvrlp']:        
-                poseGraph.edges[previdx,idx]['H']=posematch2['H']
-                poseGraph.edges[previdx,idx]['posematchBinMatchRedo']=poseGraph.edges[previdx,idx]['posematch']
-                poseGraph.edges[previdx,idx]['posematch']=posematch2
+    # Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
+    # for previdx,idx  in Lkeyloop_edges[-50:]:
+    #     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
+    #     Xp=poseGraph.nodes[previdx]['X']
+    #     Xi=poseGraph.nodes[idx]['X']
+    #     Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xp,Xi,dxcomp)
+    #     activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
+    #     sHk=poseGraph.edges[previdx,idx]['H']
+    #     posematch=eval_posematch(sHk,Xi,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
+    #     if posematch['mbinfrac_ActiveOvrlp']<=0.1:
+    #         posematch2= poseGraph_keyFrame_matcher_binmatch(poseGraph,previdx,idx,params,DoCLFmatch=True,dx0=0.9,L0=5,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
+    #         posematch2['when']="DoAllLoopClosures-Redo"
+    #         posematch2['method']='binmatch'
+    #         print(previdx,idx,posematch['mbinfrac_ActiveOvrlp'],posematch2['mbinfrac_ActiveOvrlp'])
+    #         if posematch2['mbinfrac_ActiveOvrlp']>posematch['mbinfrac_ActiveOvrlp']:        
+    #             poseGraph.edges[previdx,idx]['H']=posematch2['H']
+    #             poseGraph.edges[previdx,idx]['posematchBinMatchRedo']=poseGraph.edges[previdx,idx]['posematch']
+    #             poseGraph.edges[previdx,idx]['posematch']=posematch2
                 
-    poseGraph=updated_sHg(poseGraph)
+    # poseGraph=updated_sHg(poseGraph)
     
     
     # nn2=params['LOOP_CLOSURE_COMBINE_MAX_NODES']    
@@ -1486,7 +1486,11 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
             
     cnt=0
     offsetNodesBy=params['offsetNodesBy']    
-    for idx in Lkeys[:-offsetNodesBy][::-1]:
+    if offsetNodesBy is None or offsetNodesBy==0:
+        LkeysIdxs = Lkeys[::-1]
+    else:
+        LkeysIdxs = Lkeys[:-offsetNodesBy][::-1]
+    for idx in LkeysIdxs :
         # if poseGraph.nodes[idx]['LoopDetectDone'] is True:
         #     continue
         
@@ -1516,8 +1520,8 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
                 continue
         
             if poseGraph.has_edge(idx,previdx) is True or poseGraph.has_edge(previdx,idx) is True:
-                mn1 = max([0,Lkeys.index(previdx)-an])
-                mx1 = min([len(Lkeys)-1,Lkeys.index(previdx)+an])
+                mn1 = max([0,LkeysPrevIdx.index(previdx)-an])
+                mx1 = min([len(LkeysPrevIdx)-1,LkeysPrevIdx.index(previdx)+an])
                 
                 SkipIt=SkipIt+Lkeys[mn1:mx1]
                 continue
@@ -1570,6 +1574,7 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
                     # poseGraph.nodes[idx]['modified']=poseGraph.nodes[idx]['modified']+['clflc','Xlc','DoneAdjCombine']
                     
             qin.put([idx,previdx])
+
             poseGraph.nodes[idx]['LongLoopDonePrevIdxs'].append(previdx)
         
         if cnt >=params['LongLoopClose']['TotalCntComp'] :
@@ -1610,7 +1615,7 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
                 poseGraph.nodes[res[1]][res[2]] = res[3]
             elif 'edge' == res[0]:
                 poseGraph.add_edge(res[1],res[2],H=res[3],err = res[4],hess_inv = res[5],edgetype="Key2Key-LoopClosure",d=res[6],color='b',posematch=res[7],modified=[])
-            
+                
             # print("res=",res[:3])
                 
             flg=0

@@ -101,8 +101,12 @@ def plotGraph(poseGraph,Lkey,ax=None):
     nx.draw_networkx(poseGraph,pos=pos,nodelist =Lkey,edgelist=edgelist,edge_color=edge_color,with_labels=True,font_size=6,node_size=200,ax=ax)
     ax.axis('equal')
 
-def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+def plot_keyscan_path(poseGraphMain,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
                       forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False):
+    Lkey = list(filter(lambda x: poseGraphMain.nodes[x]['frametype']=="keyframe",poseGraphMain.nodes))
+    Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
+    
+    poseGraph = poseGraphMain.subgraph(Lkey)
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
     Lkey.sort()
