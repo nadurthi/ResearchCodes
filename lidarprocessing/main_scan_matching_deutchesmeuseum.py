@@ -105,12 +105,13 @@ def getscanpts_deutches(idx):
 
 class IntelData:
     def __init__(self):
-        intelfile = "lidarprocessing/datasets/Intel Research Lab.clf"
+        intelfile = "lidarprocessing/datasets/Freiburg/Intel Research Lab.clf"
         ff=open(intelfile)
         self.inteldata=ff.readlines()
         self.inteldata = list(filter(lambda x: '#' not in x,self.inteldata))
         self.flaserdata = list(filter(lambda x: 'FLASER' in x[:8],self.inteldata))
         self.odomdata = list(filter(lambda x: 'ODOM' in x[:8],self.inteldata))
+
         
     def __len__(self):
         return len(self.flaserdata)
@@ -121,31 +122,50 @@ class IntelData:
         # print(glist)
         cnt = int(glist[1])
         rngs =[]
-        ths=np.arange(0,90*np.pi/180,0.5*np.pi/180)
+        ths=np.arange(0,1*np.pi,1*np.pi/180)
         for i in range(cnt):
             rngs.append(float(glist[2+i]))
+        odom=np.array([float(ss) for ss in glist[182:188]])
         rngs = np.array(rngs)
         p=np.vstack([np.cos(ths),np.sin(ths)])
         ptset = rngs.reshape(-1,1)*p.T
-        
-        return ptset
+        rngidx = (rngs> (0+0.1) ) & (rngs< (25))
+        return ptset[rngidx,:],odom
+    
 dataset = IntelData()       
-def getscanpts_intel(dataset,idx):
+def getscanpts_intel(idx):
     # ranges = dataset[i]['ranges']
-   
-    X=dataset.getflaser(idx)
+    
+    X,odom=dataset.getflaser(idx)
     
     # now filter silly points
-    tree = KDTree(X, leaf_size=5)
-    cnt = tree.query_radius(X, 0.25,count_only=True) 
-    X = X[cnt>=2,:]
+    # tree = KDTree(X, leaf_size=5)
+    # cnt = tree.query_radius(X, 0.0125,count_only=True) 
+    # X = X[cnt>=2,:]
     
-    cnt = tree.query_radius(X, 0.5,count_only=True) 
-    X = X[cnt>=5,:]
+    # cnt = tree.query_radius(X, 0.015,count_only=True) 
+    # X = X[cnt>=5,:]
     
-    return X
+    return X,odom
 
 getscanpts = getscanpts_deutches
+
+# plt.figure()
+# Xpos=[]
+# for i in range(len(dataset)):
+#     Xk,odom = getscanpts(i)
+#     # H=nbpt2Dproc.getHmat(odom[2],odom[0:2])
+#     # Xk=np.matmul(H,np.vstack([X.T,np.ones(X.shape[0])])).T  
+#     # Xk=Xk[:,:2]
+#     # Xpos.append(odom[0:2])
+    
+#     # Xpos_arr = np.array(Xpos)
+#     plt.plot(Xk[:,0],Xk[:,1],'b.')
+#     # plt.plot(Xpos_arr[:,0],Xpos_arr[:,1],'r')
+#     plt.title(str(i))
+#     plt.pause(0.2)
+#     plt.cla()
+    
 #%% TEST::::::: Pose estimation by keyframe
 plt.close("all")
 poses=[]
@@ -172,10 +192,10 @@ params['Key2KeyBinMatch_L0']=7
 params['Key2KeyBinMatch_th0']=np.pi/4
 
 params['BinDownSampleKeyFrame_dx']=0.15
-params['BinDownSampleKeyFrame_probs']=0.1
+params['BinDownSampleKeyFrame_probs']=0.05
 
-params['Plot_BinDownSampleKeyFrame_dx']=0.05
-params['Plot_BinDownSampleKeyFrame_probs']=0.01
+params['Plot_BinDownSampleKeyFrame_dx']=0.15
+params['Plot_BinDownSampleKeyFrame_probs']=0.0001
 
 params['doLoopClosure'] = False
 params['doLoopClosureLong'] = False
@@ -191,7 +211,7 @@ params['LOOPCLOSE_BIN_MIN_FRAC_dx'] = np.array([0.15,0.15],dtype=np.float64)
 
 params['LOOPCLOSE_BIN_MIN_FRAC'] = 0.2
 params['LOOPCLOSE_BIN_MAXOVRL_FRAC_LOCAL']=0.6
-params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.3
+params['LOOPCLOSE_BIN_MAXOVRL_FRAC_COMPLETE']=0.4
 params['LOOP_CLOSURE_COMBINE_MAX_NODES']= 8
 
 params['offsetNodesBy'] = 0
@@ -342,7 +362,7 @@ for idx in range(idx1,idxLast):
         st = time.time()
         # pt2dproc.addNewKeyFrameAndScan(self.poseGraph,KeyFrameClf,Xclf,XprevScan,idxprevScan,self.KeyFrame_prevIdx,sHk_prevScan,sHg_prevScan,sHk_prevScan,params,keepOtherScans=False)
         pt2dproc.addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,idx-1,idx,X,idx,
-                      params,timeMetrics,keepOtherScans=False)
+                      params,timeMetrics,keepOtherScans=True)
         et=time.time()
         print("time taken for new keyframe = ",et-st)
 
@@ -420,10 +440,10 @@ for idx in range(idx1,idxLast):
     
     
     # plotting
-    if idx%25==0 or idx==idxLast-1:
+    if idx%50==0 or idx==idxLast-1:
         st = time.time()
         pt2dplot.plot_keyscan_path(poseGraph,idx1,idx,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
-                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True,plotKeyFrameNodesTraj=True)
         et = time.time()
         print("plotting time : ",et-st)
         plt.show()
@@ -440,7 +460,7 @@ df=pd.DataFrame({'type':['keyframe']*len(Lkey)+['scan']*len(Lscan),'idx':Lkey+Ls
 df.sort_values(by=['idx'],inplace=True)
 df
 
-with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'wb') as fh:
+with open("PoseGraph-deutchesMesuemDebug-planes-0p3.pkl",'wb') as fh:
     pkl.dump([poseGraph,params],fh)
 
 
@@ -451,8 +471,8 @@ with open("PoseGraph-deutchesMesuemDebug-planes33.pkl",'wb') as fh:
 
 #%%
 
-with open("DeutchesMeuseum_g2oTest_opt2.pkl",'rb') as fh:
-    poseGraph,params,_=pkl.load(fh)
+with open("PoseGraph-deutchesMesuemDebug-planes-0p3.pkl",'rb') as fh:
+    poseGraph,params=pkl.load(fh)
 
 # with open("turtlebot/OKTloopClosed.pkl",'rb') as fh:
 #     poseGraph,params,timeMetrics=pkl.load(fh)
@@ -463,8 +483,11 @@ with open("DeutchesMeuseum_g2oTest_opt2.pkl",'rb') as fh:
     
 Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
 
+
+GlobalBinMap={'xedges':np.arange(-100,75,0.05),'yedges':np.arange(-75,175,0.05),'H':None}
+
 pt2dplot.plot_keyscan_path(poseGraph,Lkeyloop[0],Lkeyloop[-1],params,makeNew=True,skipScanFrame=True,plotGraphbool=True,
-                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True)
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True,plotKeyFrameNodesTraj=False,CloseUpRadiusPlot=30,GlobalBinMap=None)
 
 
 Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
@@ -516,14 +539,14 @@ for i in range(1650,len(Lkeyloop)):
 pgopt=None
 
 Lkeyloop = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
-for i in range(1702,Lkeyloop[-1],10):
+for i in range(0,len(Lkeyloop),10):
     idxlb=Lkeyloop[max([0,i-13])]
     idxub=Lkeyloop[i]
     print(i,idxlb,idxub)
     poseGraph=pt2dproc.detectAllLoopClosures(poseGraph,params,idxlb=idxlb,idxub=idxub,returnCopy=False,parallel=True) #
     Lkeys = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     st=time.time()        
-    poseGraph,pgopt=adjustPosesG2o(poseGraph,pgopt=None)
+    poseGraph,pgopt=pt2dproc.adjustPosesG2o(poseGraph,pgopt=None)
     et=time.time()
     print("G2o optimization = ",et-st)
     pt2dplot.plot_keyscan_path(poseGraph,Lkeyloop[0],idxub,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
@@ -533,9 +556,23 @@ Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key-
 Lkeyloop_edges=[ee for ee in Lkeyloop_edges if ee[1]>=18000]
 poseGraph.remove_edges_from(Lkeyloop_edges)
 
-with open("DeutchesMeuseum_g2oTest_opt2.pkl",'wb') as fh:
+with open("PoseGraph-deutchesMesuemDebug-planes-0p3-good.pkl",'wb') as fh:
     pkl.dump([poseGraph,params,timeMetrics],fh)
-          
+
+for i in poseGraph.nodes:
+    if i<=42516:
+        continue
+    pt2dplot.plot_keyscan_path(poseGraph,Lkeyloop[0],i,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+                                   forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True,plotKeyFrameNodesTraj=False,CloseUpRadiusPlot=25,GlobalBinMap=None)
+    fig = plt.figure("Full Plot")
+    fig.savefig("debugPlots/sim_0p3-K2K_0p4-K2KLoop_%06d.png"%(i,))
+    
+    fig = plt.figure("Close-Up Plot")
+    fig.savefig("debugPlots/CloseBysim_0p3-K2K_0p4-K2KLoop_%06d.png"%(i,))
+    
+    # plt.close(fig)
+
+         
 L1=[41313, 41354]
 L2=[0,166]
 posematch2= pt2dproc.poseGraph_keyFrame_matcher_binmatch(poseGraph,0,41313,params,DoCLFmatch=True,dx0=0.9,L0=2,th0=np.pi/4,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False)
@@ -615,64 +652,301 @@ pt2dplot2.plot_keyscan_path(poseGraph,30387,Lkeyloop[-1],params,makeNew=True,ski
 
 #%%
 import heapq
-def binMatcherAdaptive(X1,X22,H12,Lmax,thmax,dxMatch,dxMax):
-    # dxMax is the max resolution allowed
-    # search window is [-Lmax,Lmax] and [-thmax,thmax]
-    R=H12[0:2,0:2]
-    t=H12[0:2,2]
-    X2 = R.dot(X22).T+t
-    X2=X2.transpose()
+with open("PoseGraph-deutchesMesuemDebug-planes-0p3.pkl",'rb') as fh:
+    poseGraph,params=pkl.load(fh)
+
+class CostAndNode:
+    def __init__(self, cost, node):
+        self.cost = cost
+        self.node = node
+
+    # do not compare nodes
+    def __lt__(self, other):
+        return self.cost < other.cost
     
-    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+
+
+plt.close("all")
+def getPointCost(H,dx,X,Oj,Tj):
+    # Tj is the 2D index of displacement
+    # X are the points
+    # dx is 2D
+    # H is the probability histogram
+    # R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    # R.dot(X.T)
+    c=0
+    P=np.floor(X/dx).astype(int)
+    j=np.floor(Oj/dx).astype(int)
+    
+    Pn=P+j
+
+    
+    idx=np.prod(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 ).astype(bool)
+    Pn=Pn[idx,:]
+    # print(Pn,Pn.size,Pn.shape)
+    if Pn.size==0:
+        c=-100000
+    else:
+       
+        # print(Pn.shape)
+        c=np.sum(H[Pn[:,0],Pn[:,1]])
+        
+        # for i in range(X.shape[0]):
+        #     c+= H[P[i,0]+Tj[0],P[i,1]+Tj[1]]
+    # print(c)
+    return c
+
+def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
+    # dxMax is the max resolution allowed
+    # Lmax =[xmax,ymax]
+    # search window is [-Lmax,Lmax] and [-thmax,thmax]
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    
     
     mn=np.zeros(2)
     mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    # print("mn_orig = ",mn_orig)
+
     mn[0] = np.min(X1[:,0])
     mn[1] = np.min(X1[:,1])
     mx[0] = np.max(X1[:,0])
     mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
     
-    dxMax = np.min([dxMax,(mx[0]-mn[0])/2,(mx[1]-mn[1])/2])
+
+    # print("mn,mx=",mn,mx)
+    P = mx-mn
     
-    xedges=np.arange(mn[0]-dxMatch,mx[0]+dxMatch,dxMatch)
-    yedges=np.arange(mn[1]-dxMatch,mx[1]+dxMatch,dxMatch)
-    if len(xedges)%2!=0:
-        xedges=np.hstack([xedges,mx[0]+1*dxMatch)
-    if len(yedges)%2!=0:
-        yedges=np.hstack([yedges,mx[1]+1*dxMatch)
+    
+    # dxMax[0] = np.min([dxMax[0],P[0]/5])
+    # dxMax[1] = np.min([dxMax[1],P[1]/5])
+
+    nnx=np.ceil(np.log2(P[0]))
+    nny=np.ceil(np.log2(P[1]))
+    
+    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMax[0],dxMatch[0])
+    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMax[0],dxMatch[1])
+    
+    if len(xedges)%2==0:
+        xedges=np.hstack([xedges,xedges[-1]+1*dxMatch[0]])
+    if len(yedges)%2==0:
+        yedges=np.hstack([yedges,yedges[-1]+1*dxMatch[1]])
         
+    
     H1match=nbpt2Dproc.numba_histogram2D(X1, xedges,yedges)
-    thfineRes = 0.5*dxMatch/rmax
+
+    H1match[H1match>1]=1
+    
+    # H1match=H1match/(np.sum(H1match)*np.prod(dxMatch))
+    thfineRes = np.max([0.5*np.min(dxMatch)/rmax,2*np.pi/180])
+
+    
     
     # first create multilevel histograms
-    HLevels=[[dxMatch,H1match,xedges,yedges]]
-    
-    dx=dxMatch
+    levels=[]
+    HLevels=[H1match]
+    dxs = [dxMatch]
+    # serachboxX,serachboxY=np.meshgrid(np.arange(-Lmax[0],Lmax[0]+dxMatch[0],dxMatch[0]),np.arange(-Lmax[1],Lmax[1]+dxMatch[1],dxMatch[1]))
+    SolBoxes=[]
+    S=[]
+    for xs in np.arange(-Lmax[0],Lmax[0],dxMatch[0]):
+        for ys in np.arange(-Lmax[1],Lmax[1],dxMatch[1]):
+            S.append( (np.array([xs,ys]),dxMatch) )
+    SolBoxes.append(S)
+    XYedges=[(xedges,yedges)]
     for i in range(1,100):
-        dx=2*dx
-        if dx>dxMax:
+        dx=2*dxs[i-1]
+        if np.any(dx>dxMax):
             break
         
+        Hup = HLevels[i-1]
+        H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2))))
+        for j in range(H.shape[0]):
+            for k in range(H.shape[1]):
+                lbx=max([2*j,0])
+                ubx=min([2*j+n,Hup.shape[0]-1])+1
+                lby=max([2*k,0])
+                uby=min([2*k+n,Hup.shape[1]-1])+1
+                H[j,k] = np.max( Hup[lbx:ubx,lby:uby] )
         
-        Hup = HLevels[i-1][0]
-        xedgesup=HLevels[i-1][1]
-        yedgesup=HLevels[i-1][2]
+        # print(xedges[0],xedges[-1],len(xedges),yedges[0],yedges[-1],len(yedges))
+        lx =xedges[-1]
+        ly =yedges[-1]
+        xedges=xedges[::2]
+        yedges=yedges[::2]
+        # print(xedges[0],xedges[-1],len(xedges),yedges[0],yedges[-1],len(yedges))
+        # print("-------------")
+        # pt2dproc.plotbins2(xedges,yedges,H,X1,X2)
+        XYedges.append((xedges,yedges))  
+        if len(xedges)%2==0:
+            xedges=np.hstack([xedges,lx])
+        if len(yedges)%2==0:
+            yedges=np.hstack([yedges,ly])
+            
+        HLevels.append(H)
+        dxs.append(dx)
+          
+        # S=[]
+        # for xs in np.arange(-Lmax[0],Lmax[0],dx[0]):
+        #     for ys in np.arange(-Lmax[1],Lmax[1],dx[1]):
+        #         S.append( (np.array([xs,ys]),dx) )
+        # SolBoxes.append(S)
         
-        M, N = Hup.shape
-        K = 2
-        L = 2
-        
-        MK = M // K
-        NL = N // L
-        H=Hup[:MK*K, :NL*L].reshape(MK, K, NL, L).max(axis=(1, 3))
-        HLevels.append([dx,H,xedgesup[::2],yedgesup[::2]])
+    HLevels=HLevels[::-1]
+    dxs=dxs[::-1]
+    XYedges=XYedges[::-1]
+    # SolBoxes=SolBoxes[::-1]
 
-    maxLevel = len(HLevels)-1
+    SolBoxes_init=[]
+    for xs in np.arange(-Lmax[0],Lmax[0],dxs[0][0]):
+        for ys in np.arange(-Lmax[1],Lmax[1],dxs[0][1]):
+            SolBoxes_init.append( (np.array([xs,ys]),dxs[0]) )
+
+
+    mxLVL=len(HLevels)-1
+    
+
+    decimatedict={}
     h=[]
     #Initialize with all thetas fixed at Max resolution
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+    Xth={}
     for th in np.arange(-thmax,thmax+thfineRes,thfineRes):
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=R.dot(X2.T)
+        Xth[th]=XX.T
         
-        heapq.heappush(h,(cost,[lvl,th,solboxIdx]))
+        for solbox in SolBoxes_init:
+            Tj=solbox[1]
+            Oj = solbox[0]
+            if not np.all(Tj==dx):
+                print(Tj,dx)
+                raise Exception("Tj and dx are not equal ")
+                
+                
+            cost2=getPointCost(H,dx,Xth[th],Oj,Tj)
+            heapq.heappush(h,CostAndNode(-cost2,[solbox,lvl,th]))
+            # heapq.heappush(h,(-cost2,(lvl,th,solbox)))
+        
+    # ff=open("debugPlots/DebugCosts.txt","w")
+    # cc=0
+    st=time.time()
+    while(1):
+        CN=heapq.heappop(h)
+        (cost,[solboxt,lvl,th])=(CN.cost,CN.node)
+        # if lvl>=4:
+        #     fig=plt.figure("a")
+        #     ax=fig.add_subplot(111)
+        #     ax.pcolormesh(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl].T,shading='flat',alpha=0.4 )
+        #     ax.plot(X1[:,0],X1[:,1],'r.',label="hist points")
+        #     ax.plot(Xth[th][:,0]+solboxt[0][0],Xth[th][:,1]+solboxt[0][1],'b.',label="matching points")
+        #     ax.axis('equal')
+        #     ax.set_title(str(cost)+" "+str(lvl))
+        #     ax.legend()
+        #     fig.savefig("debugPlots/%d.png"%(cc,))
+        #     ff.write(str(cc)+"   "+str((cost,[solboxt,lvl,th]))+"\n")
+        #     cc+=1    
+        #     plt.close("a")
+        
+        
+        # print("----------")
+        # print(cost,lvl,mxLVL,th)
+        if lvl==mxLVL:
+            break
+        dx=dxs[lvl+1]
+        H=HLevels[lvl+1]
+        Tj=solboxt[1]
+        Oj=solboxt[0]
+        S=[]
+        # print(solboxt,dx)
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                S.append( (np.array([xs,ys]),dx) )
+        # print(len(S))
+        # print(S)        
+        for solbox in S:
+            Tj=solbox[1]
+            Oj = solbox[0]
+            if not np.all(Tj==dx):
+                raise Exception("Tj and dx are not equal ")
+            cost=getPointCost(H,dx,Xth[th],Oj,Tj)
+            heapq.heappush(h,CostAndNode(-cost,[solbox,lvl+1,th]))
+    
+    et=time.time()
+    print("heap pops = ",et-st)
+    # ff.close()
+    
+    t=solboxt[0]
+    H=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    H[0:2,0:2]=R
+    H[0:2,2]=t
+    # print(H,R,t)
+    # XX=R.dot(X2.T).T+t
+    # plt.figure("check 1")
+    # plt.plot(X1[:,0],X1[:,1],'b.')
+    # plt.plot(XX[:,0],XX[:,1],'r.')
+    
+    # plt.figure("check 2")
+    # plt.plot(X1[:,0],X1[:,1],'b.')
+    # plt.plot(Xth[th][:,0]+t[0],Xth[th][:,1]+t[1],'r.')
+    
+    # H=nbpt2Dproc.getHmat(th,t)
+    Htotal12 = np.matmul(H,H12)
+    RT=Htotal12[0:2,0:2]
+    tT=Htotal12[0:2,2]
+    
+    Rs=H[0:2,0:2]
+    ts=H[0:2,2]
+
+    t = tT-(Rs.dot(mn_orig)+0*ts)+mn_orig
+    Htotal12_updt=Htotal12.copy()
+    Htotal12_updt[0:2,2]=t
+    Htotal21_updt = nplinalg.inv(Htotal12_updt)
+    return Htotal21_updt,cost
+
+Lkeyloop_edges = list(filter(lambda x: poseGraph.edges[x]['edgetype']=="Key2Key",poseGraph.edges))
+e1=Lkeyloop_edges[2][0]
+e2=Lkeyloop_edges[2][1]
+X1=poseGraph.nodes[e1]['X']
+X2=poseGraph.nodes[e2]['X']
+H21=np.identity(3) #poseGraph.edges[e1,e2]['H']
+# H21[0:2,2]=H21[0:2,2]+5
+H12 = nplinalg.inv(H21)
+Lmax=np.array([5,5])
+thmax=30*np.pi/180
+dxMatch=np.array([0.15,0.15])
+dxMax=np.array([5,5])
+st=time.time()
+Hbin21,cost=binMatcherAdaptive(X1,X2,H12,Lmax,thmax,dxMatch,dxMax)
+et=time.time()
+print("Best match = ",cost,Hbin21, " in time = ",et-st)
+Hbin12 = nplinalg.inv(Hbin21)
+R=Hbin12[0:2,0:2]
+t=Hbin12[0:2,2]
+X22 = R.dot(X2.T).T+t
+
+plt.figure()
+plt.plot(X1[:,0],X1[:,1],'b.')
+plt.plot(X22[:,0],X22[:,1],'r.')
+
+
 #%% g20 testing
 with open("DeutchesMeuseum_g2oTest.pkl",'rb') as fh:
     poseGraph,params,timeMetrics=pkl.load(fh)

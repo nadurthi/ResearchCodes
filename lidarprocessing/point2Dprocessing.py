@@ -23,7 +23,7 @@ import numba
 from numba import vectorize, float64,guvectorize,int64,double,int32,float32
 from numba import njit, prange,jit
 import random
-
+import g2o
 import multiprocessing as mp
 import threading
 import queue
@@ -767,7 +767,16 @@ def plotbins(xedges,yedges,Hist1,idx1,idx2,poseGraph,params,posematch=None):
     plt.show()    
     
 
+def plotbins2(xedges,yedges,Hist1,X1,X2):
 
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    ax.pcolormesh(xedges,yedges,Hist1.T,shading='flat',alpha=0.4 )
+    ax.plot(X1[:,0],X1[:,1],'r.',label="hist points")
+    ax.plot(X2[:,0],X2[:,1],'b.',label="matching points")
+    ax.axis('equal')
+    ax.legend()
+    plt.show()    
 
 
 
@@ -1648,6 +1657,142 @@ def detectAllLoopClosures(poseGraph,params,idxlb=None,idxub=None,returnCopy=Fals
     
     
     return poseGraph
+
+class PoseGraphOptimization(g2o.SparseOptimizer):
+    def __init__(self):
+        super().__init__()
+        solver = g2o.BlockSolverSE3(g2o.LinearSolverCholmodSE3())
+        solver = g2o.OptimizationAlgorithmLevenberg(solver)
+        super().set_algorithm(solver)
+
+    def optimize(self, max_iterations=50):
+        super().initialize_optimization()
+        super().optimize(max_iterations)
+
+    def add_vertex(self, id, pose, fixed=False):
+        v_se3 = g2o.VertexSE3()
+        v_se3.set_id(id)
+        v_se3.set_estimate(pose)
+        v_se3.set_fixed(fixed)
+        super().add_vertex(v_se3)
+
+    def add_edge(self, vertices, measurement, 
+            information=np.identity(6),
+            robust_kernel=g2o.RobustKernelHuber()):
+
+        edge = g2o.EdgeSE3()
+        for i, v in enumerate(vertices):
+            if isinstance(v, int):
+                v = self.vertex(v)
+            edge.set_vertex(i, v)
+
+        edge.set_measurement(measurement)  # relative pose
+        edge.set_information(information)
+        if robust_kernel is not None:
+            edge.set_robust_kernel(robust_kernel)
+        super().add_edge(edge)
+
+    def get_pose(self, id):
+        return self.vertex(id).estimate()
+
+
+
+def adjustPosesG2o(poseGraph,pgopt=None):
+    if pgopt is None:
+        pgopt=PoseGraphOptimization()
+    # nodeList = [nn for nn in poseGraph.nodes if nn>=idx0 and nn<=idx1]
+    # nodeList.sort()
+    
+    for nn in poseGraph.nodes:
+        if poseGraph.nodes[nn]['frametype']!="keyframe":
+            continue
+        
+        if pgopt.vertex(nn) is not None:
+            continue
+        
+        gHs=nplinalg.inv(poseGraph.nodes[nn]['sHg'])
+        R=np.identity(3)
+        R[0:2,0:2]=gHs[0:2,0:2]
+        tpos=np.zeros(3)
+        tpos[0:2]=gHs[0:2,2]
+        
+        if nn==0:
+            pgopt.add_vertex(nn,g2o.Isometry3d(R, tpos),fixed=True)
+        else:
+            pgopt.add_vertex(nn,g2o.Isometry3d(R, tpos),fixed=False)
+    
+    L=list(pgopt.edges())
+    L=map(lambda x: x.vertices(),L)
+    edgeList=list(map(lambda x: (x[0].id(),x[1].id()),L))
+    
+    for (e1,e2) in poseGraph.edges:
+        
+        
+        # if max([e1,e2])<idx0 or min([e1,e2])>idx1:
+        #     continue
+        if (e1,e2) in edgeList:
+            continue
+        if poseGraph.edges[e1,e2]['edgetype']=="Key2Key" or poseGraph.edges[e1,e2]['edgetype']=="Key2Key-LoopClosure":
+            pass
+        else:
+            continue
+        
+        H=nplinalg.inv(poseGraph.edges[e1,e2]['H'])
+        R=np.identity(3)
+        R[0:2,0:2]=H[0:2,0:2]
+        tpos=np.zeros(3)
+        tpos[0:2]=H[0:2,2]
+        
+        err = poseGraph.edges[e1,e2]['posematch']['mbinfrac_ActiveOvrlp'] 
+        Hess = np.identity(6)
+        Hess[0:3,0:3]=1*poseGraph.edges[e1,e2]['hess_inv']
+        pgopt.add_edge([e1,e2],g2o.Isometry3d(R, tpos),information=Hess)
+    
+    
+    pgopt.optimize()
+    
+    for nn in poseGraph.nodes:   
+        if poseGraph.nodes[nn]['frametype']!="keyframe":
+            continue
+        
+        v1=pgopt.get_pose(nn)
+        tpos=v1.position()
+        R = v1.rotation_matrix()
+        H=np.identity(3)
+        H[0:2,0:2]=R[0:2,0:2]
+        H[0:2,2]=tpos[0:2]
+        
+        poseGraph.nodes[nn]['sHg']=nplinalg.inv(H)
+        poseGraph.nodes[nn]['pos']=(tpos[0],tpos[1])
+    
+
+    for ns in list(poseGraph.nodes):
+        # if ns<=nodeList[-1] and ns>=nodeList[0]:            
+        for pidx in poseGraph.predecessors(ns):
+            if poseGraph.nodes[pidx]['frametype']=="keyframe": # and pidx in sHg_updated
+                if poseGraph.edges[pidx,ns]['edgetype']=="Key2Scan":
+                    psHg=poseGraph.nodes[pidx]['sHg']
+                    nsHps=poseGraph.edges[pidx,ns]['H']
+                    nsHg = nsHps.dot(psHg)
+                    poseGraph.nodes[ns]['sHg']=nsHg
+                    gHns=nplinalg.inv(nsHg)
+                    tpos=np.matmul(gHns,np.array([0,0,1]))
+                    poseGraph.nodes[ns]['pos'] = (tpos[0],tpos[1])
+                    break
+                    
+        # if ns>nodeList[-1]:
+        # for pidx in poseGraph.predecessors(ns):
+        #     if poseGraph.nodes[pidx]['frametype']=="keyframe": # and pidx in sHg_updated
+        #         if poseGraph.edges[pidx,ns]['edgetype']=="Key2Key" or poseGraph.edges[pidx,ns]['edgetype']=="Key2Scan":
+        #             psHg=poseGraph.nodes[pidx]['sHg']
+        #             nsHps=poseGraph.edges[pidx,ns]['H']
+        #             nsHg = nsHps.dot(psHg)
+        #             poseGraph.nodes[ns]['sHg']=nsHg
+        #             gHns=nplinalg.inv(nsHg)
+        #             tpos=np.matmul(gHns,np.array([0,0,1]))
+        #             poseGraph.nodes[ns]['pos'] = (tpos[0],tpos[1])
+        #             break
+    return poseGraph,pgopt
 
 
 def detectAllLoopClosures_closebyNodes(poseGraph,params,returnCopy=False,parallel=True):
