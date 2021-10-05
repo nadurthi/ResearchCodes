@@ -22,6 +22,9 @@ __pycache__/
 *.7z
 *.pyc
 *.db3
+*.nbc
+
+
 
 turtlebotData/
 datasets/
@@ -32,6 +35,7 @@ debugplots/
 debugplot/
 debugPlot/
 
+__pycache__*/
 
 # C extensions
 *.so
