@@ -559,7 +559,7 @@ def RE_Initialize(zk,target,dt):
     return xf0,Pf0
 # %% Run sim
 # loadtestcase = simtestcase
-loadtestcase = "simulations/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s/testcase.pkl"
+loadtestcase = "simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s/testcase.pkl"
 with open(loadtestcase,'rb') as F:
     data = pkl.load(F)
     groundtargetset = data['groundtargetset']
@@ -651,7 +651,7 @@ for t,tk,dt in simngr.iteratetimesteps():
     if t==0 or t==dptvec[min([TTrecomp,len(dptvec)-1])]:
         dptvec = simngr.tvec[tk:min([tk+TT,simngr.ntimesteps]) ]
         # stexhaustseqrobot.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
-        stexhaustseqtime.exhaustive_seq_time(dptvec,robots,targetset,Targetfilterer,searchMIwt=0.5)
+        stexhaustseqtime.exhaustive_seq_time(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
         
 
     # -----------------------------------------------------------------
@@ -754,9 +754,9 @@ simngr.finalize()
 simngr.save(metalog, mainfile=runfilename,metrics=metrics, targetset=targetset,groundtargetset=groundtargetset, robots=robots)
 
 #%% load the simmanger for the folder
-simngr_seqrobot,data_seqrobot = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s")
-simngr_seqtime,data_seqtime = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Time_1_2021-04-09-15H-38M-31s")
-simngr_seqtime_MIsearch10,data_seqtime_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SeqExhaust-Time-MIlamda10_0_2021-04-09-15H-18M-40s")
+simngr_seqrobot,data_seqrobot = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s")
+simngr_seqtime,data_seqtime = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_1_2021-04-09-15H-38M-31s")
+simngr_seqtime_MIsearch10,data_seqtime_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time-MIlamda10_0_2021-04-09-15H-18M-40s")
 
 Methods = ['Seq-UAV', 'Seq-Time', 'Seq-Time (10)']
 

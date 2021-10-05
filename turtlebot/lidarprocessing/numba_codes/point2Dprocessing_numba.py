@@ -147,6 +147,15 @@ def binScanEdges(Xb,Xt,dx):
     
     return P, xedges,yedges
 
+# @jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=True) 
+# def posematchMetrics(X1,X2,H12,dx):
+#     # transform points to X1 space, bin it and then compute the posematch cost
+#     R=H12[0:2,0:2]
+#     X12=H12.dot(X2.T)+H12[0:2,2]
+    
+            
+
+
 @jit(numba.types.Tuple((float64[:],float64))(float64[:,:], int32[:,:], float64[:,:],float64[:],float64[:], int32),nopython=True, nogil=True,cache=True) 
 def binScanMatcher(Posegrid,P,Xt,xedges,yedges,cntThres):
     # Xb are keyframe points
@@ -504,8 +513,8 @@ def globalPoseCost_lsq(x,Hrelsidx,Hrels):
         tji_var = Rj.T.dot(ti-tj)
         thji_var = anglediff(thi,thj)
         
-        if np.abs(i-j)<=3:
-            c=5
+        if np.abs(i-j)<=2:
+            c=10
         else:
             c=1
 
@@ -601,8 +610,8 @@ def globalPoseCost_lsq_jac(x,Hrelsidx,Hrels):
         dydxj[1:,0]=dRjTdth.dot(ti-tj)
         dydxj[1:,1:]=-Rj.T
         
-        if np.abs(i-j)<=3:
-            c=5
+        if np.abs(i-j)<=2:
+            c=10
         else:
             c=1
             

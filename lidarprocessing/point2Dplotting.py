@@ -2,6 +2,7 @@ import pickle as pkl
 import numpy as np
 import numpy.linalg as nplinalg
 import matplotlib.pyplot as plt
+
 from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import Axes3D
 from utils.plotting import geometryshapes as utpltgmshp
@@ -9,8 +10,11 @@ import networkx as nx
 from uq.gmm import gmmfuncs as uqgmmfnc
 # from lidarprocessing import point2Dprocessing as pt2dproc
 from lidarprocessing import point2Dprocessing as pt2dproc
-
+import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 dtype=np.float64
+
+
+import matplotlib.cm as cm
  #%%
 # scanfilepath = 'C:/Users/nadur/Google Drive/repos/SLAM/lidarprocessing/houseScan_std.pkl'
 # scanfilepath = 'C:/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/houseScan_complete.pkl'
@@ -101,16 +105,32 @@ def plotGraph(poseGraph,Lkey,ax=None):
     nx.draw_networkx(poseGraph,pos=pos,nodelist =Lkey,edgelist=edgelist,edge_color=edge_color,with_labels=True,font_size=6,node_size=200,ax=ax)
     ax.axis('equal')
 
-def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
-                      forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False):
+def plot_keyscan_path(poseGraphMain,idx1,idx2,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
+                      forcePlotLastidx=False,plotLastkeyClf=False,plotLoopCloseOnScanPlot=False,plotKeyFrameNodesTraj=False,CloseUpRadiusPlot=30,GlobalBinMap=None):
+    Lkey = list(filter(lambda x: poseGraphMain.nodes[x]['frametype']=="keyframe",poseGraphMain.nodes))
+    Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
+    
+    poseGraph = poseGraphMain.subgraph(Lkey)
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
     Lkey = [x for x in Lkey if x>=idx1 and x<=idx2]
     Lkey.sort()
 
     if makeNew:
         fig = plt.figure()
+        if CloseUpRadiusPlot is not None:
+            closeupfig = plt.figure()
     else:
         fig = plt.figure("Full Plot")
+        if CloseUpRadiusPlot is not None:
+            closeupfig = plt.figure("Close-Up Plot")
+
+    if CloseUpRadiusPlot is not None:
+        if len(closeupfig.axes)==0:
+            closeupax = closeupfig.add_subplot(111)
+        else:
+            closeupax = closeupfig.axes[0]
+        
+        closeupax.cla()
         
     if len(fig.axes)==0:
         ax = fig.add_subplot(111)
@@ -138,28 +158,76 @@ def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=Tru
         # plt.show()
 
     
-    # plotting
-    # if idx % 1==0 or idx==len(dataset)-1:
-    # plt.figure("Full Plot")
-    # plot scans in global frame
     Xcomb=[]
+    XcombClose=[]
+    ClosebyIdxs=[]
+    gHslast = nplinalg.inv(poseGraph.nodes[Lkey[-1]]['sHg'])
+    tposlast=np.matmul(gHslast,np.array([0,0,1]))
     for i in Lkey:
         gHs = nplinalg.inv(poseGraph.nodes[i]['sHg'])
+        tpos=np.matmul(gHs,np.array([0,0,1]))
+        
+                
         # Ti = poseGraph.nodes[i]['time']
         XX = poseGraph.nodes[i]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
-        Xcomb.append(XX)
+        Xcomb.append(XX[:,:2])
+        
+        if CloseUpRadiusPlot is not None:
+            if nplinalg.norm(tpos-tposlast)<=CloseUpRadiusPlot:
+                XcombClose.append(XX[:,:2])
+                ClosebyIdxs.append(i)                    
         if i==Lkey[-1]:
-            Xlast = XX
+            Xlast = XX[:,:2]
+            
             
     Xcomb=np.vstack(Xcomb)
-    # Xcomb=pt2dproc.binnerDensitySampler(Xcomb,dx=0.05,MaxFrac=0.5)
-    # Xcomb=pt2dproc.binnerDownSamplerProbs(Xcomb,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])
-    Xcomb=pt2dproc.binnerDownSampler(Xcomb,dx=0.1,cntThres=2)
-    # Xcomb=pt2dproc.SubMapGridmaker(Xcomb,len(Lkey),dx=0.05,r=0.8)
+    Xcombfil=pt2dproc.binnerDownSampler(Xcomb,dx=0.1,cntThres=2)
+    # Xcomb=pt2dproc.binnerDownSamplerProbs(Xcomb,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])    
     
-    ax.plot(Xcomb[:,0],Xcomb[:,1],'k.',linewidth=0.2, markersize=2)
+    XcombClose=np.vstack(XcombClose)
+    XcombClosefil=pt2dproc.binnerDownSampler(XcombClose,dx=0.1,cntThres=2)
+    # XcombClose=pt2dproc.binnerDownSamplerProbs(XcombClose,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])    
+    
+    if CloseUpRadiusPlot is not None:
+        closeupax.plot(XcombClosefil[:,0],XcombClosefil[:,1],'k.',linewidth=0.2, markersize=2)
+        closeupax.plot(Xlast[:,0],Xlast[:,1],'b.',linewidth=0.2, markersize=2)
+    
+    ax.plot(Xcombfil[:,0],Xcombfil[:,1],'k.',linewidth=0.2, markersize=2)
     ax.plot(Xlast[:,0],Xlast[:,1],'b.',linewidth=0.2, markersize=2)
+    
+    
+    if GlobalBinMap is not None:
+        xedges=GlobalBinMap['xedges']
+        yedges=GlobalBinMap['yedges']
+        globBinfig = plt.figure("Full Plot-Bin Plot")
+        if len(globBinfig.axes)==0:
+            globBinax = globBinfig.add_subplot(111)
+        else:
+            globBinax = globBinfig.axes[0]
+        for i in poseGraph.nodes:
+            gHs = nplinalg.inv(poseGraph.nodes[i]['sHg'])
+            tpos=np.matmul(gHs,np.array([0,0,1]))
+            XX = poseGraph.nodes[i]['X']
+            XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
+            if GlobalBinMap['H'] is None:
+                GlobalBinMap['H']=nbpt2Dproc.numba_histogram2D(XX[:,:2], xedges,yedges)
+            else:
+                GlobalBinMap['H']+=nbpt2Dproc.numba_histogram2D(XX[:,:2], xedges,yedges)
+        
+        dd=(xedges[1]-xedges[0])*(yedges[1]-yedges[0])
+        Hprob=GlobalBinMap['H']/np.sum(GlobalBinMap['H']*dd)
+        q=np.quantile(Hprob.reshape(-1,1),0.9)
+        print(q)
+        Hprob[Hprob>q]=1
+        Hprob[Hprob<=q]=0
+        # prob = numpy.histogram2d(Xcomb[:,0],Xcomb[:,1],bins=[xedges,yedges],density=True)
+        # globBinax.hist2d(Xcomb[:,0],Xcomb[:,1],bins=[xedges,yedges],density=True)
+        globBinax.pcolormesh(xedges,yedges, (1-Hprob).T,shading='flat',cmap=cm.gray)
+        globBinax.axis('equal')
+        # plt.show()
+        globBinfig.canvas.draw()
+    
     
     if plotLastkeyClf:
         clf1=poseGraph.nodes[Lkey[-1]]['clf']
@@ -170,14 +238,19 @@ def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=Tru
             Xe= utpltgmshp.getCovEllipsePoints2D(m,P,nsig=2,N=100)
             XX=np.matmul(gHs,np.vstack([Xe.T,np.ones(Xe.shape[0])])).T   
             ax.plot(XX[:,0],XX[:,1],'g')
-
+            
+            if CloseUpRadiusPlot is not None:
+                closeupax.plot(XX[:,0],XX[:,1],'g')
     
     if forcePlotLastidx:
-        gHs = nplinalg.inv(poseGraph.nodes[idx2]['sHg'])
+        gHs = nplinalg.inv(poseGraphMain.nodes[idx2]['sHg'])
         # Tidx2 = poseGraph.nodes[idx2]['time']
-        XX = poseGraph.nodes[idx2]['X']
+        XX = poseGraphMain.nodes[idx2]['X']
         XX=np.matmul(gHs,np.vstack([XX.T,np.ones(XX.shape[0])])).T   
         ax.plot(XX[:,0],XX[:,1],'r.',linewidth=0.2, markersize=2)
+        if CloseUpRadiusPlot is not None:
+            closeupax.plot(XX[:,0],XX[:,1],'r.',linewidth=0.2, markersize=2)
+                
     # gHs=nplinalg.inv(poseGraph.nodes[idx]['sHg'])
     # Xg=np.matmul(gHs,np.vstack([X.T,np.ones(X.shape[0])])).T   
 
@@ -188,26 +261,42 @@ def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=Tru
             idx_pos=poseGraph.nodes[x[0]]['pos']
             previdx_pos=poseGraph.nodes[x[1]]['pos']
             ax.arrow(idx_pos[0],idx_pos[1],previdx_pos[0]-idx_pos[0],previdx_pos[1]-idx_pos[1],color='b',linestyle='--',length_includes_head=True)
-        
-    posdict = nx.get_node_attributes(poseGraph, "pos")
+            
+            if CloseUpRadiusPlot is not None and x[0] in ClosebyIdxs and x[1] in ClosebyIdxs :
+                closeupax.arrow(idx_pos[0],idx_pos[1],previdx_pos[0]-idx_pos[0],previdx_pos[1]-idx_pos[1],color='b',linestyle='--',length_includes_head=True)
+            
+    posdict = nx.get_node_attributes(poseGraphMain, "pos")
     
     # plot robot path
     Xr=[]
     KeyFrames=[]
+    Xr_closeby=[]
+    KeyFrames_closeb=[]
     for idx in range(idx1,idx2+1):
         if idx in posdict:
             Xr.append(posdict[idx])
         if idx in Lkey:
             KeyFrames.append(posdict[idx])
+        if idx in ClosebyIdxs:
+            Xr_closeby.append(posdict[idx])
+            KeyFrames_closeb.append(posdict[idx])
             
     Xr=np.array(Xr)
+    Xr_closeby=np.array(Xr_closeby)
     KeyFrames=np.array(KeyFrames)
+    KeyFrames_closeb=np.array(KeyFrames_closeb)
     
     ax.plot(Xr[:,0],Xr[:,1],'r')
     ax.plot(Xr[-1,0],Xr[-1,1],'ro')
     
-
-    ax.plot(KeyFrames[:,0],KeyFrames[:,1],'gs', markersize=3)
+    if CloseUpRadiusPlot is not None:
+        closeupax.plot(Xr[:,0],Xr[:,1],'r')
+        closeupax.plot(Xr[-1,0],Xr[-1,1],'ro')
+        
+    if plotKeyFrameNodesTraj:
+        ax.plot(KeyFrames[:,0],KeyFrames[:,1],'gs', markersize=3)
+        if CloseUpRadiusPlot is not None:
+            closeupax.plot(KeyFrames_closeb[:,0],KeyFrames_closeb[:,1],'gs', markersize=3)
     
     ax.set_title(str(idx1)+" to "+str(idx2))
     ax.axis('equal')
@@ -217,7 +306,20 @@ def plot_keyscan_path(poseGraph,idx1,idx2,params,makeNew=False,skipScanFrame=Tru
     if plotGraphbool:
         fig.canvas.draw()
     
+    if CloseUpRadiusPlot is not None:
+        closeupax.set_title(str(idx1)+" to "+str(idx2))
+        closeupax.axis('equal')
+        gHs = nplinalg.inv(poseGraphMain.nodes[idx2]['sHg'])
+        tpos=gHs[0:2,2]
+        closeupax.set_xlim([tpos[0]-CloseUpRadiusPlot,tpos[0]+CloseUpRadiusPlot])
+        closeupax.set_ylim([tpos[1]-CloseUpRadiusPlot,tpos[1]+CloseUpRadiusPlot])
+        plt.draw()
+        # plt.show()
+        closeupfig.canvas.draw()
+
+            
     plt.pause(0.05)
+    
     
     if plotGraphbool:      
         return fig,ax,figg,axgraph

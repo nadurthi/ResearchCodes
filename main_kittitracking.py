@@ -17,7 +17,7 @@ import pykitticustom
 import pykitticustom as pykcus
 from pykitticustom import tracking2 as pykcustracking
 import time
-# import cv2
+import cv2
 import datetime as dt
 import glob
 import os
@@ -48,7 +48,7 @@ logger.critical('critical message')
 from uq.motfilter import mot as uqmot
 from uq.motfilter import jpda
 from uq.filters.kalmanfilter import TargetKF
-from uq.motfilter import targets as uqtargets
+from physmodels import targets as phytarg
 from uq.uqutils.random import genRandomMeanCov
 from physmodels.motionmodels import KinematicModel_UM
 from physmodels.sensormodels import DiscLTSensorModel
@@ -56,13 +56,13 @@ import uq.motfilter.measurements as motmeas
 from uq.uqutils import recorder as uqrecorder
 from uq.uqutils import helper as uqutilhelp
 from uq.uqutils import metrics as uqmetrics
-from uq.uqutils import simmanager as uqsimmanager
+from utils import simmanager
 
 # if __name__=='__main__':
 
 #%% testing kitti read
 
-root_dir = '/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitti/tracking/mot/allcomb/training';
+root_dir = 'P:\\SLAMData\\Kitti\\tracking\\mot\\training';
 seq = '0000';
 ktrk = pykcustracking.KittiTracking(root_dir,seq)
 dflabel = ktrk.readlabel()
@@ -134,8 +134,8 @@ for i in range(ktrk.nframes):
 #    img_rgb = np.hstack([imgL_rgb,imgR_rgb])
 #    ax.imshow(img_rgb)
     plt.show()
-#    plt.pause(0.2)
-    plt.waitforbuttonpress()
+    plt.pause(0.2)
+    # plt.waitforbuttonpress()
 
 #    break
 

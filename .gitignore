@@ -27,6 +27,10 @@ turtlebotData/
 datasets/
 simulations/
 savedMaps/
+debugPlots/
+debugplots/
+debugplot/
+debugPlot/
 
 
 # C extensions

@@ -112,7 +112,7 @@ def main(args=None):
     # topic to continuously publish the global pose computed from lidar scans
     pub = node.create_publisher(MultiEchoLaserScan, 'scan1',ttlhelp.qos_scans_profile)
     pld.pub=pub
-    node.create_timer(0.1,pld.sendScans)
+    node.create_timer(0.4,pld.sendScans)
    
     print("ready")
     try:
