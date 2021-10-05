@@ -31,6 +31,12 @@ from utils.plotting import geometryshapes as utpltgmshp
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import copy
+from numba.core import types
+from numba.typed import Dict
+import heapq
+import numpy as np
+from numpy.lib.stride_tricks import as_strided
+
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -51,8 +57,10 @@ from uq.quadratures import cubatures as uqcub
 import math
 numba_cache=False
 import asyncio
+# import cupy as cp
 
 dtype=np.float64
+float_2Darray = types.float64[:,:]
 #%% Submap- grid
 
 
@@ -424,69 +432,319 @@ def eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrl
     return posematch
 
 
-# def poseGraph_keyFrame_matcher(poseGraph,idx1,idx2,params,PoseGrid,isPoseGridOffset,isBruteForce,H21_est=None):
-#     # fromidx is idx1, toidx is idx2 
-#     clf1=poseGraph.nodes[idx1]['clf']
-    
-#     if H21_est is None:
-#         sHg_1 = poseGraph.nodes[idx1]['sHg']
-#         sHg_2 = poseGraph.nodes[idx2]['sHg']
-        
-#         H21_est = np.matmul(sHg_2,nplinalg.inv(sHg_1))
 
-#     X1 = poseGraph.nodes[idx1]['X']
-#     X2 = poseGraph.nodes[idx2]['X']
-    
 
-    
-#     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
-#     Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
-#     activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
-    
-#     if PoseGrid is None:
-#         H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=H21_est)
-#         posematch=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-#         posematch['H']=H21
-#         posematch['err']=err
-#         posematch['hess_inv']=hess_inv
-#     else:
-#         print("-----------------Inside-----------------")
-        
-#         if isPoseGridOffset:
-#             t,th=nbpt2Dproc.extractPosAngle(H21_est) 
-#             PoseGrid[:,0]+= th
-#             PoseGrid[:,1:3]+= t
-        
-#         elif isBruteForce:
-#             m1 = np.mean(X1,axis=0)
-#             m2 = np.mean(X2,axis=0)
-#             v = m1-m2
-#             thset = np.linspace(0,2*np.pi,PoseGrid[0])
-#             txset = np.linspace(xedges_ovrlp[0],xedges_ovrlp[-1],PoseGrid[1])+v[0]
-#             tyset = np.linspace(yedges_ovrlp[0],yedges_ovrlp[-1],PoseGrid[2])+v[1]
-#             PoseGrid=getgridvec(thset,txset,tyset)
-        
 
-#         M=0
-#         posematch=None
-#         for i in range(PoseGrid.shape[0]):
-#             th=PoseGrid[i,0]
-#             t=np.array([PoseGrid[i,1],PoseGrid[i,2]])
-#             HH = nbpt2Dproc.getHmat(th,t) 
-#             H21,err,hess_inv=scan2keyframe_match(clf1,X1,X2,params,sHk=HH)
+class CostAndNode:
+    def __init__(self, cost, node):
+        self.cost = cost
+        self.node = node
+
+    # do not compare nodes
+    def __lt__(self, other):
+        return self.cost < other.cost
+    
+# @jit(int32(int32[:,:], int32[:,:]),nopython=True, nogil=True,cache=False) 
+def getPointCost2(H,Pn):
+    # Tj is the 2D index of displacement
+    # X are the points
+    # dx is 2D
+    # H is the probability histogram
+    c=np.sum(np.take(H, np.ravel_multi_index(Pn.T, H.shape,mode='clip')))
+
+        
+    return c
+
+# @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=False) 
+def getPointCost(H,dx,X,Oj,Tj):
+    # Tj is the 2D index of displacement
+    # X are the points
+    # dx is 2D
+    # H is the probability histogram
+    
+    P=np.floor(X/dx).astype(np.int32)
+    j=np.floor(Oj/dx).astype(np.int32)
+    Pn=P+j
+    # Pn =Pn.astype(np.int32)
+    # for i in prange(Pn.shape[0]):
+    #     if Pn[i,0]<0:
+    #         Pn[i,0]=0
+    #     elif Pn[i,0]>H.shape[0]-1:
+    #         Pn[i,0]=H.shape[0]-1
+    #     if Pn[i,1]<0:
+    #         Pn[i,1]=0
+    #     elif Pn[i,1]>H.shape[1]-1:
+    #         Pn[i,1]=H.shape[1]-1
             
-#             posematch2=eval_posematch(H21,X2,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-#             if posematch2['mbinfrac_ActiveOvrlp']>M:
-#                 posematch=posematch2
-#                 posematch['H']=H21
-#                 posematch['err']=err
-#                 posematch['hess_inv']=hess_inv
-#                 M = posematch2['mbinfrac_ActiveOvrlp']
-  
-    
-    
-#     return posematch
+            
 
+    
+    c=np.sum(np.take(H, np.ravel_multi_index(Pn.T, H.shape,mode='clip')))
+    # idx1 = np.all(Pn>=np.zeros(2),axis=1)
+    # Pn=Pn[idx1]
+    # idx2 = np.all(Pn<H.shape,axis=1)
+    # Pn=Pn[idx2]
+    # idx1=np.logical_and(Pn[:,0]>=0,Pn[:,0]<H.shape[0])
+    # idx2=np.logical_and(Pn[:,1]>=0,Pn[:,1]<H.shape[1])
+    # idx=np.logical_and(idx1,idx2 )
+    
+    # idx=np.all(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 )
+    # Pn=Pn[idx,:]
+    # if Pn.size>0:
+    #     values, counts = np.unique(Pn, axis=0,return_counts=True)
+    #     c=np.sum(counts*H[values[:,0],values[:,1]])
+    #     c=np.sum(H[Pn[:,0],Pn[:,1]])
+        
+    return c
+
+
+
+
+
+def pool2d(A, kernel_size, stride, padding, pool_mode='max'):
+    '''
+    2D Pooling
+
+    Parameters:
+        A: input 2D array
+        kernel_size: int, the size of the window
+        stride: int, the stride of the window
+        padding: int, implicit zero paddings on both sides of the input
+        pool_mode: string, 'max' or 'avg'
+    '''
+    # Padding
+    A = np.pad(A, padding, mode='constant')
+
+    # Window view of A
+    output_shape = ((A.shape[0] - kernel_size)//stride + 1,
+                    (A.shape[1] - kernel_size)//stride + 1)
+    kernel_size = (kernel_size, kernel_size)
+    A_w = as_strided(A, shape = output_shape + kernel_size, 
+                        strides = (stride*A.strides[0],
+                                   stride*A.strides[1]) + A.strides)
+    A_w = A_w.reshape(-1, *kernel_size)
+
+    # Return the result of pooling
+    if pool_mode == 'max':
+        return A_w.max(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'avg':
+        return A_w.mean(axis=(1,2)).reshape(output_shape)
+# H=pool2d(Hup, kernel_size=3, stride=2, padding=0, pool_mode='max')
+
+
+
+
+            
+def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
+    # dxMax is the max resolution allowed
+    # Lmax =[xmax,ymax]
+    # search window is [-Lmax,Lmax] and [-thmax,thmax]
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    
+    
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    # print("mn_orig = ",mn_orig)
+    
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+    
+    
+    # print("mn,mx=",mn,mx)
+    P = mx-mn
+    
+    
+    # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
+    # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
+    
+    nnx=np.ceil(np.log2(P[0]))
+    nny=np.ceil(np.log2(P[1]))
+    
+    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMax[0],dxMatch[0])
+    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMax[0],dxMatch[1])
+    
+    if len(xedges)%2==0:
+        xedges=np.hstack([xedges,xedges[-1]+1*dxMatch[0]])
+    if len(yedges)%2==0:
+        yedges=np.hstack([yedges,yedges[-1]+1*dxMatch[1]])
+        
+    
+    H1match=nbpt2Dproc.numba_histogram2D(X1, xedges,yedges)
+    
+    H1match[H1match>0]=1
+    # H1match = np.sign(H1match)
+    # H1match=100*H1match/(np.sum(H1match.reshape(-1))*np.prod(dxMatch))
+    
+    
+    
+    
+    # first create multilevel histograms
+    levels=[]
+    HLevels=[H1match]
+    dxs = [dxMatch]
+    XYedges=[(xedges,yedges)]
+
+
+    flg=False
+    # st=time.time()
+    for i in range(1,100):
+        
+        dx=2*dxs[i-1]
+        if np.any(dx>dxMax):
+            flg=True
+        
+        Hup = HLevels[i-1]
+        # H=pool2d(Hup, kernel_size=3, stride=2, padding=1, pool_mode='max')
+        H=nbpt2Dproc.UpsampleMax(Hup,n)
+        
+        # print(xedges[0],xedges[-1],len(xedges),yedges[0],yedges[-1],len(yedges))
+        lx =xedges[-1]
+        ly =yedges[-1]
+        xedges=xedges[::2]
+        yedges=yedges[::2]
+        
+        # print(xedges[0],xedges[-1],len(xedges),yedges[0],yedges[-1],len(yedges))
+        # print("-------------")
+        # plotbins2(xedges,yedges,H,X1,X2)
+        
+        XYedges.append((xedges,yedges))  
+        if len(xedges)%2==0:
+            xedges=np.hstack([xedges,lx])
+        if len(yedges)%2==0:
+            yedges=np.hstack([yedges,ly])
+        
+        HLevels.append(H)
+        dxs.append(dx)
+          
+
+        if flg:
+            break
+    HLevels=HLevels[::-1]
+    dxs=dxs[::-1]
+    dxs=[dx.astype(np.float32) for dx in dxs]
+    HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+    XYedges=XYedges[::-1]
+     
+    # et=time.time()
+    # print("Time pre-init = ",et-st)
+    SolBoxes_init=[]
+    for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
+        for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
+            SolBoxes_init.append( (np.array([xs,ys],dtype=np.float32),dxs[0]) )
+    
+    
+    mxLVL=len(HLevels)-1
+    
+    # st=time.time()
+    decimatedict={}
+    h=[]
+    #Initialize with all thetas fixed at Max resolution
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+
+    Xth={}
+    
+    thfineRes = np.max([0.5*np.min(dxMatch)/rmax,5*np.pi/180])
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float32)
+    # np.random.shuffle(thL)
+    for th in thL:
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X2.T))
+        Xth[th]=np.ascontiguousarray(XX.astype(np.float32))
+        
+        
+        for solbox in SolBoxes_init:
+            Tj=solbox[1]
+            Oj = solbox[0]
+            # if not np.all(Tj==dx):
+            #     print(Tj,dx)
+            #     raise Exception("Tj and dx are not equal ")
+                
+            
+            cost2=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj)
+            # h.append(CostAndNode(-cost2,[solbox,lvl,th]))
+            
+            heapq.heappush(h,(-(cost2+np.random.rand()/1000),[solbox,lvl,th]))
+    
+
+
+  
+       
+    # st=time.time()
+    while(1):
+        # print(len(h))
+        (cost,[solboxt,lvl,th])=heapq.heappop(h)
+        
+        # (cost,[solboxt,lvl,th])=(CN.cost,CN.node)
+        # print(cost,lvl,len(h),np.round(th*180/np.pi,2))
+        # if lvl>=mxLVL:
+        #     continue
+        if lvl==mxLVL:
+            print("done")
+            break
+        
+        
+        dx=dxs[lvl+1]
+        H=HLevels[lvl+1]
+        Tj=solboxt[1]
+        Oj=solboxt[0]
+        S=[]
+
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                S.append( (np.array([xs,ys]),dx) )
+        
+
+        for solbox in S:
+            Tj=solbox[1]
+            Oj = solbox[0]
+            
+            cost3=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj) 
+
+                
+            # print(lvl,cost,lvl+1,-cost3)
+            heapq.heappush(h,(-(cost3+np.random.rand()/1000),[solbox,lvl+1,th]))
+
+          
+    # et=time.time()
+    # print("time for final run heap push pop = ", et-st)
+
+
+    t=solboxt[0]
+    H=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    H[0:2,0:2]=R
+    H[0:2,2]=t
+    Htotal12 = np.matmul(H,H12)
+    RT=Htotal12[0:2,0:2]
+    tT=Htotal12[0:2,2]
+    
+    Rs=H[0:2,0:2]
+    ts=H[0:2,2]
+    
+    t = tT-(Rs.dot(mn_orig)+0*ts)+mn_orig
+    Htotal12_updt=Htotal12.copy()
+    Htotal12_updt[0:2,2]=t
+    Htotal21_updt = nplinalg.inv(Htotal12_updt)
+    return Htotal21_updt,cost,HLevels
 
 def getCombinedNode(poseGraph,idx,nn,params,Doclf=True):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))

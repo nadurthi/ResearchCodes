@@ -8,7 +8,7 @@ import pandas as pd
 
 import numpy as np
 
-import pykitti.utils as utils
+import pykittimaster.pykitti.utils as utils
 
 try:
     xrange

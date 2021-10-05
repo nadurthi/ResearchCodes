@@ -27,17 +27,266 @@ from scipy.optimize import least_squares
 from uq.quadratures import cubatures as uqcub
 import math
 from scipy.sparse import csr_matrix,lil_matrix
-
+import heapq
 numba_cache=True
 dtype=np.float64
 
+from numba.core import types
+from numba.typed import Dict
+float_2Darray = types.float64[:,:]
 #%% histogram bins
 
+@njit
+def UpsampleMax(Hup,n):
+    H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2))),dtype=np.int32)
+    for j in range(H.shape[0]):
+        for k in range(H.shape[1]):
+            lbx=max([2*j,0])
+            ubx=min([2*j+n,Hup.shape[0]-1])+1
+            lby=max([2*k,0])
+            uby=min([2*k+n,Hup.shape[1]-1])+1
+            H[j,k] = np.max( Hup[lbx:ubx,lby:uby] )
+    return H
 
 
 
+# @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=True) 
+@njit
+def getPointCost(H,dx,X,Oj,Tj):
+    # Tj is the 2D index of displacement
+    # X are the points
+    # dx is 2D
+    # H is the probability histogram
+    
+    P=np.floor(X/dx)
+    j=np.floor(Oj/dx)
+    Pn=P+j
+    # Idx = np.zeros(Pn.shape[0],dtype=np.int32)
+    # for i in range(Pn.shape[0]):
+    #     if Pn[i,0]<0 or Pn[i,0]>H.shape[0]-1 or Pn[i,1]<0 or Pn[i,1]>H.shape[1]-1 :
+    #         Pn[i,0]=H.shape[0]-1
+    #         Pn[i,1]=H.shape[1]-1
+            
+        # elif Pn[i,0]>H.shape[0]-1:
+        #     Pn[i,0]=H.shape[0]-1
+        # if Pn[i,1]<0:
+        #     Pn[i,1]=0
+        # elif Pn[i,1]>H.shape[1]-1:
+        #     Pn[i,1]=H.shape[1]-1
+        
+        # Idx[i]= Pn[i,1]*(H.shape[0]-1)+Pn[i,0]
+            
 
 
+    # c=np.sum(np.take(H, Idx))
+    # c=np.sum(np.take(H, np.ravel_multi_index(Pn.T, H.shape,mode='clip')))
+    # idx1 = np.all(Pn>=np.zeros(2),axis=1)
+    # Pn=Pn[idx1]
+    # idx2 = np.all(Pn<H.shape,axis=1)
+    # Pn=Pn[idx2]
+    idx1=np.logical_and(Pn[:,0]>=0,Pn[:,0]<H.shape[0])
+    idx2=np.logical_and(Pn[:,1]>=0,Pn[:,1]<H.shape[1])
+    idx=np.logical_and(idx1,idx2 )
+    c=0
+    # idx=np.all(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 )
+    Pn=Pn[idx]
+    # if Pn.size>0:
+    #     values, counts = np.unique(Pn, axis=0,return_counts=True)
+    #     c=np.sum(counts*H[values[:,0],values[:,1]])
+        # c=np.sum(H[Pn[:,0],Pn[:,1]])
+    for k in range(Pn.shape[0]):
+        c+=H[int(Pn[k,0]),int(Pn[k,1])]
+        
+    return c
+
+@njit
+def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
+    # dxMax is the max resolution allowed
+    # Lmax =[xmax,ymax]
+    # search window is [-Lmax,Lmax] and [-thmax,thmax]
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    
+    
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    # print("mn_orig = ",mn_orig)
+    
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+    
+    
+    # print("mn,mx=",mn,mx)
+    P = mx-mn
+    
+    
+    # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
+    # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
+    
+    nnx=np.ceil(np.log2(P[0]))
+    nny=np.ceil(np.log2(P[1]))
+    
+    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMax[0],dxMatch[0])
+    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMax[0],dxMatch[1])
+    
+    if len(xedges)%2==0:
+        
+        xedges=np.hstack((xedges,np.array([xedges[-1]+1*dxMatch[0]])))
+    if len(yedges)%2==0:
+        yedges=np.hstack((yedges,np.array([yedges[-1]+1*dxMatch[1]])))
+        
+    
+    H1match=numba_histogram2D(X1, xedges,yedges)
+    
+    
+    # H1match[H1match>0]=1
+    H1match = np.sign(H1match)
+    
+    # first create multilevel histograms
+    
+    
+    HLevels=[H1match]
+    dxs = [dxMatch]
+    XYedges=[(xedges,yedges)]
+    
+    flg=0
+    # st=time.time()
+    for i in range(1,100):
+        
+        dx=2*dxs[i-1]
+        if np.any(dx>dxMax):
+            flg=1
+        
+        Hup = HLevels[i-1]
+        # H=pool2d(Hup, kernel_size=3, stride=2, padding=1, pool_mode='max')
+        H=UpsampleMax(Hup,n)
+        
+
+        HLevels.append(H)
+        dxs.append(dx)
+          
+
+        if flg==1:
+            break
+    HLevels=HLevels[::-1]
+    dxs=dxs[::-1]
+    # dxs=[dx.astype(np.float32) for dx in dxs]
+    # HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+
+     
+    
+    
+    SolBoxes_init=[]
+    for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
+        for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
+            SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
+    
+    
+    
+    
+    mxLVL=len(HLevels)-1
+
+    
+    h=[(100000.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+    # #Initialize with all thetas fixed at Max resolution
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+
+    Xth= Dict.empty(
+        key_type=types.float64,
+        value_type=float_2Darray,
+    )
+    
+    thfineRes = 5*np.pi/180
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes)
+    # np.random.shuffle(thL)
+    for th in thL:
+        # th=thL[i]
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X2.T))
+        Xth[th]=XX
+        
+        
+        for solbox in SolBoxes_init:            
+            xs,ys,d0,d1 = solbox
+            Tj=np.array((d0,d1))
+            Oj = np.array((xs,ys))
+            cost2=getPointCost(H,dx,Xth[th],Oj,Tj)
+            # heapq.heappush(h,(-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            h.append((-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            
+    heapq.heapify(h)
+
+    # (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+    mainSolbox=()
+    while(1):
+        
+        # if len(h)==0:
+        #     break
+        
+        (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+        mainSolbox = (cost,xs,ys,d0,d1,lvl,th)
+        if lvl==mxLVL:
+            break
+        
+        nlvl = int(lvl)+1
+        dx=dxs[nlvl]
+        H=HLevels[nlvl]
+        Tj=np.array((d0,d1))
+        Oj = np.array((xs,ys))
+        # # S=[]
+        
+        
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        
+        d0,d1=dx[0],dx[1]
+        Tj=np.array((d0,d1))
+        
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                # S.append( (xs,ys,dx[0],dx[1]) )
+
+                # xs,ys,d0,d1 = solbox
+                
+                Oj = np.array((xs,ys))
+                cost3=getPointCost(H,dx,Xth[th],Oj,Tj) 
+                heapq.heappush(h,(-cost3-np.random.rand()/1000,xs,ys,d0,d1,float(nlvl),th))
+
+    t=mainSolbox[1:3]
+    th = mainSolbox[6]
+    cost=-mainSolbox[0]
+    H=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    H[0:2,0:2]=R
+    H[0:2,2]=t
+    Htotal12 = H.dot(H12)
+    RT=Htotal12[0:2,0:2]
+    tT=Htotal12[0:2,2]
+    
+    Rs=H[0:2,0:2]
+    ts=H[0:2,2]
+    
+    t = tT-(Rs.dot(mn_orig)+0*ts)+mn_orig
+    Htotal12_updt=Htotal12
+    Htotal12_updt[0:2,2]=t
+    Htotal21_updt = nplinalg.inv(Htotal12_updt)
+    return Htotal21_updt,cost,HLevels
 
 
 
