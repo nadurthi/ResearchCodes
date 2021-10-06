@@ -73,6 +73,12 @@ from sensortasking import exhaustive_tasking_seq_time as stexhaustseqtime
 
 from utils.metrics import tracking as utmttrack
 
+
+plt.rcParams['axes.labelsize'] = 18
+plt.rcParams['axes.titlesize'] = 18
+plt.rcParams['xtick.labelsize'] = 18
+plt.rcParams['ytick.labelsize'] = 18
+figsize=(12,9)
 # %% plotting functions
 markers = ['.','o','s','d','^']
 
@@ -116,7 +122,7 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
     
     # plots any searchtargets markov grid first
     if plotsearch:
-        fig = plt.figure("Search targs")
+        fig = plt.figure("Search targs",figsize=figsize)
         axlist = fig.axes
         if len(axlist)==0:
             ax = fig.add_subplot(projection='3d')
@@ -139,15 +145,15 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
         
         # ax.axis('equal')
         ax.set(xlim=xlim, ylim=ylim)
-        ax.set_xlabel('X Label')
-        ax.set_ylabel('Y Label')
-        ax.set_zlabel('Z Label')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
         plt.show(block=False)
         plt.pause(0.1)
     
         
         
-        fig = plt.figure("Search MI")
+        fig = plt.figure("Search MI",figsize=figsize)
         axlist = fig.axes
         if len(axlist)==0:
             ax = fig.add_subplot(projection='3d')
@@ -176,16 +182,16 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
             cnt+=1
         
         ax.set(xlim=xlim, ylim=ylim, zlim=[-0.5,1])
-        ax.set_xlabel('X Label')
-        ax.set_ylabel('Y Label')
-        ax.set_zlabel('Z Label')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
         plt.show(block=False)
         plt.pause(0.1)
         
         
     # now plot all the rest of the targets
     
-    fig = plt.figure("MainSim-all targs")
+    fig = plt.figure("MainSim-all targs",figsize=figsize)
     axlist = fig.axes
     if len(axlist)==0:
         ax = fig.add_subplot(111,label='contour')
@@ -194,7 +200,8 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
         ax.cla()
         
     ax.set_title("time step = %f"%(t,) )
-    
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
     robots[0].mapobj.plotmap(ax)
     
     for r in robots:
@@ -208,7 +215,7 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
         tt,xktruth = groundtargetset[i].groundtruthrecorder.getvar_uptotime_stacked('xtk',t,returntimes=True)
         ax.plot(xktruth[:,0],xktruth[:,1],linestyle='--',c=groundtargetset[i].color)
         ax.plot(xktruth[-1,0],xktruth[-1,1],c=groundtargetset[i].color,marker='*')
-        ax.annotate(groundtargetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]+2,color=groundtargetset[i].color,fontsize='x-small')
+        ax.annotate(groundtargetset[i].targetName,xktruth[-1,0:2],xktruth[-1,0:2]-2,color=groundtargetset[i].color)
         
     for i in range(targetset.ntargs):
         if targetset[i].isSearchTarget():
@@ -217,7 +224,8 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
         
         tt,xfku = targetset[i].recorderpost.getvar_uptotime_stacked('xfk',t,returntimes=True)
         tt,status_ku = targetset[i].recorderpost.getvar_uptotime_list('status',t,returntimes=True)
-
+        if status_ku is None or len(status_ku)<2:
+            continue
         TT = getActiveTrackTimes(tt,status_ku)
         
         # tt,xfkf = targetset[i].recorderprior.getvar_uptotime_stacked('xfk',t)
@@ -228,24 +236,24 @@ def plotsimAllTargs(simngr,pather,groundtargetset,targetset,robots,t,tvec,plotes
         
         
         
-        
+
         if plotest:
             if xfku is not None:
                 for T in TT:
-                    ax.plot(xfku[T[0]:T[1],0],xfku[T[0]:T[1],1],c=targetset[i].color)
+                    ax.plot(xfku[T[0]:T[1],0],xfku[T[0]:T[1],1],c=targetset[i].color,linewidth=2)
                     # ax.plot(xfku[T[0],0],xfku[T[0],1],c=targetset[i].color,marker='s')
                     # ax.plot(xfku[T[1],0],xfku[T[1],1],c=targetset[i].color,marker='o')
                     
                 ax.plot(xfku[-1,0],xfku[-1,1],c=targetset[i].color,marker='s')
-                ax.annotate(targetset[i].targetName,xfku[-1,0:2],xfku[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
+                ax.annotate(targetset[i].targetName,xfku[-1,0:2],xfku[-1,0:2]+2,color=targetset[i].color)
     
                 XX=utpltshp.getCovEllipsePoints2D(xfku[-1,0:2],Pfku[0:2,0:2],nsig=1,N=100)
                 ax.plot(XX[:,0],XX[:,1],color=targetset[i].color)
             
             elif xfkf is not None:             
-                ax.plot(xfkf[:,0],xfkf[:,1],c=targetset[i].color)
+                ax.plot(xfkf[:,0],xfkf[:,1],c=targetset[i].color,linewidth=2)
                 ax.plot(xfkf[-1,0],xfkf[-1,1],c=targetset[i].color,marker='s')
-                ax.annotate(targetset[i].targetName,xfkf[-1,0:2],xfkf[-1,0:2]+2,color=targetset[i].color,fontsize='x-small')
+                ax.annotate(targetset[i].targetName,xfkf[-1,0:2],xfkf[-1,0:2]+2,color=targetset[i].color)
             else:
                 print("Both xfku and xfkf are None for target: #%d"%i)
 
@@ -319,7 +327,7 @@ with utltm.TimingContext():
 
 
 # now setting the robots
-robots=[robtgr.Robot2DRegGrid(),robtgr.Robot2DRegGrid()]
+robots=[robtgr.Robot2DRegGrid(),robtgr.Robot2DRegGrid(),robtgr.Robot2DRegGrid()]
 
 
 
@@ -347,7 +355,7 @@ robots[1].mapobj = robot.mapobj
 robots[1].controltemplates = copy.deepcopy(robot.controltemplates)
 robots[1].xk=rgmap.snap2grid(np.array([30,30,0]))
 robots[1].robotColor = 'r'
-robots[0].shape = {'a':2,'w':1}
+robots[1].shape = {'a':2,'w':1}
 robots[1].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.2)**2, (0.2)**2), 
                                                    posstates=[0,1], 
                                                    FOVradius=10,
@@ -358,6 +366,21 @@ robots[1].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.2)**2, (0.2)*
 robots[1].updateSensorModel()   
 
 
+robots[2].robotName= 'UAV:2'
+robots[2].dynModel = phymm.KinematicModel_CT_control(L1=0.016, L2=0.0001,maxvmag=maxvmag,minvmag=minvmag,maxturnrate=maxturnrate)
+robots[2].mapobj = robot.mapobj
+robots[2].controltemplates = copy.deepcopy(robot.controltemplates)
+robots[2].xk=rgmap.snap2grid(np.array([70,30,0]))
+robots[2].robotColor = 'r'
+robots[2].shape = {'a':2,'w':1}
+robots[2].sensormodel=physmfov.XYcircularFOVsensor(R=block_diag((0.2)**2, (0.2)**2), 
+                                                   posstates=[0,1], 
+                                                   FOVradius=10,
+                                                    FOVcolor='r',
+                                                    TP=0.9, TN=0.9, FP=0.1, FN=0.1,
+                                                    recordSensorState=True,
+                                                    enforceConstraint=True)
+robots[2].updateSensorModel()   
 
 # robots.pop(1)
 
@@ -562,12 +585,18 @@ def RE_Initialize(zk,target,dt):
 loadtestcase = "simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s/testcase.pkl"
 with open(loadtestcase,'rb') as F:
     data = pkl.load(F)
+    robots=data['robots']
+
+
+loadtestcase = "simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s/testcase.pkl"
+with open(loadtestcase,'rb') as F:
+    data = pkl.load(F)
     groundtargetset = data['groundtargetset']
     targetset=data['targetset']
-    robots=data['robots']
+    # robots=data['robots']
     # simngr=data['simngr']
 
-searchMIwt = simngr.data['searchMIwt'] = 3
+searchMIwt = simngr.data['searchMIwt'] = 10
 
 
 
@@ -751,75 +780,171 @@ for ff in figs:
 
 simngr.finalize()
 
-simngr.save(metalog, mainfile=runfilename,metrics=metrics, targetset=targetset,groundtargetset=groundtargetset, robots=robots)
+simngr.save(metalog, mainfile=runfilename,metrics=metrics, targetset=targetset,groundtargetset=groundtargetset, robots=robots,DF=DF)
 
 #%% load the simmanger for the folder
 simngr_seqrobot,data_seqrobot = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s")
 simngr_seqtime,data_seqtime = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_1_2021-04-09-15H-38M-31s")
 simngr_seqtime_MIsearch10,data_seqtime_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time-MIlamda10_0_2021-04-09-15H-18M-40s")
+simngr_seqrobot3,data_seqrobot3 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_1_2021-10-05-20H-16M-43s")
+simngr_seqrobot_MIsearch10,data_seqrobot_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_0_2021-10-06-12H-36M-21s")
 
-Methods = ['Seq-UAV', 'Seq-Time', 'Seq-Time (10)']
 
-fig1, ax1 = plt.subplots()
+smmng = simngr_seqrobot
+dtdt= data_seqrobot
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(smmng.tvec[-1],dtdt['groundtargetset'],dtdt['targetset'])
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio_seqrobot=np.hstack(probRatio)
+probRatio_seqrobot = probRatio_seqrobot[~numpy.isnan(probRatio_seqrobot)]
+
+smmng = simngr_seqtime
+dtdt= data_seqtime
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(smmng.tvec[-1],dtdt['groundtargetset'],dtdt['targetset'])
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio_seqtime=np.hstack(probRatio)
+probRatio_seqtime = probRatio_seqtime[~numpy.isnan(probRatio_seqtime)]
+
+smmng = simngr_seqtime_MIsearch10
+dtdt= data_seqtime_MIsearch10
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(smmng.tvec[-1],dtdt['groundtargetset'],dtdt['targetset'])
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio_seqtime_MIsearch10=np.hstack(probRatio)
+probRatio_seqtime_MIsearch10 = probRatio_seqtime_MIsearch10[~numpy.isnan(probRatio_seqtime_MIsearch10)]
+
+
+
+smmng = simngr_seqrobot3
+dtdt= data_seqrobot3
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(smmng.tvec[-1],dtdt['groundtargetset'],dtdt['targetset'])
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio_seqrobot3=np.hstack(probRatio)
+probRatio_seqrobot3 = probRatio_seqrobot3[~numpy.isnan(probRatio_seqrobot3)]
+
+smmng = simngr_seqrobot_MIsearch10
+dtdt= data_seqrobot_MIsearch10
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(smmng.tvec[-1],dtdt['groundtargetset'],dtdt['targetset'])
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio_seqrobot_MIsearch10=np.hstack(probRatio)
+probRatio_seqrobot_MIsearch10 = probRatio_seqrobot_MIsearch10[~numpy.isnan(probRatio_seqrobot_MIsearch10)]
+
+Methods = ['Seq-UAV \n($N_s$=2,$\lambda$=3)','Seq-UAV \n($N_s$=2,$\lambda$=10)', 'Seq-Time \n($N_s$=2,$\lambda$=3)', 'Seq-Time \n($N_s$=2,$\lambda$=10)','Seq-UAV \n($N_s$=3,$\lambda$=3)']
+xpos1=np.arange(len(Methods),dtype=np.int)
+
+
+
+fig1, ax1 = plt.subplots(figsize=(12, 9))
 ax1.set_ylabel('RMSE in position')
 ax1.set_xlabel('Methods')
-databox = [data_seqrobot['metrics']['RMSE_Active_pos'],data_seqtime['metrics']['RMSE_Active_pos'],data_seqtime_MIsearch10['metrics']['RMSE_Active_pos']]
-ax1.boxplot(databox)
+databox = [data_seqrobot['metrics']['RMSE_Active_pos'],data_seqrobot_MIsearch10['metrics']['RMSE_Active_pos'],data_seqtime['metrics']['RMSE_Active_pos'],data_seqtime_MIsearch10['metrics']['RMSE_Active_pos'],data_seqrobot3['metrics']['RMSE_Active_pos']]
+ax1.boxplot(databox,positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
 xticks = ax1.get_xticks()
 ax1.set_xticks(xticks)
 ax1.set_xticklabels(Methods)
 
-fig1.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-position",format='png',bbox_inches='tight',dpi=600)
+fig1.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-position_v3.png",format='png',bbox_inches='tight',dpi=600)
 
 # ----------------
-fig2, ax2 = plt.subplots()
+fig2, ax2 = plt.subplots(figsize=(12, 9))
 ax2.set_ylabel('RMSE in velocity')
 ax2.set_xlabel('Methods')
-databox = [data_seqrobot['metrics']['RMSE_Active_vel'],data_seqtime['metrics']['RMSE_Active_vel'],data_seqtime_MIsearch10['metrics']['RMSE_Active_vel']]
-ax2.boxplot(databox)
+databox = [data_seqrobot['metrics']['RMSE_Active_vel'],data_seqrobot_MIsearch10['metrics']['RMSE_Active_vel'],data_seqtime['metrics']['RMSE_Active_vel'],data_seqtime_MIsearch10['metrics']['RMSE_Active_vel'],data_seqrobot3['metrics']['RMSE_Active_vel']]
+ax2.boxplot(databox,positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
 xticks = ax2.get_xticks()
 ax2.set_xticks(xticks)
 ax2.set_xticklabels(Methods)
 
-fig2.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-velocity",format='png',bbox_inches='tight',dpi=600)
+fig2.savefig("simulations/DynamicSensorTasking-SIMset1/RMSE-BOX-velocity_v3.png",format='png',bbox_inches='tight',dpi=600)
 
 
 # ----------------
 
-fig3, ax3= plt.subplots()
+fig3, ax3= plt.subplots(figsize=(12, 9))
 ax3.set_ylabel('percent')
 cc = 'TIMES_Active_percent'
-databox1 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
-xpos1=np.array([0,1,2])
-ax3.boxplot(databox1,positions = xpos1)
+databox1 = [data_seqrobot['metrics'][cc],data_seqrobot_MIsearch10['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc],data_seqrobot3['metrics'][cc]]
+xpos1=np.arange(len(Methods),dtype=np.int)
+ax3.boxplot(databox1,positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
 ax3.set_xticklabels(Methods)
-ax3.set_ylabel(cc)
+ax3.set_ylabel("% Active time steps")
 ax3.set_xlabel('Methods')
 plt.show()
-fig3.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
+fig3.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+"_v3.png",format='png',bbox_inches='tight',dpi=600)
 
 
 
-fig4, ax4= plt.subplots()
+fig4, ax4= plt.subplots(figsize=(12, 9))
 cc = 'TIMES_Active_percent_after_discovery'
-databox2 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
-xpos2=np.array([4,5,6])
-ax4.boxplot(databox2,positions = xpos2)
+databox2 = [data_seqrobot['metrics'][cc],data_seqrobot_MIsearch10['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc],data_seqrobot3['metrics'][cc]]
+xpos2=np.arange(len(Methods),dtype=np.int)
+ax4.boxplot(databox2,positions = xpos2,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
 ax4.set_xticklabels(Methods)
-ax4.set_ylabel(cc)
+ax4.set_ylabel("% Active time steps after discovery")
 ax4.set_xlabel('Methods')
 plt.show()
-fig4.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
+fig4.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+"_v3.png",format='png',bbox_inches='tight',dpi=600)
 
 
-fig5, ax5= plt.subplots()
+fig5, ax5= plt.subplots(figsize=(12, 9))
 cc = 'TIME_percent_before_discover'
-databox3 = [data_seqrobot['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc]]
-xpos3=np.array([8,9,10])
-ax5.boxplot(databox3,positions = xpos3)
+databox3 = [data_seqrobot['metrics'][cc],data_seqrobot_MIsearch10['metrics'][cc],data_seqtime['metrics'][cc],data_seqtime_MIsearch10['metrics'][cc],data_seqrobot3['metrics'][cc]]
+xpos3=np.arange(len(Methods),dtype=np.int)
+ax5.boxplot(databox3,positions = xpos3,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
 ax5.set_xticklabels(Methods)
-ax5.set_ylabel(cc)
+ax5.set_ylabel("% Active time steps before discovery")
 ax5.set_xlabel('Methods')
 plt.show()
-fig5.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+".png",format='png',bbox_inches='tight',dpi=600)
+fig5.savefig("simulations/DynamicSensorTasking-SIMset1/"+cc+"_v3.png",format='png',bbox_inches='tight',dpi=600)
 
+fig6, ax6= plt.subplots(figsize=(12, 9))
+databox4 = [probRatio_seqrobot,probRatio_seqrobot_MIsearch10,probRatio_seqtime,probRatio_seqtime_MIsearch10,probRatio_seqrobot3]
+xpos4=np.arange(len(Methods),dtype=np.int)
+ax6.boxplot(databox4,positions = xpos4,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+ax6.set_xticklabels(Methods)
+ax6.set_ylabel('p(true)/p(2$\sigma$)')
+ax6.set_xlabel('Methods')
+plt.show()
+fig6.savefig("simulations/DynamicSensorTasking-SIMset1/probRatio"+"_v3.png",format='png',bbox_inches='tight',dpi=600)
+
+
+#%% plot snapshots
+# simngr_loaded,data_loaded = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Robot_0_2021-04-09-14H-44M-44s")
+simngr_loaded,data_loaded  = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_1_2021-04-09-15H-38M-31s")
+# simngr_seqtime_MIsearch10,data_seqtime_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time-MIlamda10_0_2021-04-09-15H-18M-40s")
+# simngr_seqrobot3,data_seqrobot3 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_1_2021-10-05-20H-16M-43s")
+# simngr_seqrobot_MIsearch10,data_seqrobot_MIsearch10 = simmanager.SimManager.load("simulations/DynamicSensorTasking-SIMset1/DynamicSensorTasking-SeqExhaust-Time_0_2021-10-06-12H-36M-21s")
+
+groundtargetset=data_loaded['groundtargetset']
+targetset=data_loaded['targetset']
+robots=data_loaded['robots']
+metrics=data_loaded['metrics']
+# tt,status_ku = targetset[1].recorderpost.getvar_uptotime_list('status',t+dt,returntimes=True)
+
+
+for t,tk,dt in simngr_loaded.iteratetimesteps():
+    print (t,tk,dt)
+    # update the robots to t+dt
+    for j in range(len(robots)):
+        # uk = robots[j].getcontrol(t)
+        robots[j].xk = robots[j].statehistory[t+dt]
+        robots[j].updateTime(t+dt)
+        robots[j].updateSensorModel()
+    plotsimAllTargs(simngr_loaded,['SimSnapshot'],groundtargetset,targetset,robots,t+dt,simngr_loaded.tvec[:(tk+dt)],saveit=True)
+    
+    
+plt.close("all")    
+metrics,DF,figs = utmttrack.multiTarget_tracking_metrics(simngr_loaded.tvec[-1],groundtargetset,targetset)
+
+probRatio=[]
+for trg in DF:
+    probRatio.append(DF[trg]['probRatio'].values)
+probRatio=np.hstack(probRatio)

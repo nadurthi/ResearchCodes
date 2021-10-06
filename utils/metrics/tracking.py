@@ -11,32 +11,7 @@ import pdb
 
 def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
     # tracking error for active times
-    fig1 = plt.figure("2sigma_pos_ellipsoid_ratio")
-    axlist = fig1.axes
-    if len(axlist)==0:
-        ax1 = fig1.add_subplot(111)
-        ax1.plot(tt,np.ones(len(tt)),'--',c='k')
-    else:
-        ax1 = axlist[0]
-        ax1.cla()
-        ax1.plot(tt,np.ones(len(tt)),'--',c='k')
-        
-    fig2 = plt.figure("Error_in_position")
-    axlist = fig2.axes
-    if len(axlist)==0:
-        ax2 = fig2.add_subplot(111)
-    else:
-        ax2 = axlist[0]
-        ax2.cla()
-        
-    fig3 = plt.figure("Error_in_velocity")
-    axlist = fig3.axes
-    if len(axlist)==0:
-        ax3 = fig3.add_subplot(111)
-    else:
-        ax3 = axlist[0]
-        ax3.cla()
-        
+    
         
     cols=[]
     cols.append('RMSE_Active_pos')
@@ -52,12 +27,13 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
 
     
     targetnames = [groundtargetset[i].targetName for i in range(groundtargetset.ntargs)]
-    metrics
+    
     metrics=pd.DataFrame(columns=cols,index=targetnames)
     
     DF={}
     
     for targi in range(groundtargetset.ntargs):
+          
         targID = groundtargetset[targi].ID
         target = targetset.getTargetByID(targID)
         targetName = groundtargetset[targi].targetName
@@ -94,7 +70,7 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
         for i in range(len(tu)):
             df.loc[tu[i],'status'] = status[i]
             
-        DF[targetName] = df
+        
         
         dfact = df[df['status']=='Active']
         
@@ -111,6 +87,7 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
             P = Puk[iu][0:2,0:2]
             X = xtk[it][0:2]
             df.loc[t,'pos_probRatio'] = uqstpdf.gaussianPDF_propratio(X,m,P,sig=2)
+            df.loc[t,'probRatio'] = uqstpdf.gaussianPDF_propratio(xtk[it],xuk[iu],Puk[iu],sig=2)
             
         # get metrics   
         e = df[df['status']=='Active']['epos'].values
@@ -151,6 +128,31 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
         LL=[0]+[len(l) for l in LInactive]
         metrics.loc[targetName,'MaxInactiveGap_after_discovery'] = max(LL)
         
+        fig1 = plt.figure("2sigma_pos_ellipsoid_ratio")
+        axlist = fig1.axes
+        if len(axlist)==0:
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(tt,np.ones(len(tt)),'--',c='k')
+        else:
+            ax1 = axlist[0]
+            # ax1.cla()
+            ax1.plot(tt,np.ones(len(tt)),'--',c='k')
+            
+        fig2 = plt.figure("Error_in_position")
+        axlist = fig2.axes
+        if len(axlist)==0:
+            ax2 = fig2.add_subplot(111)
+        else:
+            ax2 = axlist[0]
+            # ax2.cla()
+            
+        fig3 = plt.figure("Error_in_velocity")
+        axlist = fig3.axes
+        if len(axlist)==0:
+            ax3 = fig3.add_subplot(111)
+        else:
+            ax3 = axlist[0]
+            # ax3.cla()
         
         
         # figure plotting errors
@@ -171,7 +173,7 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
         ax3.set_xlabel('time (s)')
         ax3.set_ylabel('error in velocity (m/s)')
     
-
+        DF[targetName] = df
 
     figs = [fig1,fig2,fig3]
     

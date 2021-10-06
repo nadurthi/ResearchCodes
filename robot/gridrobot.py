@@ -169,10 +169,10 @@ class Robot2DRegGrid(_baseRobot):
         self.sensormodel.plotsensorFOV(ax)
         
         triag = utpltgeom.getIsoTriangle(self.xk[0:2],self.shape['a'],self.shape['w'],self.xk[2])
-        ax.plot(triag[:,0],triag[:,1],self.robotColor,alpha=self.robotAlpha)
+        ax.plot(triag[:,0],triag[:,1],self.robotColor,alpha=self.robotAlpha,linewidth=2)
         
-        ax.plot([self.xk[0]],[self.xk[1]],c=self.robotColor,marker='o')
-        ax.annotate(self.robotName,self.xk[0:2],self.xk[0:2]+2,color=self.robotColor,fontsize='x-small')
+        ax.plot([self.xk[0]],[self.xk[1]],c=self.robotColor,marker='o',linewidth=2)
+        ax.annotate(self.robotName,self.xk[0:2],self.xk[0:2]+2,color=self.robotColor)
         
     def plotrobotTraj(self,ax,tvec):
         """
@@ -185,7 +185,7 @@ class Robot2DRegGrid(_baseRobot):
                 if contval is None:
                     print("--- control traj ------")
                     print(t,uk_key,contval)
-                ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor )
+                ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],self.robotColor,linewidth=2 )
             
 
         
@@ -197,7 +197,7 @@ class Robot2DRegGrid(_baseRobot):
         
         # self.ax.cla()    
         self.mapobj.plotmap(ax)
-        ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],'r' )
+        ax.plot(contval['Xtraj'][:,0],contval['Xtraj'][:,1],'r',linewidth=2 )
         M = np.min(contval['Xtraj'],axis=0)
         ax.set_xlim(M[0]-20, M[0]+20)
         ax.set_ylim(M[1]-20, M[1]+20)

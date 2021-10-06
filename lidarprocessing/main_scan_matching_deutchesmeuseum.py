@@ -700,9 +700,9 @@ R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
 # H21=poseGraph.edges[e1,e2]['H']
 # H21[0:2,2]=H21[0:2,2]+5
 H12 = nplinalg.inv(H21)
-Lmax=np.array([7,7])
+Lmax=np.array([40,40])
 thmax=30*np.pi/180
-dxMatch=np.array([0.25,0.25])
+dxMatch=np.array([1.0,1.0])
 # dxMax=np.array([5,5])
 st=time.time()
 # X2small = pt2dproc.binnerDownSampler(X2,dx=0.2,cntThres=1)

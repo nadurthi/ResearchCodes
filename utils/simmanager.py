@@ -221,8 +221,9 @@ class SimManager:
         simmanagerfile = os.path.join(mainfolder,'simmanager.dill')
         with open(simmanagerfile,'rb') as F:
             simanger = dill.load(F)
-        
-        with open(simanger.datapath,'rb') as F:
+            
+        datafile = os.path.join(mainfolder,'data.dill')
+        with open(datafile,'rb') as F:
             D = dill.load(F)
         
         return simanger,D
