@@ -36,7 +36,7 @@ from numba.typed import Dict
 float_2Darray = types.float64[:,:]
 #%% histogram bins
 
-@njit
+@njit(cache=True)
 def UpsampleMax(Hup,n):
     H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2))),dtype=np.int32)
     for j in range(H.shape[0]):
@@ -51,16 +51,16 @@ def UpsampleMax(Hup,n):
 
 
 # @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=True) 
-@njit
+@njit(cache=True)
 def getPointCost(H,dx,X,Oj,Tj):
     # Tj is the 2D index of displacement
     # X are the points
     # dx is 2D
     # H is the probability histogram
     
-    P=np.floor(X/dx)
-    j=np.floor(Oj/dx)
-    Pn=P+j
+    Pn=np.floor((X+Oj)/dx)
+    # j=np.floor(Oj/dx)
+    # Pn=P+j
     # Idx = np.zeros(Pn.shape[0],dtype=np.int32)
     # for i in range(Pn.shape[0]):
     #     if Pn[i,0]<0 or Pn[i,0]>H.shape[0]-1 or Pn[i,1]<0 or Pn[i,1]>H.shape[1]-1 :
@@ -99,8 +99,8 @@ def getPointCost(H,dx,X,Oj,Tj):
         
     return c
 
-@njit
-def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
+@njit(cache=True)
+def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
     # search window is [-Lmax,Lmax] and [-thmax,thmax]
@@ -133,7 +133,7 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     # print("mn,mx=",mn,mx)
     P = mx-mn
     
-    
+    dxMax=P
     # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
     # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
     
@@ -191,6 +191,7 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     
     
     SolBoxes_init=[]
+    Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
     for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
         for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
             SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
@@ -212,7 +213,7 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
         value_type=float_2Darray,
     )
     
-    thfineRes = 5*np.pi/180
+    thfineRes = 2.5*np.pi/180
     thL=np.arange(-thmax,thmax+thfineRes,thfineRes)
     # np.random.shuffle(thL)
     for th in thL:

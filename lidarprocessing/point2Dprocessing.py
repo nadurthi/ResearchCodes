@@ -535,7 +535,7 @@ def pool2d(A, kernel_size, stride, padding, pool_mode='max'):
 
 
             
-def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
+def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
     # search window is [-Lmax,Lmax] and [-thmax,thmax]
@@ -571,7 +571,8 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     
     # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
     # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
-    
+    dxMax=P
+    print("P=",P)
     nnx=np.ceil(np.log2(P[0]))
     nny=np.ceil(np.log2(P[1]))
     
@@ -620,7 +621,7 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
         
         # print(xedges[0],xedges[-1],len(xedges),yedges[0],yedges[-1],len(yedges))
         # print("-------------")
-        # plotbins2(xedges,yedges,H,X1,X2)
+        plotbins2(xedges,yedges,H,X1,X2)
         
         XYedges.append((xedges,yedges))  
         if len(xedges)%2==0:
@@ -643,11 +644,12 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     # et=time.time()
     # print("Time pre-init = ",et-st)
     SolBoxes_init=[]
+    Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
     for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
         for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
             SolBoxes_init.append( (np.array([xs,ys],dtype=np.float32),dxs[0]) )
     
-    
+    # print(SolBoxes_init)
     mxLVL=len(HLevels)-1
     
     # st=time.time()
@@ -659,31 +661,49 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     H=HLevels[lvl]
 
     Xth={}
-    
-    thfineRes = np.max([0.5*np.min(dxMatch)/rmax,5*np.pi/180])
+    ii=0
+    thfineRes = np.max([0.5*np.min(dxMatch)/rmax,2.5*np.pi/180])
     thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float32)
     # np.random.shuffle(thL)
     for th in thL:
         R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
         XX=np.transpose(R.dot(X2.T))
-        Xth[th]=np.ascontiguousarray(XX.astype(np.float32))
+        Xth[th]=XX
         
         
         for solbox in SolBoxes_init:
             Tj=solbox[1]
             Oj = solbox[0]
-            # if not np.all(Tj==dx):
-            #     print(Tj,dx)
-            #     raise Exception("Tj and dx are not equal ")
+            if not np.all(Tj==dx):
+                print(Tj,dx)
+                raise Exception("Tj and dx are not equal ")
                 
             
             cost2=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj)
             # h.append(CostAndNode(-cost2,[solbox,lvl,th]))
-            
+            # if ii==57:
+                # plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th],title="original")
+            # plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th]+Oj,title=str(cost2)+" "+str(Oj))
+                # X=Xth[th]
+                # Pn=np.floor((X+Oj)/dx)
+                # # j=np.floor(Oj/dx)
+                # # Pn=P+j
+                # print(dx)
+                # # print(P)
+                # # print(Oj,j)
+                # print(Pn)
+                # idx1=np.logical_and(Pn[:,0]>=0,Pn[:,0]<H.shape[0])
+                # idx2=np.logical_and(Pn[:,1]>=0,Pn[:,1]<H.shape[1])
+                # idx=np.logical_and(idx1,idx2 )
+                # # idx=np.all(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 )
+                # Pn=Pn[idx].astype(int)
+                # print("H=",H[Pn[:,0],Pn[:,1]],"cost2 = ",cost2)
+                
+            ii+=1                
             heapq.heappush(h,(-(cost2+np.random.rand()/1000),[solbox,lvl,th]))
     
 
-
+    print(len(h))
   
        
     # st=time.time()
@@ -691,8 +711,9 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
         # print(len(h))
         (cost,[solboxt,lvl,th])=heapq.heappop(h)
         
+        # plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th]+solboxt[0])
         # (cost,[solboxt,lvl,th])=(CN.cost,CN.node)
-        # print(cost,lvl,len(h),np.round(th*180/np.pi,2))
+        print(cost,lvl,len(h),np.round(th*180/np.pi,2),solboxt)
         # if lvl>=mxLVL:
         #     continue
         if lvl==mxLVL:
@@ -708,15 +729,17 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
 
         Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
         Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
-        for xs in Xg[:2]:
-            for ys in Yg[:2]:
+        for xs in Xg:
+            for ys in Yg:
                 S.append( (np.array([xs,ys]),dx) )
         
 
         for solbox in S:
             Tj=solbox[1]
             Oj = solbox[0]
-            
+            if not np.all(Tj==dx):
+                print(Tj,dx)
+                raise Exception("Tj and dx are not equal ")            
             cost3=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj) 
 
                 
@@ -744,7 +767,7 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch,dxMax):
     Htotal12_updt=Htotal12.copy()
     Htotal12_updt[0:2,2]=t
     Htotal21_updt = nplinalg.inv(Htotal12_updt)
-    return Htotal21_updt,cost,HLevels
+    return Htotal21_updt,cost,HLevels,dxs
 
 def getCombinedNode(poseGraph,idx,nn,params,Doclf=True):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
@@ -1025,7 +1048,7 @@ def plotbins(xedges,yedges,Hist1,idx1,idx2,poseGraph,params,posematch=None):
     plt.show()    
     
 
-def plotbins2(xedges,yedges,Hist1,X1,X2):
+def plotbins2(xedges,yedges,Hist1,X1,X2,title=""):
 
     fig=plt.figure()
     ax=fig.add_subplot(111)
@@ -1033,6 +1056,7 @@ def plotbins2(xedges,yedges,Hist1,X1,X2):
     ax.plot(X1[:,0],X1[:,1],'r.',label="hist points")
     ax.plot(X2[:,0],X2[:,1],'b.',label="matching points")
     ax.axis('equal')
+    ax.set_title(title)
     ax.legend()
     plt.show()    
 

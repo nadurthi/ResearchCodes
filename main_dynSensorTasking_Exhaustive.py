@@ -650,8 +650,8 @@ for t,tk,dt in simngr.iteratetimesteps():
     #-------------------------------------------------------------------------
     if t==0 or t==dptvec[min([TTrecomp,len(dptvec)-1])]:
         dptvec = simngr.tvec[tk:min([tk+TT,simngr.ntimesteps]) ]
-        # stexhaustseqrobot.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
-        stexhaustseqtime.exhaustive_seq_time(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
+        stexhaustseqrobot.exhaustive_seq_robot(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
+        # stexhaustseqtime.exhaustive_seq_time(dptvec,robots,targetset,Targetfilterer,searchMIwt=searchMIwt)
         
 
     # -----------------------------------------------------------------
