@@ -206,6 +206,7 @@ def generateTemplates_reachSet(robotobj,dt,T):
                     Xtraj = [np.linspace(x0pos[0],xfpos[0],len(tvec)),np.linspace(x0pos[1],xfpos[1],len(tvec))]
                     Xtraj = np.vstack(Xtraj).T
                     robotobj.addTemplateTraj(uk_key=uk_key,val={'xfpos':xf[0:2],'thf':thf,'Xtraj':Xtraj,'cost':1} )
+                    print(idx0,idth0,idxf,idthf)
                     # robotobj.plotdebugTemplate(uk_key)
                     # Uopt = res.x
                     # cost = res.fun

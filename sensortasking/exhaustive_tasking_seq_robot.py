@@ -127,7 +127,7 @@ def exhaustive_seq_robot(tvec,robots,targetset,Targetfilterer,searchMIwt=0.5):
     ExitFlag.clear()
 
 
-    Ncore = ctx.cpu_count()
+    Ncore = 8
     processes = []
     for i in range(Ncore):
         p = ctx.Process(target=robotTargetInfo_seqrobot, args=(ExitFlag,seqQ,resQ,robots,targetset,tvec,Targetfilterer))

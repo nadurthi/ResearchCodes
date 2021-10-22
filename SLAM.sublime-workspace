@@ -4,92 +4,19 @@
 		"selected_items":
 		[
 			[
-				"dub",
-				"debugStatus"
+				"sim",
+				"simname"
 			]
 		]
 	},
 	"buffers":
 	[
 		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/ode_demo.py",
+			"file": "/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
 			"settings":
 			{
-				"buffer_size": 5462,
+				"buffer_size": 2131,
 				"encoding": "UTF-8",
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/adjoint.py",
-			"settings":
-			{
-				"buffer_size": 5471,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/odeint.py",
-			"settings":
-			{
-				"buffer_size": 3111,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/examples/latent_ode.py",
-			"settings":
-			{
-				"buffer_size": 11945,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "main_kittitracking.py",
-			"settings":
-			{
-				"buffer_size": 3744,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Lorenz/main.py",
-			"settings":
-			{
-				"buffer_size": 8809,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"contents": "The author builds a finite state Markov process to model the transition density of debris particles. Using the MASTER program from ESA which simulates debris particle densities, a steady state markov model is built. It is not clear why a Markov model is built when the MASTER program is available. This could be the contribution, but it is not clear. The notations are confusing between different states and time subscripts. Also, the discretization of the state space is not clear. In all, the paper lacks specific detail, comparison to other methods and strong contributions. \n\n\n\nNeeds improvement. Notations are confusing. Some illustrations can help better explain the discretization and the markov model.\n\n\n\n\n\nThe contribution is not evident. Building a Markov model from data is already well established. The utility over simple Monte Carlo methods (as cited in the paper) is not evident. Maybe some sort of comparison with other methods is required. If the ESA MASTER program can generate the distributions, why do we need a Markov model to reproduce the same data. May be a better discussion is required to bolster this contribution of using Markov models. \n\n\n\nBelow eqn(1):\n- Graphical illustration of the volumetric box will be useful.\n- What are the dimensions of X^[B] and X^[N] and random variable X.\n- Is X for a single volumetric box or is it a vector for all the boxes.\n- So the spatial density for each box is discretized into 100 values? How many boxes are there and what is total dimension of the complete state-space.\n- In equation 3, I am confused with the notation of x,x1,x2,..x10000. Do all these belong to just one volumetric box.\n- Not sure what Figure 1 is trying to convey. This is just a Finite state Markov process. What is the n in the figure. \n- Equation 4: is the transition matrix for the states within a single volumetric box. Is there interaction or transitions between volumetric boxes.\n- \n- What is tailored sampling. Please provide more information and description about this sampling approach. \n\n- Lemma: I do not think this lemma is required. It is just a standard result of markov chains.\n- Equation 7: The notations is confusing when time t is added. Subscripts for x1, xt-1, xt are time subscripts but  x1, x2 in equation 3 are indexes for the values?\n- Algorithm above section IV. It is good to have step numbers or line numbers. What is the purpose of computing RMSE in the last step. \n\nIV.A: \n- The dimensions and volume of the volumetric box will be useful. Also an image of all the boxes will help the reader.\n\n- Fig 5: RMSE may not be a good measure as probability densities are generally of low orders. Relative error might be useful\n\n- Fig 6: figure on the left: what are the states on the x-axis and are they ordered. What is the RMSE computed on. ",
-			"settings":
-			{
-				"buffer_size": 2801,
-				"line_ending": "Unix",
-				"name": "The author builds a finite state Markov process to"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/misc.py",
-			"settings":
-			{
-				"buffer_size": 6621,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/dopri5.py",
-			"settings":
-			{
-				"buffer_size": 5566,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/rk_common.py",
-			"settings":
-			{
-				"buffer_size": 3673,
 				"line_ending": "Unix"
 			}
 		}
@@ -106,20 +33,12 @@
 		"selected_items":
 		[
 			[
-				"ter",
-				"Preferences: Terminus Settings"
+				"ins",
+				"Package Control: Install Package"
 			],
 			[
-				"py",
-				"Build With: python3"
-			],
-			[
-				"python3",
-				"Build With: python3"
-			],
-			[
-				"term",
-				"Terminus: Toggle Panel"
+				"INST",
+				"Package Control: Install Package"
 			]
 		],
 		"width": 0.0
@@ -142,40 +61,97 @@
 	},
 	"expanded_folders":
 	[
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/C:\\Users\\Nagnanamus\\Google Drive\\repos\\RaspPiSensor"
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/OnPi"
 	],
 	"file_history":
 	[
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/stkanal/models_sqlite.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/pykitticustom/downloader/__init__.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/pykitticustom/odometry.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/filters/downloader/tracking.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/pykitticustom/__init__.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/__pycache__/loggerconfig.cpython-36.pyc",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/__init__.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/__init__.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/motfilter/jpda.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/dopri5.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/test.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/SLAM2D_run.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/filters/_basefilter.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/physmodels/sensormodels.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/filters/kalmanfilter.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/uqutils/helper.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/main_kittitracking.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/doc/conf.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/motfilter/mot.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/visionprocessing/stereo.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/odometry/visualodo.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/motfilter/targets.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/reinforcement/invertedbar.py",
+		"/C/Users/Nagnanamus/Downloads/lidarprocessing/point2Dprocessing.py",
+		"/C/Users/Nagnanamus/Google Drive/teaching/gradingHelperMAE488.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/OnPi/adafruit_icm20x.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/OnPi/multipleImuTest.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/.gitignore",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/icm20948-python-master/icm20948-python-master/library/icm20948/__init__.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/icm20948.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/adafruit_icm20x.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_bit.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_bits.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_struct.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_device.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_bcd_alarm.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_Register-master/Adafruit_CircuitPython_Register-master/adafruit_register/__init__.py",
+		"/C/Users/Nagnanamus/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/I2Cdev.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/I2Cdev.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/adafruit_icm20649_test.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_SPIDevice.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_I2CDevice.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_ICM20X.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_BusIO_Register.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_ICM20X.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_ICM20649.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_ICM20649.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_BusIO_Register.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_I2CDevice.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_SPIDevice.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_Sensor.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_ICM20X-master/Adafruit_ICM20X-master/Adafruit_ICM20X.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/Adafruit_Sensor.cpp",
+		"/C/Users/Nagnanamus/Google Drive/Nagavenkat_Adurthi_DRIVE/Nagavenkat_GoolgeDrive_Folder/2018 papers/MOC-Paper/REVIEWS-AUTO/Review248909(Reviewer2)Of20-1009v2.txt",
+		"/C/Users/Nagnanamus/Google Drive/Nagavenkat_Adurthi_DRIVE/Nagavenkat_GoolgeDrive_Folder/2018 papers/MOC-Paper/REVIEWS-AUTO/ReportOn20-1009v2.txt",
+		"/C/Users/Nagnanamus/Documents/S0267726116303803.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/10.2307_2949518.txt",
+		"/C/Users/Nagnanamus/anaconda3/Lib/site-packages/pyglet/sprite.py",
+		"/C/Users/Nagnanamus/Google Drive/Nagavenkat_Adurthi_DRIVE/Nagavenkat_GoolgeDrive_Folder/2018 papers/MOC-Paper/REVIEWS-AUTO/Review248911(Reviewer3)Of20-1009v2.txt",
+		"/C/Users/Nagnanamus/Documents/GitHub/SLAM/lidarprocessing/point2Dprocessing.py",
+		"/C/Users/Nagnanamus/.ssh/id_rsa.pub",
+		"/C/Users/Nagnanamus/Downloads/opencv/README.md.txt",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing2/point2Dprocessing.py",
+		"/C/Users/Nagnanamus/Google Drive/Nagavenkat_Adurthi_DRIVE/Nagavenkat_GoolgeDrive_Folder/2020 papers/AIAA2020_JPDAIMM/sample.bib",
+		"/C/Users/Nagnanamus/Google Drive/repos/Stocks/data/SecInd.txt",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/ros_roverbot_ws/initialize.sh",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/ros_roverbot_ws/README.md",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/ros_roverbot_ws/roverbot.service",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/ros_roverbot_ws/roverstartup.sh",
+		"/C/Users/Nagnanamus/Documents/GitHub/SLAM2/SLAM/lidarprocessing/main_scan_matching.py",
+		"/P/SLAMData/Kitti/visualodo/dataset/sequences/04/calib.txt",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/Temp1_data_odometry_calib.zip/dataset/sequences/04/calib.txt",
+		"/P/SLAMData/Kitti/visualodo/dataset/sequences/00/calib.txt",
+		"/P/SLAMData/Kitti/visualodo/pykitti/README.md",
+		"/D/wpa_supplicant.conf.txt",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/Tumbller.ino",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/BalanceCar.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/KalmanFilter.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/raspberryPi/teststream.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/roscodes/ros_hub_ws/README.md",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/KalmanFilter.cpp",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/Rgb.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/Tumbller/Command.h",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/main_kittitracking.py",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd42_2369.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/ACC21__home_paperplaza_css.paperplaza.net_www_conferences_conferences_ACC21_submissions_0155_MS.pdf.txt",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/pericles_1099151439.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd39_2163-1.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd39_2163.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd37_979.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd36_1324.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/S0005109812000908.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/S0005109897001271.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/S0005109800000893.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/aiaa_jgcd26_536.bib",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/S0025556413000783.bib",
+		"/C/Users/Nagnanamus/Google Drive/repos/Stocks/TDAmeritrade/MyVolSpikelast10dSTUDY.ts",
+		"/C/Users/Nagnanamus/AppData/Local/Temp/2dcollections3d_demo.py",
+		"/C/Users/NAGNAN~1/AppData/Local/Temp/kite_tutorial.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/uq/motfilter/mot.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/uq/motfilter/targets.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/uq/filters/kalmanfilter.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/uq/motfilter/jpda.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/uq/uqutils/helper.py",
 		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/physmodels/motionmodels.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/adams.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/examples/ode_demo.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/odometry/testodoKITTI.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/simulations/JPDA_test_2020-05-01-18H-16M-15s/simmanager.dill",
-		"/home/nagnanamus/.config/sublime-text-3/Packages/User/ipython.sublime-build",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/SLAM2D_linfit.py",
-		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/uq/conf.py",
 		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/stereoPoseEKF/src/main.cpp",
 		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/stereoPoseEKF/src/stereoSolver.cpp",
 		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/pclwrapper/src/main.cpp",
@@ -186,7 +162,7 @@
 	],
 	"find":
 	{
-		"height": 0.0
+		"height": 39.0
 	},
 	"find_in_files":
 	{
@@ -200,6 +176,19 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"\n",
+			"\\\\n",
+			"\\n",
+			"ICM20649",
+			"i2c",
+			"lint",
+			"_cached_gyro_range",
+			"ICM20X_B0_PWR_MGMT_1",
+			"ADDRBIT8_HIGH_TOREAD",
+			"icm20x_gyro_cutoff_t",
+			"enableAccelDLPF",
+			"Serial.print",
+			"Serial.println"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -207,1123 +196,48 @@
 		"regex": false,
 		"replace_history":
 		[
+			",",
+			"i2c_bus",
+			"printf"
 		],
 		"reverse": false,
-		"scrollbar_highlights": true,
 		"show_context": true,
 		"use_buffer2": true,
-		"use_gitignore": true,
 		"whole_word": false,
 		"wrap": true
 	},
 	"groups":
 	[
 		{
+			"selected": 0,
 			"sheets":
 			[
 				{
 					"buffer": 0,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/ode_demo.py",
-					"selected": true,
+					"file": "/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 5462,
+						"buffer_size": 2131,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1069,
-								1069
+								2131,
+								2131
 							]
 						],
 						"settings":
 						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
+							"syntax": "Packages/Python/Python.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 378.0,
+						"translation.y": 864.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 1,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/adjoint.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5471,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5220,
-								5220
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 594.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 5,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 2,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/odeint.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 3111,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								714,
-								714
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										733,
-										734
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/round_bracket.png",
-										"region.yellowish"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										672,
-										673
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 540.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 6,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 3,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/examples/latent_ode.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 11945,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								9447,
-								9447
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 5153.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 4,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
-					"file": "main_kittitracking.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 3744,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 3,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Lorenz/main.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 8809,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								257,
-								257
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content"
-							],
-							"git_gutter_is_enabled": false,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2801,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								579,
-								579
-							]
-						],
-						"settings":
-						{
-							"auto_name": "The author builds a finite state Markov process to",
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content"
-							],
-							"default_dir": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Lorenz",
-							"git_gutter_is_enabled": false,
-							"syntax": "Packages/Text/Plain text.tmLanguage"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 7,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/misc.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 6621,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								0,
-								0
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-								},
-								"icon":
-								{
-								},
-								"open":
-								{
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 702.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 7,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/dopri5.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 5566,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2946,
-								2946
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										2979,
-										2980
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/round_bracket.png",
-										"region.yellowish"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										2945,
-										2946
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 972.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 9,
-					"stack_multiselect": false,
-					"type": "text"
-				},
-				{
-					"buffer": 9,
-					"file": "/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SystemID/torchdiffeq/torchdiffeq/_impl/rk_common.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 3673,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								947,
-								947
-							]
-						],
-						"settings":
-						{
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										972,
-										973
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/round_bracket.png",
-										"region.yellowish"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										942,
-										943
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content"
-							],
-							"git_gutter_is_enabled": true,
-							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 216.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 8,
-					"stack_multiselect": false,
 					"type": "text"
 				}
 			]
@@ -1360,19 +274,7 @@
 		]
 	},
 	"menu_visible": true,
-	"output.Terminus":
-	{
-		"height": 211.0
-	},
-	"output.exec":
-	{
-		"height": 192.0
-	},
 	"output.find_results":
-	{
-		"height": 0.0
-	},
-	"output.mdpopups":
 	{
 		"height": 0.0
 	},
@@ -1384,11 +286,11 @@
 	{
 		"height": 0.0
 	},
-	"pinned_build_system": "Packages/User/python3.sublime-build",
+	"pinned_build_system": "",
 	"project": "SLAM.sublime-project",
 	"replace":
 	{
-		"height": 0.0
+		"height": 106.0
 	},
 	"save_all_on_build": true,
 	"select_file":

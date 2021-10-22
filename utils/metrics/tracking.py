@@ -9,7 +9,7 @@ import pdb
 
 # plt.style.use("utils/plotting/production_pyplot_style.txt")
 
-def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
+def multiTarget_tracking_metrics(tf,groundtargetset,targetset,plotfigs=True):
     # tracking error for active times
     
         
@@ -24,7 +24,7 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
     cols.append('CountGapsInactive_after_discovery')
     cols.append('MaxInactiveGap_after_discovery')
     
-
+    figs=[]
     
     targetnames = [groundtargetset[i].targetName for i in range(groundtargetset.ntargs)]
     
@@ -128,54 +128,56 @@ def multiTarget_tracking_metrics(tf,groundtargetset,targetset):
         LL=[0]+[len(l) for l in LInactive]
         metrics.loc[targetName,'MaxInactiveGap_after_discovery'] = max(LL)
         
-        fig1 = plt.figure("2sigma_pos_ellipsoid_ratio")
-        axlist = fig1.axes
-        if len(axlist)==0:
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(tt,np.ones(len(tt)),'--',c='k')
-        else:
-            ax1 = axlist[0]
-            # ax1.cla()
-            ax1.plot(tt,np.ones(len(tt)),'--',c='k')
+        if plotfigs:
+            fig1 = plt.figure("2sigma_pos_ellipsoid_ratio")
+            axlist = fig1.axes
+            if len(axlist)==0:
+                ax1 = fig1.add_subplot(111)
+                ax1.plot(tt,np.ones(len(tt)),'--',c='k')
+            else:
+                ax1 = axlist[0]
+                # ax1.cla()
+                ax1.plot(tt,np.ones(len(tt)),'--',c='k')
+                
+            fig2 = plt.figure("Error_in_position")
+            axlist = fig2.axes
+            if len(axlist)==0:
+                ax2 = fig2.add_subplot(111)
+            else:
+                ax2 = axlist[0]
+                # ax2.cla()
+                
+            fig3 = plt.figure("Error_in_velocity")
+            axlist = fig3.axes
+            if len(axlist)==0:
+                ax3 = fig3.add_subplot(111)
+            else:
+                ax3 = axlist[0]
+                # ax3.cla()
             
-        fig2 = plt.figure("Error_in_position")
-        axlist = fig2.axes
-        if len(axlist)==0:
-            ax2 = fig2.add_subplot(111)
-        else:
-            ax2 = axlist[0]
-            # ax2.cla()
             
-        fig3 = plt.figure("Error_in_velocity")
-        axlist = fig3.axes
-        if len(axlist)==0:
-            ax3 = fig3.add_subplot(111)
-        else:
-            ax3 = axlist[0]
-            # ax3.cla()
-        
-        
-        # figure plotting errors
-        ax1.plot(df.index,df['pos_probRatio'],c=targetColor)
-        ax1.set_xlabel('time (s)')
-        ax1.set_ylabel('p(x-true)/p(2-sigma)')
-        
-        
-
-        ax2.plot(df.index,df['epos'],c=targetColor)
-        ax2.set_xlabel('time (s)')
-        ax2.set_ylabel('error in position (m)')
-        
-        
-        
-
-        ax3.plot(df.index,df['evel'],c=targetColor)
-        ax3.set_xlabel('time (s)')
-        ax3.set_ylabel('error in velocity (m/s)')
+            # figure plotting errors
+            ax1.plot(df.index,df['pos_probRatio'],c=targetColor)
+            ax1.set_xlabel('time (s)')
+            ax1.set_ylabel('p(x-true)/p(2-sigma)')
+            
+            
     
+            ax2.plot(df.index,df['epos'],c=targetColor)
+            ax2.set_xlabel('time (s)')
+            ax2.set_ylabel('error in position (m)')
+            
+            
+            
+    
+            ax3.plot(df.index,df['evel'],c=targetColor)
+            ax3.set_xlabel('time (s)')
+            ax3.set_ylabel('error in velocity (m/s)')
+            figs = [fig1,fig2,fig3]
+            
         DF[targetName] = df
 
-    figs = [fig1,fig2,fig3]
+    
     
     return metrics,DF,figs
     

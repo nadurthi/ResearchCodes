@@ -31,8 +31,7 @@ from utils.plotting import geometryshapes as utpltgmshp
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import copy
-from numba.core import types
-from numba.typed import Dict
+
 import heapq
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
@@ -57,10 +56,9 @@ from uq.quadratures import cubatures as uqcub
 import math
 numba_cache=False
 import asyncio
-# import cupy as cp
+import cupy as cp
 
 dtype=np.float64
-float_2Darray = types.float64[:,:]
 #%% Submap- grid
 
 
@@ -444,61 +442,38 @@ class CostAndNode:
     def __lt__(self, other):
         return self.cost < other.cost
     
-# @jit(int32(int32[:,:], int32[:,:]),nopython=True, nogil=True,cache=False) 
-def getPointCost2(H,Pn):
-    # Tj is the 2D index of displacement
-    # X are the points
-    # dx is 2D
-    # H is the probability histogram
-    c=np.sum(np.take(H, np.ravel_multi_index(Pn.T, H.shape,mode='clip')))
 
-        
-    return c
 
-# @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=False) 
 def getPointCost(H,dx,X,Oj,Tj):
     # Tj is the 2D index of displacement
     # X are the points
     # dx is 2D
     # H is the probability histogram
     
-    P=np.floor(X/dx).astype(np.int32)
-    j=np.floor(Oj/dx).astype(np.int32)
+    P=np.floor(X/dx)
+    j=np.floor(Oj/dx)
     Pn=P+j
-    # Pn =Pn.astype(np.int32)
-    # for i in prange(Pn.shape[0]):
-    #     if Pn[i,0]<0:
-    #         Pn[i,0]=0
-    #     elif Pn[i,0]>H.shape[0]-1:
-    #         Pn[i,0]=H.shape[0]-1
-    #     if Pn[i,1]<0:
-    #         Pn[i,1]=0
-    #     elif Pn[i,1]>H.shape[1]-1:
-    #         Pn[i,1]=H.shape[1]-1
-            
-            
-
     
-    c=np.sum(np.take(H, np.ravel_multi_index(Pn.T, H.shape,mode='clip')))
-    # idx1 = np.all(Pn>=np.zeros(2),axis=1)
-    # Pn=Pn[idx1]
-    # idx2 = np.all(Pn<H.shape,axis=1)
-    # Pn=Pn[idx2]
-    # idx1=np.logical_and(Pn[:,0]>=0,Pn[:,0]<H.shape[0])
-    # idx2=np.logical_and(Pn[:,1]>=0,Pn[:,1]<H.shape[1])
-    # idx=np.logical_and(idx1,idx2 )
-    
-    # idx=np.all(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 )
-    # Pn=Pn[idx,:]
-    # if Pn.size>0:
-    #     values, counts = np.unique(Pn, axis=0,return_counts=True)
-    #     c=np.sum(counts*H[values[:,0],values[:,1]])
-    #     c=np.sum(H[Pn[:,0],Pn[:,1]])
-        
+    idx=np.all(np.logical_and(Pn>=np.zeros(2) , Pn<H.shape),axis=1 )
+    Pn=Pn[idx].astype(int)
+    c=0
+    if Pn.size>0:
+        c=np.sum(H[Pn[:,0],Pn[:,1]])
+         
     return c
 
 
 
+def UpsampleMax(Hup,n):
+    H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2))))
+    for j in range(H.shape[0]):
+        for k in range(H.shape[1]):
+            lbx=max([2*j,0])
+            ubx=min([2*j+n,Hup.shape[0]-1])+1
+            lby=max([2*k,0])
+            uby=min([2*k+n,Hup.shape[1]-1])+1
+            H[j,k] = np.max( Hup[lbx:ubx,lby:uby] )
+    return H
 
 
 def pool2d(A, kernel_size, stride, padding, pool_mode='max'):
@@ -532,9 +507,6 @@ def pool2d(A, kernel_size, stride, padding, pool_mode='max'):
 # H=pool2d(Hup, kernel_size=3, stride=2, padding=0, pool_mode='max')
 
 
-
-
-            
 def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
@@ -576,8 +548,8 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     nnx=np.ceil(np.log2(P[0]))
     nny=np.ceil(np.log2(P[1]))
     
-    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMax[0],dxMatch[0])
-    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMax[0],dxMatch[1])
+    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMatch[0],dxMatch[0])
+    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMatch[0],dxMatch[1])
     
     if len(xedges)%2==0:
         xedges=np.hstack([xedges,xedges[-1]+1*dxMatch[0]])
@@ -768,6 +740,8 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     Htotal12_updt[0:2,2]=t
     Htotal21_updt = nplinalg.inv(Htotal12_updt)
     return Htotal21_updt,cost,HLevels,dxs
+
+
 
 def getCombinedNode(poseGraph,idx,nn,params,Doclf=True):
     Lkey = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",poseGraph.nodes))
@@ -1048,7 +1022,7 @@ def plotbins(xedges,yedges,Hist1,idx1,idx2,poseGraph,params,posematch=None):
     plt.show()    
     
 
-def plotbins2(xedges,yedges,Hist1,X1,X2,title=""):
+def plotbins2(xedges,yedges,Hist1,X1,X2):
 
     fig=plt.figure()
     ax=fig.add_subplot(111)
@@ -1056,7 +1030,6 @@ def plotbins2(xedges,yedges,Hist1,X1,X2,title=""):
     ax.plot(X1[:,0],X1[:,1],'r.',label="hist points")
     ax.plot(X2[:,0],X2[:,1],'b.',label="matching points")
     ax.axis('equal')
-    ax.set_title(title)
     ax.legend()
     plt.show()    
 
