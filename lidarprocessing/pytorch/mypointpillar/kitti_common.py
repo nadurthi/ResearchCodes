@@ -16,6 +16,8 @@ def area(boxes, add1=False):
 
     Returns:
         a numpy array with shape [N*1] representing box areas
+        
+        bax=[ y_min1, x_min1, y_max1, x_max1]
     """
     if add1:
         return (boxes[:, 2] - boxes[:, 0] + 1.0) * (
@@ -474,14 +476,9 @@ def annos_to_kitti_label(annos):
     return result_lines
 
 def add_difficulty_to_annos(info):
-    min_height = [40, 25,
-                  25]  # minimum height for evaluated groundtruth/detections
-    max_occlusion = [
-        0, 1, 2
-    ]  # maximum occlusion level of the groundtruth used for evaluation
-    max_trunc = [
-        0.15, 0.3, 0.5
-    ]  # maximum truncation level of the groundtruth used for evaluation
+    min_height = [40, 25, 25]  # minimum height for evaluated groundtruth/detections
+    max_occlusion = [0, 1, 2]  # maximum occlusion level of the groundtruth used for evaluation
+    max_trunc = [0.15, 0.3, 0.5]  # maximum truncation level of the groundtruth used for evaluation
     annos = info['annos']
     dims = annos['dimensions']  # lhw format
     bbox = annos['bbox']

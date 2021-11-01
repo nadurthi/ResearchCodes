@@ -16,7 +16,7 @@ import numpy as np
 
 from pointcloudcore import box_np_ops
 from pointcloudcore import preprocess as prep
-from kitti_common as kitti
+import kitti_common as kitti
 from pointcloudcore.geometry import points_in_convex_polygon_3d_jit
 from pointcloudcore.point_cloud.bev_ops import points_to_bev
 
