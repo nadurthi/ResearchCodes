@@ -15,7 +15,9 @@ class TargetAssigner:
         self._anchor_generators = anchor_generators
         self._positive_fraction = positive_fraction
         self._sample_size = sample_size
-
+        
+        self.cache={}
+        
     @property
     def box_coder(self):
         return self._box_coder
@@ -56,6 +58,9 @@ class TargetAssigner:
             box_code_size=self.box_coder.code_size)
 
     def generate_anchors(self, feature_map_size):
+        if str(feature_map_size) in self.cache:
+            return self.cache[str(feature_map_size)]
+        
         anchors_list = []
         matched_thresholds = [
             a.match_threshold for a in self._anchor_generators
@@ -78,11 +83,15 @@ class TargetAssigner:
         anchors = np.concatenate(anchors_list, axis=-2)
         matched_thresholds = np.concatenate(match_list, axis=0)
         unmatched_thresholds = np.concatenate(unmatch_list, axis=0)
-        return {
+        
+        ret={
             "anchors": anchors,
             "matched_thresholds": matched_thresholds,
             "unmatched_thresholds": unmatched_thresholds
         }
+        
+        self.cache[str(feature_map_size)]=ret
+        return ret
 
     @property
     def num_anchors_per_location(self):

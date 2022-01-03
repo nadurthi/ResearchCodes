@@ -583,7 +583,7 @@ def get_label_anno(label_path):
     # dimensions will convert hwl format to standard lhw(camera) format.
     annotations['dimensions'] = np.array(
         [[float(info) for info in x[8:11]] for x in content]).reshape(
-            -1, 3)[:, [2, 0, 1]]
+            -1, 3)[:, [2, 0, 1]] # original hwl --> reshape --> lhw
     annotations['location'] = np.array(
         [[float(info) for info in x[11:14]] for x in content]).reshape(-1, 3)
     annotations['rotation_y'] = np.array(

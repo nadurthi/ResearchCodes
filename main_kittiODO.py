@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import os
-import pykittimaster.pykitti as pykitti
+from pykitticustom import odometry
 
 pd.set_option('display.max_columns', None)
 #%%
@@ -72,7 +72,7 @@ from utils import simmanager
 # Change this to the directory where you store KITTI data
 # basedir = os.path.join('P:\\','SLAMData','Kitti','visualodo','dataset')
 # basedir = 'P:\SLAMData\\Kitti\visualodo\dataset'
-basedir = 'P:\\SLAMData\\Kitti\\visualodo\\dataset'
+basedir ='/media/na0043/misc/DATA/KITTI/odometry/dataset'
 # Specify the dataset to load
 # sequence = '02'
 # sequence = '05'
@@ -83,7 +83,7 @@ sequence = '05'
 
 # Load the data. Optionally, specify the frame range to load.
 # dataset = pykitti.odometry(basedir, sequence)
-dataset = pykitti.odometry(basedir, sequence, frames=None) # frames=range(0, 20, 5)
+dataset = odometry.odometry(basedir, sequence, frames=None) # frames=range(0, 20, 5)
 Xtpath=np.zeros((len(dataset),4))
 f3 = plt.figure()    
 ax = f3.add_subplot(111)

@@ -56,9 +56,13 @@ from uq.quadratures import cubatures as uqcub
 import math
 numba_cache=False
 import asyncio
-import cupy as cp
+# import cupy as cp
+from lidarprocessing import icp
+from numba.core import types
+from numba.typed import Dict
 
 dtype=np.float64
+float_2Darray = types.float64[:,:]
 #%% Submap- grid
 
 
@@ -341,30 +345,48 @@ def scan2keyframe_bin_match(X1,X2,dstop,H21):
     
 
     
-def scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=np.identity(3)):
+def scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=np.identity(3),method='gmm'):
     # sHrelk is the transformation from k to s
     
+    if method=='icp':
+        XX=binnerDownSampler(X,dx=0.1,cntThres=1)
+        sHk_corrected, distances, i=icp.icp(Xclf, XX, init_pose=sHk, max_iterations=500, tolerance=0.01)
+        err=0
+        hess_inv=np.identity(3)
         
-    kHs = nplinalg.inv(sHk)
-    Xk=np.matmul(kHs,np.vstack([X.T,np.ones(X.shape[0])])).T  
-    Xd=Xk[:,:2]
-    # Xd=Xk-m_clf
-    MU=np.ascontiguousarray(KeyFrameClf.means_,dtype=dtype)
-    P=np.ascontiguousarray(KeyFrameClf.covariances_,dtype=dtype)
-    W=np.ascontiguousarray(KeyFrameClf.weights_,dtype=dtype)
-    Xd = np.ascontiguousarray(Xd,dtype=dtype) 
-    
-    sHk_rel,err,hess_inv = alignscan2keyframe(MU,P,W,Xd)
-    
-    xy_hess_inv_eigval,xy_hess_inv_eigvec = nplinalg.eig( hess_inv[1:,1:] )
-    th_hess_inv = hess_inv[0,0]
-    txy,theta = nbpt2Dproc.extractPosAngle(sHk_rel)
-    
-    
+    if method=='binmatch':
+        
 
-            
-    sHk_corrected=np.matmul(sHk,sHk_rel)
-    
+        Lmax=np.array([0.5,0.5])
+        thmax=20*np.pi/180
+        dxMatch=np.array([0.05,0.05])
+        thmin=1*np.pi/180
+        
+        XX=binnerDownSampler(X,dx=dxMatch[0],cntThres=1)
+        
+        kHs = nplinalg.inv(sHk)
+        sHk_corrected=nbpt2Dproc.binMatcherAdaptive3(Xclf,XX,kHs,Lmax,thmax,thmin,dxMatch)
+        err=0
+        hess_inv=np.identity(3)
+        
+    if method=='gmm':        
+        kHs = nplinalg.inv(sHk)
+        Xk=np.matmul(kHs,np.vstack([X.T,np.ones(X.shape[0])])).T  
+        Xd=Xk[:,:2]
+        # Xd=Xk-m_clf
+        MU=np.ascontiguousarray(KeyFrameClf.means_,dtype=dtype)
+        P=np.ascontiguousarray(KeyFrameClf.covariances_,dtype=dtype)
+        W=np.ascontiguousarray(KeyFrameClf.weights_,dtype=dtype)
+        Xd = np.ascontiguousarray(Xd,dtype=dtype) 
+        
+        sHk_rel,err,hess_inv = alignscan2keyframe(MU,P,W,Xd)
+        
+        xy_hess_inv_eigval,xy_hess_inv_eigvec = nplinalg.eig( hess_inv[1:,1:] )
+        th_hess_inv = hess_inv[0,0]
+        txy,theta = nbpt2Dproc.extractPosAngle(sHk_rel)
+        
+        sHk_corrected=np.matmul(sHk,sHk_rel)
+        
     return sHk_corrected,err,hess_inv
 
 
@@ -506,7 +528,420 @@ def pool2d(A, kernel_size, stride, padding, pool_mode='max'):
         return A_w.mean(axis=(1,2)).reshape(output_shape)
 # H=pool2d(Hup, kernel_size=3, stride=2, padding=0, pool_mode='max')
 
+def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
+    # dxMax is the max resolution allowed
+    # Lmax =[xmax,ymax]
+    # search window is [-Lmax,Lmax] and [-thmax,thmax]
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    
+    
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    # print("mn_orig = ",mn_orig)
+    
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+    
+    
+    # print("mn,mx=",mn,mx)
+    P = mx-mn
+    
+    dxMax=P
+    # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
+    # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
+    
+    nnx=np.ceil(np.log2(P[0]))
+    nny=np.ceil(np.log2(P[1]))
+    
+    xedges=np.arange(mn[0]-dxMatch[0],mx[0]+dxMax[0],dxMatch[0])
+    yedges=np.arange(mn[1]-dxMatch[0],mx[1]+dxMax[0],dxMatch[1])
+    
+    if len(xedges)%2==0:
+        
+        xedges=np.hstack((xedges,np.array([xedges[-1]+1*dxMatch[0]])))
+    if len(yedges)%2==0:
+        yedges=np.hstack((yedges,np.array([yedges[-1]+1*dxMatch[1]])))
+        
+    
+    H1match=nbpt2Dproc.numba_histogram2D(X1, xedges,yedges)
+    
+    
+    # H1match[H1match>0]=1
+    H1match = np.sign(H1match)
+    
+    # first create multilevel histograms
+    
+    
+    HLevels=[H1match]
+    dxs = [dxMatch]
+    XYedges=[(xedges,yedges)]
+    
+    flg=0
+    # st=time.time()
+    for i in range(1,100):
+        
+        dx=2*dxs[i-1]
+        if np.any(dx>dxMax):
+            flg=1
+        
+        Hup = HLevels[i-1]
+        # H=pool2d(Hup, kernel_size=3, stride=2, padding=1, pool_mode='max')
+        H=UpsampleMax(Hup,n)
+        
 
+        HLevels.append(H)
+        dxs.append(dx)
+          
+
+        if flg==1:
+            break
+    HLevels=HLevels[::-1]
+    dxs=dxs[::-1]
+    # dxs=[dx.astype(np.float32) for dx in dxs]
+    # HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+
+     
+    
+    
+    SolBoxes_init=[]
+    Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
+    for xs in np.arange(-Lmax[0],Lmax[0]+1*dxs[0][0],dxs[0][0]):
+        for ys in np.arange(-Lmax[1],Lmax[1]+1*dxs[0][1],dxs[0][1]):
+            SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
+    
+    
+    
+    
+    mxLVL=len(HLevels)-1
+
+    
+    h=[(100000.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+    # #Initialize with all thetas fixed at Max resolution
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+
+    Xth= Dict.empty(
+        key_type=types.float64,
+        value_type=float_2Darray,
+    )
+    
+    thfineRes = 2.5*np.pi/180
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes)
+    # np.random.shuffle(thL)
+    for th in thL:
+        # th=thL[i]
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X2.T))
+        Xth[th]=XX
+        
+        
+        for solbox in SolBoxes_init:            
+            xs,ys,d0,d1 = solbox
+            Tj=np.array((d0,d1))
+            Oj = np.array((xs,ys))
+            cost2=getPointCost(H,dx,Xth[th],Oj,Tj)
+            # heapq.heappush(h,(-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            h.append((-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            
+    heapq.heapify(h)
+
+    # (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+    mainSolbox=()
+    while(1):
+        
+        # if len(h)==0:
+        #     break
+        
+        (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+        mainSolbox = (cost,xs,ys,d0,d1,lvl,th)
+        if lvl==mxLVL:
+            break
+        
+        nlvl = int(lvl)+1
+        dx=dxs[nlvl]
+        H=HLevels[nlvl]
+        Tj=np.array((d0,d1))
+        Oj = np.array((xs,ys))
+        # # S=[]
+        
+        
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        
+        d0,d1=dx[0],dx[1]
+        Tj=np.array((d0,d1))
+        
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                # S.append( (xs,ys,dx[0],dx[1]) )
+
+                # xs,ys,d0,d1 = solbox
+                
+                Oj = np.array((xs,ys))
+                cost3=getPointCost(H,dx,Xth[th],Oj,Tj) 
+                heapq.heappush(h,(-cost3-np.random.rand()/1000,xs,ys,d0,d1,float(nlvl),th))
+
+    t=mainSolbox[1:3]
+    th = mainSolbox[6]
+    cost=-mainSolbox[0]
+    H=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    H[0:2,0:2]=R
+    H[0:2,2]=t
+    Htotal12 = H.dot(H12)
+    RT=Htotal12[0:2,0:2]
+    tT=Htotal12[0:2,2]
+    
+    Rs=H[0:2,0:2]
+    ts=H[0:2,2]
+    
+    t = tT-(Rs.dot(mn_orig)+0*ts)+mn_orig
+    Htotal12_updt=Htotal12
+    Htotal12_updt[0:2,2]=t
+    Htotal21_updt = nplinalg.inv(Htotal12_updt)
+    return Htotal21_updt,cost,HLevels
+
+def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,dxMatch):
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+        
+        
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    mn_orig=mn_orig-dxMatch
+    
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    # print("mn_orig = ",mn_orig)
+    
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+    
+    
+    # print("mn,mx=",mn,mx)
+    P = mx-mn
+    
+    
+    
+    
+    # dxMax[0] = np.min([dxMax[0],Lmax[0]/2,P[0]/2])
+    # dxMax[1] = np.min([dxMax[1],Lmax[1]/2,P[1]/2])
+    
+    mxlvl=0
+    dx0=mx+dxMatch
+    dxs = []
+    XYedges=[]
+    for i in range(0,100):
+        f=2**i
+        
+        xedges=np.linspace(0,mx[0]+1*dxMatch[0],f+1)
+        yedges=np.linspace(0,mx[1]+1*dxMatch[0],f+1)
+        XYedges.append((xedges,yedges))
+        dx=np.array([xedges[1]-xedges[0],yedges[1]-yedges[0]])
+    
+        dxs.append(dx)
+        
+        if np.any(dx<=dxMatch):
+            break
+        
+    mxlvl=len(dxs)
+    
+    # dxs=dxs[::-1]
+    dxs=[dx.astype(np.float32) for dx in dxs]
+    # XYedges=XYedges[::-1]
+    
+    
+    H1match=nbpt2Dproc.numba_histogram2D(X1, XYedges[-1][0],XYedges[-1][1])
+    H1match = np.sign(H1match)
+    
+    
+    
+    
+    # first create multilevel histograms
+    levels=[]
+    HLevels=[H1match]
+    
+    
+    
+    
+    
+    for i in range(1,mxlvl):
+        
+    
+    
+        Hup = HLevels[i-1]
+        # H=pool2d(Hup, kernel_size=3, stride=2, padding=1, pool_mode='max')
+        H=nbpt2Dproc.UpsampleMax(Hup,n)
+        
+    
+    
+        # pt2dproc.plotbins2(XYedges[i][0],XYedges[i][1],H,X1,X2)
+    
+        HLevels.append(H)
+          
+    
+    mxLVL=len(HLevels)-1
+    HLevels=HLevels[::-1]
+    HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+    
+    # for i in range(mxlvl):
+    #     H=HLevels[i]
+    #     pt2dproc.plotbins2(XYedges[i][0],XYedges[i][1],H,X1,X2)
+        
+        
+    LmaxOrig=Lmax.copy()
+    # et=time.time()
+    # print("Time pre-init = ",et-st)
+    SolBoxes_init=[]
+    X2=X2-Lmax
+    Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
+    for xs in np.arange(0,2*Lmax[0],dxs[0][0]):
+        for ys in np.arange(0,2*Lmax[1],dxs[0][1]):
+            SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
+    
+    
+    
+    
+    
+    h=[(100000.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+    #Initialize with all thetas fixed at Max resolution
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+    
+    Xth= Dict.empty(
+        key_type=types.float64,
+        value_type=float_2Darray,
+    )
+    ii=0
+    thfineRes = 2*np.pi/180
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float32)
+    # thL=[0]
+    # np.random.shuffle(thL)
+    for th in thL:
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X2.T))
+        Xth[th]=XX
+        
+        
+        for solbox in SolBoxes_init:
+            xs,ys,d0,d1 = solbox
+            Tj=np.array((d0,d1))
+            Oj = np.array((xs,ys))
+            cost2=getPointCost(H,dx,Xth[th],Oj,Tj)
+            # heapq.heappush(h,(-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            h.append((-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            
+    heapq.heapify(h)
+    
+
+            
+            # cost2=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj)
+
+                
+            # ii+=1                
+            # heapq.heappush(h,(-(cost2+np.random.rand()/1000),[solbox,lvl,th]))
+
+      
+
+    # st=time.time()
+    while(1):
+        # print(len(h))
+        (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+        mainSolbox = (cost,xs,ys,d0,d1,lvl,th)
+        if lvl==mxLVL:
+            break
+        
+        nlvl = int(lvl)+1
+        dx=dxs[nlvl]
+        H=HLevels[nlvl]
+        Tj=np.array((d0,d1))
+        Oj = np.array((xs,ys))
+        # # S=[]
+        
+        
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        
+        d0,d1=dx[0],dx[1]
+        Tj=np.array((d0,d1))
+        
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                # S.append( (xs,ys,dx[0],dx[1]) )
+
+                # xs,ys,d0,d1 = solbox
+                
+                Oj = np.array((xs,ys))
+                cost3=getPointCost(H,dx,Xth[th],Oj,Tj) 
+                heapq.heappush(h,(-cost3-np.random.rand()/1000,xs,ys,d0,d1,float(nlvl),th))
+
+    t=mainSolbox[1:3]
+    th = mainSolbox[6]
+    cost=-mainSolbox[0]
+    
+
+    
+    Hcomp=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    Hcomp[0:2,0:2]=R
+    Hcomp[0:2,2]=t
+    
+    # t=solboxt[0]
+    # print(t,th)
+    # H=np.identity(3)
+    # R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    # H[0:2,0:2]=R
+    # H[0:2,2]=t-R.dot(LmaxOrig)
+    # Htotal12 = np.matmul(H,H12)
+    # RT=Htotal12[0:2,0:2]
+    # tT=Htotal12[0:2,2]
+    
+    
+    
+    H1=np.array([[1,0,-mn_orig[0]],[0,1,-mn_orig[1]],[0,0,1]])
+    Hlmax=np.array([[1,0,-LmaxOrig[0]],[0,1,-LmaxOrig[1]],[0,0,1]])
+    
+    H2=nplinalg.inv(H1).dot(Hcomp)
+    H3=H2.dot(Hlmax)
+    H4=H3.dot(H1)
+    H12comp=H4.dot(H12)
+    # H12comp=nplinalg.multi_dot([nplinalg.inv(H1),Hcomp,Hlmax,H1,H12])
+    H21comp=nplinalg.inv(H12comp)
+    
+    return H21comp
+    
+    
+    
 def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
@@ -616,9 +1051,10 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     # et=time.time()
     # print("Time pre-init = ",et-st)
     SolBoxes_init=[]
+    print(Lmax,dxs[0])
     Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
-    for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
-        for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
+    for xs in np.arange(-Lmax[0],Lmax[0],dxs[0][0]):
+        for ys in np.arange(-Lmax[1],Lmax[1],dxs[0][1]):
             SolBoxes_init.append( (np.array([xs,ys],dtype=np.float32),dxs[0]) )
     
     # print(SolBoxes_init)
@@ -634,8 +1070,9 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
 
     Xth={}
     ii=0
-    thfineRes = np.max([0.5*np.min(dxMatch)/rmax,2.5*np.pi/180])
-    thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float32)
+    thfineRes = 1*np.pi/180
+    # thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float32)
+    thL=[0]
     # np.random.shuffle(thL)
     for th in thL:
         R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
@@ -650,8 +1087,10 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
                 print(Tj,dx)
                 raise Exception("Tj and dx are not equal ")
                 
+            fig,ax=plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th]+solbox[0])
             
             cost2=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj)
+            ax.set_title("lvl=%d,cost=%d, th=%1.2f, %s %s"%(0,cost2,th,str(list(solbox[0])),str(list(solbox[1]))))
             # h.append(CostAndNode(-cost2,[solbox,lvl,th]))
             # if ii==57:
                 # plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th],title="original")
@@ -677,15 +1116,19 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
 
     print(len(h))
   
-       
+    cnt=0
     # st=time.time()
     while(1):
         # print(len(h))
         (cost,[solboxt,lvl,th])=heapq.heappop(h)
         
-        # plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th]+solboxt[0])
+        fig,ax=plotbins2(XYedges[lvl][0],XYedges[lvl][1],HLevels[lvl],X1,Xth[th]+solboxt[0])
+        ax.set_title("lvl=%d,cost=%d, th=%1.2f, %s %s"%(lvl,cost,th,str(list(solboxt[0])),str(list(solboxt[1]))))
+        plt.savefig("debugPlots/%05d"%cnt)
+        plt.close(fig)
+        cnt+=1
         # (cost,[solboxt,lvl,th])=(CN.cost,CN.node)
-        print(cost,lvl,len(h),np.round(th*180/np.pi,2),solboxt)
+        # print(cost,lvl,len(h),np.round(th*180/np.pi,2),solboxt)
         # if lvl>=mxLVL:
         #     continue
         if lvl==mxLVL:
@@ -722,8 +1165,9 @@ def binMatcherAdaptive(X11,X22,H12,Lmax,thmax,dxMatch):
     # et=time.time()
     # print("time for final run heap push pop = ", et-st)
 
-
+    
     t=solboxt[0]
+    print(t,th)
     H=np.identity(3)
     R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
     H[0:2,0:2]=R
@@ -894,71 +1338,79 @@ def poseGraph_keyFrame_matcher_binmatch(poseGraph,idx1,idx2,params,dx0=1.5,L0=10
     
     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
     
+
+    Lmax=np.array([10,10])
+    thmax=45*np.pi/180
+    dxMatch=np.array([0.1,0.1])
+    thmin=1*np.pi/180
+
+    H21_corrected=nbpt2Dproc.binMatcherAdaptive3(X1,X2,H12_est,Lmax,thmax,thmin,dxMatch)
+    
     
     # print("H21_est=",H21_est)
     
-    flg=False
-    H21_corrected = H21_est
-    # print(r,dth,dxx)
-    for i in range(9):
-        # print(i)
-        if i==0:
-            dx=np.array([dx0,dx0],dtype=np.float64)
-            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
-            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+    # flg=False
+    # H21_corrected = H21_est
+    # # print(r,dth,dxx)
+    # for i in range(9):
+    #     # print(i)
+    #     if i==0:
+    #         dx=np.array([dx0,dx0],dtype=np.float64)
+    #         Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
+    #         activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
         
-            dxx = 0.9*dx
-            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
-            L=L0
+    #         dxx = 0.9*dx
+    #         r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
+    #         L=L0
             
-            th0=th0
-            dth = 1*np.max(dx)/r
+    #         th0=th0
+    #         dth = 1*np.max(dx)/r
             
-            
-        
-        else:
-            dx = dx*(0.5**i)
-            if np.all(dx<=dxcomp):
-                dx=0.9*dxcomp
-                flg=True
-            Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
-            activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
-        
-            L=3*np.max(dx)
-            dxx = 0.9*dx
-            r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
-            
-            dth = 1*np.max(dx)/r
-            th0=5*dth
             
         
-        # print("activebins1_ovrlp=",activebins1_ovrlp)
+    #     else:
+    #         dx = dx*(0.5**i)
+    #         if np.all(dx<=dxcomp):
+    #             dx=0.9*dxcomp
+    #             flg=True
+    #         Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dx)
+    #         activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+        
+    #         L=3*np.max(dx)
+    #         dxx = 0.9*dx
+    #         r = 0.5*nplinalg.norm([np.max(xedges_ovrlp)-np.min(xedges_ovrlp),np.max(yedges_ovrlp)-np.min(yedges_ovrlp)])
+            
+    #         dth = 1*np.max(dx)/r
+    #         th0=5*dth
+            
+        
+    #     # print("activebins1_ovrlp=",activebins1_ovrlp)
                 
-        thset = np.arange(-th0,th0+dth,dth)
-        txset = np.arange(-L,L+dxx[0],dxx[0]) # 
-        tyset = np.arange(-L,L+dxx[1],dxx[1]) #
-        PoseGrid=getgridvec(thset,txset,tyset)
+    #     thset = np.arange(-th0,th0+dth,dth)
+    #     txset = np.arange(-L,L+dxx[0],dxx[0]) # 
+    #     tyset = np.arange(-L,L+dxx[1],dxx[1]) #
+    #     PoseGrid=getgridvec(thset,txset,tyset)
         
-        # print("PoseGrid.shape = ",PoseGrid.shape)
-        pose,mbinfrac_ActiveOvrlp = nbpt2Dproc.binScanMatcher(PoseGrid,Hist1_ovrlp,X22,xedges_ovrlp,yedges_ovrlp,1)
-        # print("mbinfrac_ActiveOvrlp=",mbinfrac_ActiveOvrlp)
+    #     # print("PoseGrid.shape = ",PoseGrid.shape)
+    #     pose,mbinfrac_ActiveOvrlp = nbpt2Dproc.binScanMatcher(PoseGrid,Hist1_ovrlp,X22,xedges_ovrlp,yedges_ovrlp,1)
+    #     # print("mbinfrac_ActiveOvrlp=",mbinfrac_ActiveOvrlp)
         
-        H12 = nbpt2Dproc.getHmat(pose[0],pose[1:]) 
-        H21=nplinalg.inv(H12)
+    #     H12 = nbpt2Dproc.getHmat(pose[0],pose[1:]) 
+    #     H21=nplinalg.inv(H12)
 
-        H21_corrected=np.matmul(H21_corrected,H21)
-        H12_corrected=nplinalg.inv(H21_corrected)
-        # print("H21_corrected=",H21_corrected)
+    #     H21_corrected=np.matmul(H21_corrected,H21)
+    #     H12_corrected=nplinalg.inv(H21_corrected)
+    #     # print("H21_corrected=",H21_corrected)
         
-        if flg:
-            break
-        X=np.matmul(H12_corrected,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
-        X22=X[:,:2]
+    #     if flg:
+    #         break
+    #     X=np.matmul(H12_corrected,np.vstack([X2.T,np.ones(X2.shape[0])])).T  
+    #     X22=X[:,:2]
         
         
         
-    # Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
-    # activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
+    Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(X1,X2,dxcomp)
+    activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))    
             
     if DoCLFmatch:
         clf1=poseGraph.nodes[idx1]['clf']
@@ -1032,6 +1484,7 @@ def plotbins2(xedges,yedges,Hist1,X1,X2):
     ax.axis('equal')
     ax.legend()
     plt.show()    
+    return fig,ax
 
 
 
@@ -1177,8 +1630,7 @@ def addNewKeyFrame(poseGraph,KeyFrameClf,X_previdx,XXidx,idx,KeyFrame_prevIdx,sH
             if poseGraph.nodes[ix]['frametype']=='scan':
                 poseGraph.remove_node(ix)
 
-async def addNewKeyScan_cleanUp(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,params):
-    pass
+
 
 def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_idx,Xscan,Tscan,
                           params,timeMetrics,keepOtherScans=False,debugMode=False):
@@ -1193,185 +1645,108 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     # args = copy.deepcopy([poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_idx,Xscan,Tscan,
     #                       params])
     
-    KeyPrevIdxs_succ = list(poseGraph.successors(KeyFrame_prevIdx))
-    KeyPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_succ))
-    
-    KeyPrevPrev = list(poseGraph.predecessors(KeyFrame_prevIdx))
-    KeyPrevPrev = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",KeyPrevPrev))
-    # KeyPrevIdxs_pred = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_pred))
-    
-    if len(KeyPrevPrev)==0: # no prev prev keyframe
-        KeyPrevPrev_idx=[]
-        KeyPrevPrevIdxs_succ=[]
+    if params['DoSideCombineNewKeyframe']:
+        KeyPrevIdxs_succ = list(poseGraph.successors(KeyFrame_prevIdx))
+        KeyPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_succ))
+        
+        KeyPrevPrev = list(poseGraph.predecessors(KeyFrame_prevIdx))
+        KeyPrevPrev = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="keyframe",KeyPrevPrev))
+        # KeyPrevIdxs_pred = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevIdxs_pred))
+        
+        if len(KeyPrevPrev)==0: # no prev prev keyframe
+            KeyPrevPrev_idx=[]
+            KeyPrevPrevIdxs_succ=[]
+        else:
+            KeyPrevPrev_idx = max(KeyPrevPrev)        
+            KeyPrevPrevIdxs_succ = list(poseGraph.successors(KeyPrevPrev_idx))
+            KeyPrevPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevPrevIdxs_succ))
+        
+        # pdb.set_trace()
+        sHg_prevIdx=poseGraph.nodes[KeyFrame_prevIdx]['sHg']
+        
+        scansCombinedprevprev=[]
+        scansCombined=[]
+        
+        X= [poseGraph.nodes[KeyFrame_prevIdx]['X']]
+        for ix in KeyPrevPrevIdxs_succ:
+            posematch=poseGraph.edges[KeyPrevPrev_idx,ix]['posematch']
+            if poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
+                sHg=poseGraph.nodes[ix]['sHg']
+                gHs = nplinalg.inv(sHg)
+                H = np.matmul(sHg_prevIdx,gHs)
+                XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+                X.append(XX[:,:2])
+                scansCombinedprevprev.append(ix)
+                
+        X_newKeyidx = [poseGraph.nodes[KeyFrame_newIdx]['X']]
+        sHg_newKeyidx=poseGraph.nodes[KeyFrame_newIdx]['sHg']
+        for ix in KeyPrevIdxs_succ:
+            posematch=poseGraph.edges[KeyFrame_prevIdx,ix]['posematch']
+            if ix!=KeyFrame_newIdx and poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
+                sHg=poseGraph.nodes[ix]['sHg']
+                gHs = nplinalg.inv(sHg)
+                H = np.matmul(sHg_prevIdx,gHs)
+                XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+                X.append(XX[:,:2])
+                
+                H = np.matmul(sHg_newKeyidx,gHs)
+                XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
+                X_newKeyidx.append(XX[:,:2])
+                
+                scansCombined.append(ix)
+        
+        
+        # Xprevidx=binnerDownSampler(np.vstack(X),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
+        Xprevidx=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])    
+        poseGraph.nodes[KeyFrame_prevIdx]['X']=Xprevidx
+        poseGraph.nodes[KeyFrame_prevIdx]['clf']=None
+        # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None,prevclf=poseGraph.nodes[KeyFrame_prevIdx]['clf'])
+        # clf=res['clf']
+        # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
+        
+        
+        idbmx = params['INTER_DISTANCE_BINS_max']
+        idbdx=params['INTER_DISTANCE_BINS_dx']
+        # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
+        h=np.array([0,0])
+        poseGraph.nodes[KeyFrame_prevIdx]['h']=h
+        
+        if 'SideScansCombine' in poseGraph.nodes[KeyFrame_prevIdx]:
+            poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']+scansCombined
+        else:
+            poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=scansCombined+scansCombinedprevprev
+            
+        # new keyframe
+        X_newKeyidx=binnerDownSamplerProbs(X_newKeyidx,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
+        poseGraph.nodes[KeyFrame_newIdx]['X']=X_newKeyidx
+        poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']=scansCombined
+
+        
+        
+        
+        
     else:
-        KeyPrevPrev_idx = max(KeyPrevPrev)        
-        KeyPrevPrevIdxs_succ = list(poseGraph.successors(KeyPrevPrev_idx))
-        KeyPrevPrevIdxs_succ = list(filter(lambda x: poseGraph.nodes[x]['frametype']=="scan",KeyPrevPrevIdxs_succ))
+        Xprevidx=poseGraph.nodes[KeyFrame_prevIdx]['X']    
+        X_newKeyidx=poseGraph.nodes[KeyFrame_newIdx]['X']   
+        
+    res = getclf(X_newKeyidx,params,doReWtopt=True,means_init=None)
+    clf=res['clf']        
+    poseGraph.nodes[KeyFrame_newIdx]['clf']=clf
     
-    # pdb.set_trace()
-    sHg_prevIdx=poseGraph.nodes[KeyFrame_prevIdx]['sHg']
+    poseGraph.nodes[KeyFrame_newIdx]['frametype']="keyframe"
+    poseGraph.nodes[KeyFrame_newIdx]['color']="g"
+    poseGraph.nodes[KeyFrame_newIdx]['LoopDetectDone']=False
     
-    scansCombinedprevprev=[]
-    scansCombined=[]
-    
-    X= [poseGraph.nodes[KeyFrame_prevIdx]['X']]
-    for ix in KeyPrevPrevIdxs_succ:
-        posematch=poseGraph.edges[KeyPrevPrev_idx,ix]['posematch']
-        if poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
-            sHg=poseGraph.nodes[ix]['sHg']
-            gHs = nplinalg.inv(sHg)
-            H = np.matmul(sHg_prevIdx,gHs)
-            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
-            X.append(XX[:,:2])
-            scansCombinedprevprev.append(ix)
-            
-    X_newKeyidx = [poseGraph.nodes[KeyFrame_newIdx]['X']]
-    sHg_newKeyidx=poseGraph.nodes[KeyFrame_newIdx]['sHg']
-    for ix in KeyPrevIdxs_succ:
-        posematch=poseGraph.edges[KeyFrame_prevIdx,ix]['posematch']
-        if ix!=KeyFrame_newIdx and poseGraph.nodes[ix]['frametype']=='scan' and posematch['mbinfrac_ActiveOvrlp']>params["Scan2Key_Overlap"]:
-            sHg=poseGraph.nodes[ix]['sHg']
-            gHs = nplinalg.inv(sHg)
-            H = np.matmul(sHg_prevIdx,gHs)
-            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
-            X.append(XX[:,:2])
-            
-            H = np.matmul(sHg_newKeyidx,gHs)
-            XX=np.matmul(H,np.vstack([poseGraph.nodes[ix]['X'].T,np.ones(poseGraph.nodes[ix]['X'].shape[0])])).T  
-            X_newKeyidx.append(XX[:,:2])
-            
-            scansCombined.append(ix)
-    
-    
-    # Xprevidx=binnerDownSampler(np.vstack(X),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
-    Xprevidx=binnerDownSamplerProbs(X,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])    
     
     if debugMode:
         if 'Xorig' not in poseGraph.nodes[KeyFrame_prevIdx]:
             poseGraph.nodes[KeyFrame_prevIdx]['Xorig']=[]
         poseGraph.nodes[KeyFrame_prevIdx]['Xorig'].append(poseGraph.nodes[KeyFrame_prevIdx]['X'])
-    
-    poseGraph.nodes[KeyFrame_prevIdx]['X']=Xprevidx
-    
-    if 'SideScansCombine' in poseGraph.nodes[KeyFrame_prevIdx]:
-        poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']+scansCombined
-    else:
-        poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']=scansCombined+scansCombinedprevprev
-        
-        
-    poseGraph.nodes[KeyFrame_prevIdx]['clf']=None
-    # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None,prevclf=poseGraph.nodes[KeyFrame_prevIdx]['clf'])
-    # clf=res['clf']
-    # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
-    
-    idbmx = params['INTER_DISTANCE_BINS_max']
-    idbdx=params['INTER_DISTANCE_BINS_dx']
-    # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
-    h=np.array([0,0])
-    poseGraph.nodes[KeyFrame_prevIdx]['h']=h
-    
-    # if isinstance(KeyPrevPrev_idx,list) is False:
-    #     clfkeyprevprev=poseGraph.nodes[KeyPrevPrev_idx]['clf']
-    #     Xkeyprevprev=poseGraph.nodes[KeyPrevPrev_idx]['X']
-    #     Xkeyprev=poseGraph.nodes[KeyFrame_prevIdx]['X']
-    #     sHk_prevframe = poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['H']
-    #     sHk,serrk,shessk_inv = scan2keyframe_match(clfkeyprevprev,Xkeyprevprev,Xkeyprev,params,sHk=sHk_prevframe)
-    #     if 'ScanMatch' in poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]:
-    #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['ScanMatch2']={'input':[clfkeyprevprev,Xkeyprevprev,Xkeyprev,sHk_prevframe],
-    #                                                                     'output':[sHk,serrk,shessk_inv],
-    #                                                                     'clf_X_sidecombine':poseGraph.nodes[KeyPrevPrev_idx]['SideScansCombine'],
-    #                                                                     'X_sidecombine':poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']}
-    #     else:
-    #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['ScanMatch']={'input':[clfkeyprevprev,Xkeyprevprev,Xkeyprev,sHk_prevframe],
-    #                                                                     'output':[sHk,serrk,shessk_inv],
-    #                                                                     'clf_X_sidecombine':poseGraph.nodes[KeyPrevPrev_idx]['SideScansCombine'],
-    #                                                                     'X_sidecombine':poseGraph.nodes[KeyFrame_prevIdx]['SideScansCombine']}
 
-        
-    #     dxcomp = params['LOOPCLOSE_BIN_MIN_FRAC_dx']
-    #     Hist1_ovrlp, xedges_ovrlp,yedges_ovrlp=nbpt2Dproc.binScanEdges(Xkeyprevprev,Xkeyprev,dxcomp)
-    #     activebins1_ovrlp = np.sum(Hist1_ovrlp.reshape(-1))
-    #     H12=sHk
-    #     posematch=eval_posematch(H12,Xkeyprev,Hist1_ovrlp,activebins1_ovrlp,xedges_ovrlp,yedges_ovrlp)
-    #     posematch['method']='GMMmatch'
-    #     posematch["H"]=H12
-    #     if 'debugMsg' not in poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]:
-    #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['debugMsg']=[]
-            
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['debugMsg'].append(poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['posematch'])
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['posematch']=posematch
-    #     print("key %d- key %d-posematch['mbinfrac_ActiveOvrlp']="%(KeyPrevPrev_idx,KeyFrame_prevIdx),posematch['mbinfrac_ActiveOvrlp'])
-    #     # if posematch['mbinfrac_ActiveOvrlp']<0.1:
-    #     #     # res = getclf(Xprevidx,params,doReWtopt=True,means_init=None)
-    #     #     # clf=res['clf']
-    #     #     # poseGraph.nodes[KeyFrame_prevIdx]['clf']=clf
-            
-    #     #     posematch2 = poseGraph_keyFrame_matcher_binmatch(poseGraph,KeyPrevPrev_idx,KeyFrame_prevIdx,params,DoCLFmatch=False,dx0=0.8,L0=1,th0=np.pi/6,PoseGrid=None,isPoseGridOffset=True,isBruteForce=False,H21_est=sHk_prevframe)
-    #     #     posematch2['method']='binmatch'
-    #     #     print("%d-%d-posematch['mbinfrac_ActiveOvrlp'] with binmatch="%(KeyPrevPrev_idx,KeyFrame_prevIdx),posematch2['mbinfrac_ActiveOvrlp'])
-    #     #     if  posematch2['mbinfrac_ActiveOvrlp']>0.1:
-    #     #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['H']=posematch2['H']
-    #     #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['posematchGMM']=posematch
-    #     #         poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['posematch']=posematch2
-                
-    #     #         kHg = poseGraph.nodes[KeyPrevPrev_idx]['sHg']
-    #     #         sHg = np.matmul(posematch2['H'],kHg)
-    #     #         gHs=nplinalg.inv(sHg)    
-    #     #         tpos=np.matmul(gHs,np.array([0,0,1])) 
-    #     #         poseGraph.nodes[KeyFrame_prevIdx]['pos']=(tpos[0],tpos[1])
-    #     #         poseGraph.nodes[KeyFrame_prevIdx]['sHg']=sHg
-                
-    #     #         posematch=posematch2
-
-                
-            
-    
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['H']=posematch["H"]
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['H_prevframe']=sHk_prevframe
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['err']=serrk
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['hess_inv']=shessk_inv
-    #     if 'debugMsg' not in poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]:
-    #         poseGraph.edges[KeyFrame_prevIdx,KeyFrame_newIdx]['debugMsg']=[]
-            
-    #     poseGraph.edges[KeyPrevPrev_idx,KeyFrame_prevIdx]['debugMsg']=["edge updated in addNewKeyFrameAndScan from key2scan to key2key"]
-        
-    #     kHg = poseGraph.nodes[KeyPrevPrev_idx]['sHg'] #global pose to the prev keyframe
-    #     sHg = np.matmul(sHk,kHg) # global pose to the current frame: global to current frame
-    #     gHs=nplinalg.inv(sHg) 
-           
-    #     tpos=np.matmul(gHs,np.array([0,0,1])) 
-    
-    #     idbmx = params['INTER_DISTANCE_BINS_max']
-    #     idbdx=params['INTER_DISTANCE_BINS_dx']
-    #     # # h=get2DptFeat(X,bins=np.arange(0,idbmx,idbdx))
-    #     h=np.array([0,0])
-    #     poseGraph.nodes[KeyFrame_prevIdx]['sHg']=sHg
-    #     poseGraph.nodes[KeyFrame_prevIdx]['pos']=(tpos[0],tpos[1])
-    #     poseGraph.nodes[KeyFrame_prevIdx]['h']=h
-    
-
-        
-        
-    ## now pdate the KeyFrame_newIdx node as a keyframe
-    # Xidx=binnerDownSampler(np.vstack(Xidx),dx=params['BinDownSampleKeyFrame_dx'],cntThres=1)
-    X_newKeyidx=binnerDownSamplerProbs(X_newKeyidx,dx=params['BinDownSampleKeyFrame_dx'],prob=params['BinDownSampleKeyFrame_probs'])
-    if debugMode:
         if 'Xorig' not in poseGraph.nodes[KeyFrame_newIdx]:
             poseGraph.nodes[KeyFrame_newIdx]['Xorig']=[]
         poseGraph.nodes[KeyFrame_newIdx]['Xorig'].append(poseGraph.nodes[KeyFrame_newIdx]['X'])
-    poseGraph.nodes[KeyFrame_newIdx]['X']=X_newKeyidx
-    poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']=scansCombined
-    
-    XX=poseGraph.nodes[KeyFrame_newIdx]['X']
-    res = getclf(XX,params,doReWtopt=True,means_init=None)
-    clf=res['clf']        
-    poseGraph.nodes[KeyFrame_newIdx]['clf']=clf
-    # poseGraph.nodes[KeyFrame_newIdx]['SideScansCombine']=[]
-    
-    
-    poseGraph.nodes[KeyFrame_newIdx]['frametype']="keyframe"
-    poseGraph.nodes[KeyFrame_newIdx]['color']="g"
-    poseGraph.nodes[KeyFrame_newIdx]['LoopDetectDone']=False
+
     if 'debugMsg' not in poseGraph.nodes[KeyFrame_newIdx]:
         poseGraph.nodes[KeyFrame_newIdx]['debugMsg']=["node updated in addNewKeyFrameAndScan from scan to key"]
     
@@ -1386,25 +1761,13 @@ def addNewKeyFrameAndScan(poseGraph,KeyFrame_prevIdx,KeyFrame_newIdx,ScanFrame_i
     
     poseGraph.nodes[KeyFrame_newIdx]['sHg']=sHg
     poseGraph.nodes[KeyFrame_newIdx]['pos']=(tpos[0],tpos[1])
-    
-    
-    # now match the prevprev to prev frame
-    # poseGraph.add_node(idx,frametype="keyframe",X=Xidx,clf=clf,time=idx,sHg=sHg_idx,pos=(tpos[0],tpos[1]),h=h,color='g',LoopDetectDone=False,SideScansCombine=scansCombined)
-    
-    # poseGraph.add_edge(KeyFrame_prevIdx,idx,H=sHk,H_prevframe=sHk_idx,err=serrk,hess_inv=shessk_inv,edgetype="Key2Key",color='k')
-            
-    
 
-        
-
-        
-    
     # now add the scan frame
     KeyFrameClf = poseGraph.nodes[KeyFrame_newIdx]['clf']
     Xclf = poseGraph.nodes[KeyFrame_newIdx]['X']
     sHk_prevframe = np.identity(3)
     
-    sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,Xclf,Xscan,params,sHk=sHk_prevframe)
+    sHk,serrk,shessk_inv = scan2keyframe_match(KeyFrameClf,Xclf,Xscan,params,sHk=sHk_prevframe,method=params['ScanMatchMethod'])
     
    
     

@@ -106,7 +106,7 @@ def _points_to_voxel_kernel(points,
 
 def points_to_voxel(points,
                      voxel_size,
-                     coors_range,
+                     coors_range,  #_point_cloud_range
                      max_points=35,
                      reverse_index=True,
                      max_voxels=20000):
@@ -114,13 +114,16 @@ def points_to_voxel(points,
     everything in one loop. now it takes only 4.2ms(complete point cloud) 
     with jit and 3.2ghz cpu.(don't calculate other features)
     Note: this function in ubuntu seems faster than windows 10.
-
+    
+    The voxels are created in the order of points. So shuffle the points.
+    accordingly teh voxel index and its coordinates are created. This way max_voxels works.
+    
     Args:
         points: [N, ndim] float tensor. points[:, :3] contain xyz points and
             points[:, 3:] contain other information such as reflectivity.
         voxel_size: [3] list/tuple or array, float. xyz, indicate voxel size
         coors_range: [6] list/tuple or array, float. indicate voxel range.
-            format: xyzxyz, minmax
+            format: [xyz_min,xyz_max]
         max_points: int. indicate maximum points contained in a voxel.
         reverse_index: boolean. indicate whether return reversed coordinates.
             if points has xyz format and reverse_index is True, output 
@@ -134,6 +137,7 @@ def points_to_voxel(points,
         voxels: [M, max_points, ndim] float tensor. only contain points.
         coordinates: [M, 3] int32 tensor.
         num_points_per_voxel: [M] int32 tensor.
+        M is the number of voxels created.
     """
     if not isinstance(voxel_size, np.ndarray):
         voxel_size = np.array(voxel_size, dtype=points.dtype)
@@ -148,7 +152,9 @@ def points_to_voxel(points,
     coor_to_voxelidx = -np.ones(shape=voxelmap_shape, dtype=np.int32)
     voxels = np.zeros(
         shape=(max_voxels, max_points, points.shape[-1]), dtype=points.dtype)
+    # voxels = [voxelidx,pointidx,pointdim]
     coors = np.zeros(shape=(max_voxels, 3), dtype=np.int32)
+    # coors is npothing but voxel idx to coordinate = voxelidx-->[voxelx,voxely,voxelz]
     if reverse_index:
         voxel_num = _points_to_voxel_reverse_kernel(
             points, voxel_size, coors_range, num_points_per_voxel,

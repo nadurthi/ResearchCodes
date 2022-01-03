@@ -62,7 +62,7 @@ from utils import simmanager
 
 #%% testing kitti read
 
-root_dir = 'P:\\SLAMData\\Kitti\\tracking\\mot\\training';
+root_dir = '/media/na0043/misc/DATA/KITTI/mots/dataset/training';
 seq = '0000';
 ktrk = pykcustracking.KittiTracking(root_dir,seq)
 dflabel = ktrk.readlabel()

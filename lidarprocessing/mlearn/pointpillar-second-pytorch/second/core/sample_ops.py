@@ -76,7 +76,7 @@ class DataBaseSamplerV2:
 
         self._sampler_dict = {}
         for k, v in self._group_db_infos.items():
-            self._sampler_dict[k] = prep.BatchSampler(v, k)
+            self._sampler_dict[k] = prep.BatchSampler(v, k) # this is just a class instance.. actuall sampling done elsewhere
         self._enable_global_rot = False
         if global_rot_range is not None:
             if not isinstance(global_rot_range, (list, tuple, np.ndarray)):

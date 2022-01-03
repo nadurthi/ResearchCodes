@@ -4,6 +4,10 @@
 		"selected_items":
 		[
 			[
+				"data",
+				"datamanipulators\tmodule"
+			],
+			[
 				"sim",
 				"simname"
 			]
@@ -16,7 +20,6 @@
 			"settings":
 			{
 				"buffer_size": 2131,
-				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		}
@@ -61,13 +64,35 @@
 	},
 	"expanded_folders":
 	[
-		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor",
-		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master",
-		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master",
-		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/OnPi"
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing"
 	],
 	"file_history":
 	[
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pytorchutils/losses.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointcloudmodels/voxelnet.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/train_helpers.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/pytorch/train.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointcloudcore/voxel_generator.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/builder/similarity_calculator_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/configs/car.config",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/modelBuilders.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/builder/target_assigner_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/train.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/lossBuilder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/pytorch/builder/losses_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/pytorch/builder/second_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/builder/preprocess_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/builder/voxel_builder.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/configs/car.config",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/protos/pipeline_pb2.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/protos/pipeline.proto",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/second/protos/activations.proto",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pytorchutils/datamanipulators.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/torchplus/train/common.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/torchplus/train/__init__.py",
+		"/C/Users/Nagnanamus/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointcloudmodels/__init__.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/reinforcement/invertedbar.py",
 		"/C/Users/Nagnanamus/Downloads/lidarprocessing/point2Dprocessing.py",
 		"/C/Users/Nagnanamus/Google Drive/teaching/gradingHelperMAE488.py",
@@ -83,7 +108,6 @@
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_device.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_ICM20X-master/Adafruit_CircuitPython_ICM20X-master/i2c_bcd_alarm.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/Adafruit_CircuitPython_Register-master/Adafruit_CircuitPython_Register-master/adafruit_register/__init__.py",
-		"/C/Users/Nagnanamus/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/I2Cdev.cpp",
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/I2Cdev.h",
 		"/C/Users/Nagnanamus/Google Drive/repos/RaspPiSensor/imuReader/adafruit_icm20649_test.cpp",
@@ -176,6 +200,9 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"model_cfg",
+			"train_input_reader",
+			"lint",
 			"\n",
 			"\\\\n",
 			"\\n",
@@ -196,6 +223,7 @@
 		"regex": false,
 		"replace_history":
 		[
+			"config['model']",
 			",",
 			"i2c_bus",
 			"printf"
@@ -225,8 +253,8 @@
 						"selection":
 						[
 							[
-								2131,
-								2131
+								519,
+								519
 							]
 						],
 						"settings":
@@ -234,7 +262,7 @@
 							"syntax": "Packages/Python/Python.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 864.0,
+						"translation.y": 432.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -249,7 +277,7 @@
 	},
 	"input":
 	{
-		"height": 0.0
+		"height": 39.0
 	},
 	"layout":
 	{
@@ -290,7 +318,7 @@
 	"project": "SLAM.sublime-project",
 	"replace":
 	{
-		"height": 106.0
+		"height": 70.0
 	},
 	"save_all_on_build": true,
 	"select_file":

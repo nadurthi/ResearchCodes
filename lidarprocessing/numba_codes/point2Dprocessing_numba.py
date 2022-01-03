@@ -189,11 +189,12 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
 
      
     
-    
+    LmaxOrig=Lmax.copy()
     SolBoxes_init=[]
+    X2=X2-Lmax
     Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
-    for xs in np.arange(-Lmax[0],Lmax[0]+1.5*dxs[0][0],dxs[0][0]):
-        for ys in np.arange(-Lmax[1],Lmax[1]+1.5*dxs[0][1],dxs[0][1]):
+    for xs in np.arange(0,2*Lmax[0],dxs[0][0]):
+        for ys in np.arange(0,2*Lmax[1],dxs[0][1]):
             SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
     
     
@@ -213,7 +214,7 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
         value_type=float_2Darray,
     )
     
-    thfineRes = 2.5*np.pi/180
+    thfineRes = 2*np.pi/180
     thL=np.arange(-thmax,thmax+thfineRes,thfineRes)
     # np.random.shuffle(thL)
     for th in thL:
@@ -275,7 +276,9 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
     H=np.identity(3)
     R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
     H[0:2,0:2]=R
-    H[0:2,2]=t
+    H[0,2]=t[0]-0*LmaxOrig[0]
+    H[1,2]=t[1]-0*LmaxOrig[1]
+    
     Htotal12 = H.dot(H12)
     RT=Htotal12[0:2,0:2]
     tT=Htotal12[0:2,2]
@@ -289,7 +292,196 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
     Htotal21_updt = nplinalg.inv(Htotal12_updt)
     return Htotal21_updt,cost,HLevels
 
+@njit(cache=True)
+def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    H21comp=np.identity(3)
+        
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    mn_orig=mn_orig-dxMatch
+    
+    
+    R=H12[0:2,0:2]
+    t=H12[0:2,2]
+    X222 = R.dot(X22.T).T+t
+    
+    
+    X2=X222-mn_orig
+    X1=X11-mn_orig
 
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+
+    P = mx-mn
+
+    mxlvl=0
+    dx0=mx+dxMatch
+    dxs = []
+    XYedges=[]
+    for i in range(0,100):
+        f=2**i
+        
+        xedges=np.linspace(0,mx[0]+1*dxMatch[0],f+1)
+        yedges=np.linspace(0,mx[1]+1*dxMatch[0],f+1)
+        XYedges.append((xedges,yedges))
+        dx=np.array([xedges[1]-xedges[0],yedges[1]-yedges[0]])
+    
+        dxs.append(dx)
+        
+        if np.any(dx<=dxMatch):
+            break
+        
+    mxlvl=len(dxs)
+    
+
+    dxs=[dx.astype(np.float64) for dx in dxs]
+
+    
+    
+    H1match=numba_histogram2D(X1, XYedges[-1][0],XYedges[-1][1])
+    H1match = np.sign(H1match)
+    
+    
+    
+    
+
+    levels=[]
+    HLevels=[H1match]
+    
+    
+    
+    
+    
+    for i in range(1,mxlvl):
+        
+    
+    
+        Hup = HLevels[i-1]
+        H=UpsampleMax(Hup,n)
+
+        HLevels.append(H)
+          
+    
+    mxLVL=len(HLevels)-1
+    HLevels=HLevels[::-1]
+    HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+
+        
+    LmaxOrig=np.zeros(2,dtype=np.float64)
+    LmaxOrig[0]=Lmax[0]
+    LmaxOrig[1]=Lmax[1]
+
+    SolBoxes_init=[]
+    X2[:,0]=X2[:,0]-LmaxOrig[0]
+    X2[:,1]=X2[:,1]-LmaxOrig[1]
+    
+    Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
+    for xs in np.arange(0,2*Lmax[0],dxs[0][0]):
+        for ys in np.arange(0,2*Lmax[1],dxs[0][1]):
+            SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
+    
+    
+    
+    
+    
+    
+    h=[(100000.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+    
+    Xth= Dict.empty(
+        key_type=types.float64,
+        value_type=float_2Darray,
+    )
+    ii=0
+    thfineRes = thmin
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float64)
+    # X2=np.ascontiguousarray(X2)
+    for th in thL:
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X2.T))
+        Xth[th]=XX
+        
+        
+        for solbox in SolBoxes_init:
+            xs,ys,d0,d1 = solbox
+            Tj=np.array((d0,d1))
+            Oj = np.array((xs,ys))
+            cost2=getPointCost(H,dx,Xth[th],Oj,Tj)
+            h.append((-cost2-np.random.rand()/1000,xs,ys,d0,d1,lvl,th))
+            
+    heapq.heapify(h)
+    
+
+
+    while(1):
+        (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+        mainSolbox = (cost,xs,ys,d0,d1,lvl,th)
+        if lvl==mxLVL:
+            break
+        
+        nlvl = int(lvl)+1
+        dx=dxs[nlvl]
+        H=HLevels[nlvl]
+        Tj=np.array((d0,d1))
+        Oj = np.array((xs,ys))
+
+        
+        
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        
+        d0,d1=dx[0],dx[1]
+        Tj=np.array((d0,d1))
+        
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                Oj = np.array((xs,ys))
+                cost3=getPointCost(H,dx,Xth[th],Oj,Tj) 
+                heapq.heappush(h,(-cost3-np.random.rand()/1000,xs,ys,d0,d1,float(nlvl),th))
+
+    t=mainSolbox[1:3]
+    th = mainSolbox[6]
+    cost=-mainSolbox[0]
+    
+
+    
+    Hcomp=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    Hcomp[0:2,0:2]=R
+    Hcomp[0:2,2]=t
+    
+
+    
+    H1=np.identity(3)
+    H1[0:2,2]=-mn_orig
+    
+    Hlmax=np.identity(3)
+    Hlmax[0:2,2]=-LmaxOrig
+    
+    # H1=np.array([[1,0,-mn_orig[0]],[0,1,-mn_orig[1]],[0,0,1]])
+    # Hlmax=np.array([[1,0,-LmaxOrig[0]],[0,1,-LmaxOrig[1]],[0,0,1]])
+    
+    H2=nplinalg.inv(H1)
+    H2=H2.dot(Hcomp)
+    H3=H2.dot(Hlmax)
+    H4=H3.dot(H1)
+    H12comp=H4.dot(H12)
+
+    H21comp=nplinalg.inv(H12comp)
+    
+    return H21comp
+    
+    
 
 @jit(int32[:,:](float64[:,:], float64[:], float64[:]),nopython=True, nogil=True,cache=True) 
 def numba_histogram2D(X, xedges,yedges):

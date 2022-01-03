@@ -8,13 +8,19 @@ class VoxelGenerator:
                  point_cloud_range,
                  max_num_points,
                  max_voxels=20000):
+        # point_cloud_range=[xmin,ymin,zmin,xmax,ymax,zmax]
+        # Voxels are created in a grid randomly, out of which at max max_voxels are selected
+        # points are not resampled or no center of voxel is taken. The 
         point_cloud_range = np.array(point_cloud_range, dtype=np.float32)
         # [0, -40, -3, 70.4, 40, 1]
         voxel_size = np.array(voxel_size, dtype=np.float32)
+        #"voxel_size" : [0.2, 0.2, 0.4]
+        
         grid_size = (
             point_cloud_range[3:] - point_cloud_range[:3]) / voxel_size
         grid_size = np.round(grid_size).astype(np.int64)
-
+        # grid_size is the number of gird points in each dimension
+        
         self._voxel_size = voxel_size
         self._point_cloud_range = point_cloud_range
         self._max_num_points = max_num_points

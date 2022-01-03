@@ -26,8 +26,11 @@ else:
 
 def riou_cc(rbboxes, qrbboxes, standup_thresh=0.0):
     # less than 50ms when used in second one thread. 10x slower than gpu
+    # rbboxes: [N, 5] [x,y,w,l,r] tensor.
+    # qrbboxes: [M, 5] [x,y,w,l,r] tensor.
     boxes_corners = center_to_corner_box2d(rbboxes[:, :2], rbboxes[:, 2:4],
                                            rbboxes[:, 4])
+    # % boxes_standup is nothing but the lb and ub aligned to axes approximation of the box
     boxes_standup = corner_to_standup_nd(boxes_corners)
     qboxes_corners = center_to_corner_box2d(qrbboxes[:, :2], qrbboxes[:, 2:4],
                                             qrbboxes[:, 4])
@@ -40,6 +43,7 @@ def riou_cc(rbboxes, qrbboxes, standup_thresh=0.0):
 
 def second_box_encode(boxes, anchors, encode_angle_to_vector=False, smooth_dim=False):
     """box encode for VoxelNet in lidar
+    #encodes 3D box for optimization
     Args:
         boxes ([N, 7] Tensor): normal boxes: x, y, z, w, l, h, r
         anchors ([N, 7] Tensor): anchors
@@ -117,8 +121,8 @@ def second_box_decode(box_encodings, anchors, encode_angle_to_vector=False, smoo
 def bev_box_encode(boxes, anchors, encode_angle_to_vector=False, smooth_dim=False):
     """box encode for VoxelNet in lidar
     Args:
-        boxes ([N, 7] Tensor): normal boxes: x, y, z, w, l, h, r
-        anchors ([N, 7] Tensor): anchors
+        boxes ([N, 5] Tensor): normal boxes: x, y, z, w, l, h, r
+        anchors ([N, 5] Tensor): anchors
         encode_angle_to_vector: bool. increase aos performance, 
             decrease other performance.
     """
@@ -353,6 +357,7 @@ def center_to_corner_box3d(centers,
     Args:
         centers (float array, shape=[N, 3]): locations in kitti label file.
         dims (float array, shape=[N, 3]): dimensions in kitti label file.
+                                            ['l', 'h', 'w']
         angles (float array, shape=[N]): rotation_y in kitti label file.
         origin (list or array or float): origin point relate to smallest point.
             use [0.5, 1.0, 0.5] in camera and [0.5, 0.5, 0] in lidar.

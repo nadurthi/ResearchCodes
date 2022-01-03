@@ -42,7 +42,7 @@ range_min, range_max = 0.023000000044703484, 60.0
 angle_min,angle_max =  -2.3518311977386475,2.3518311977386475
 
 dtype = np.float64
-
+from lidarprocessing import icp
 # import warnings
 # warnings.filterwarnings('error')
 
@@ -178,14 +178,17 @@ KeyFrames=[]
 
 params={}
 
-params['REL_POS_THRESH']=49# meters after which a keyframe is made
-params['REL_ANGLE_THRESH']=145*np.pi/180
+params['REL_POS_THRESH']=0.5# meters after which a keyframe is made
+params['REL_ANGLE_THRESH']=30*np.pi/180
 params['ERR_THRES']=15
 params['n_components']=35
 params['reg_covar']=0.002
 
 params["Key2Key_Overlap"]=0.3
 params["Scan2Key_Overlap"]=0.3
+
+params['DoSideCombineNewKeyframe']=False
+params['ScanMatchMethod']='icp'  #binmatch, icp, gmm
 
 params['Key2KeyBinMatch_dx0']=2
 params['Key2KeyBinMatch_L0']=7
@@ -325,10 +328,16 @@ for idx in range(idx1,idxLast):
         
     # sHk_prevframe = np.identity(3)
     
-        
+    Lmax=np.array([2,2])
+    thmax=35*np.pi/180
+    dxMatch=np.array([0.03,0.03])
+    thmin=1*np.pi/180
+    
+
     # assuming sHk_prevframe is very close to sHk
     st=time.time()
-    sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=sHk_prevframe)
+    sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,Xclf,X,params,sHk=sHk_prevframe,method=params['ScanMatchMethod'])
+    # sHk, distances, i=icp.icp(Xclf, X, init_pose=sHk_prevframe, max_iterations=100, tolerance=0.01)
     # sHk,serrk,shessk_inv = pt2dproc.scan2keyframe_match(KeyFrameClf,X,sHk=sHk_prevframe)
     # shessk_inv is like covariance
     et = time.time()
@@ -357,7 +366,8 @@ for idx in range(idx1,idxLast):
     thdiff = np.abs(nbpt2Dproc.anglediff(thprevK,thcurr))
     # print("thdiff = ",thdiff)
     # check if to make this the keyframe
-    if serrk>params['ERR_THRES'] or nplinalg.norm(sHk[:2,2])>params['REL_POS_THRESH'] or posematch['mbinfrac_ActiveOvrlp']<params["Scan2Key_Overlap"] or thdiff>params['REL_ANGLE_THRESH']:
+    #or posematch['mbinfrac_ActiveOvrlp']<params["Scan2Key_Overlap"] 
+    if nplinalg.norm(sHk[:2,2])>params['REL_POS_THRESH'] or thdiff>params['REL_ANGLE_THRESH']:
         print("New Keyframe")
         st = time.time()
         # pt2dproc.addNewKeyFrameAndScan(self.poseGraph,KeyFrameClf,Xclf,XprevScan,idxprevScan,self.KeyFrame_prevIdx,sHk_prevScan,sHg_prevScan,sHk_prevScan,params,keepOtherScans=False)
@@ -440,10 +450,10 @@ for idx in range(idx1,idxLast):
     
     
     # plotting
-    if idx%50==0 or idx==idxLast-1:
+    if idx%10==0 or idx==idxLast-1:
         st = time.time()
-        pt2dplot.plot_keyscan_path(poseGraph,idx1,idx,params,makeNew=False,skipScanFrame=True,plotGraphbool=True,
-                                    forcePlotLastidx=True,plotLastkeyClf=True,plotLoopCloseOnScanPlot=True,plotKeyFrameNodesTraj=True)
+        pt2dplot.plot_keyscan_path(poseGraph,idx1,idx,params,makeNew=False,skipScanFrame=True,plotGraphbool=False,
+                                    forcePlotLastidx=True,plotLastkeyClf=True,CloseUpRadiusPlot=None,plotKeyFrameNodesTraj=True)
         et = time.time()
         print("plotting time : ",et-st)
         plt.show()
@@ -460,7 +470,7 @@ df=pd.DataFrame({'type':['keyframe']*len(Lkey)+['scan']*len(Lscan),'idx':Lkey+Ls
 df.sort_values(by=['idx'],inplace=True)
 df
 
-with open("PoseGraph-deutchesMesuemDebug-planes-0p3.pkl",'wb') as fh:
+with open("DeutchesMuseum-NoLoopICP.pkl",'wb') as fh:
     pkl.dump([poseGraph,params],fh)
 
 
@@ -700,9 +710,9 @@ R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
 # H21=poseGraph.edges[e1,e2]['H']
 # H21[0:2,2]=H21[0:2,2]+5
 H12 = nplinalg.inv(H21)
-Lmax=np.array([40,40])
+Lmax=np.array([10,10])
 thmax=30*np.pi/180
-dxMatch=np.array([1.0,1.0])
+dxMatch=np.array([0.25,0.25])
 # dxMax=np.array([5,5])
 st=time.time()
 # X2small = pt2dproc.binnerDownSampler(X2,dx=0.2,cntThres=1)

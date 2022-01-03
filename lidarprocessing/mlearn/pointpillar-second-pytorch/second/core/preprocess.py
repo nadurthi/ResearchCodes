@@ -641,6 +641,7 @@ def noise_per_object_v3_(gt_boxes,
             set_group_noise_same_(loc_noises, rot_noises, group_ids)
         group_centers, group_id_num_dict = get_group_center(
             gt_boxes[:, :3], group_ids)
+        
         if enable_grot:
             group_transform_v2_(loc_noises, rot_noises, gt_boxes[:, :3],
                                 gt_boxes[:, 6], group_centers,

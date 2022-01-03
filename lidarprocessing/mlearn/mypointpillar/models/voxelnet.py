@@ -3,7 +3,7 @@ from enum import Enum
 from functools import reduce
 
 import numpy as np
-import sparseconvnet as scn
+# import sparseconvnet as scn
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -55,14 +55,32 @@ class VFELayer(nn.Module):
         self.norm = BatchNorm1d(self.units)
 
     def forward(self, inputs):
+        # T is the number of lidar points in each voxel.
+        # K is the numbe of non-empty voxels
+        # 7 is the number of features in the points
+        # units is the output of linear layer
+        # units = out_channels/2, as other half is concatenated
         # [K, T, 7] tensordot [7, units] = [K, T, units]
+        # in_channels: "could" be 7
+        # out_channels: "could" be C (encoded features for each voxel)
+        # remember pytorch Linear applies linear layer to last dimension
+        #                 : (N,*,*,Hin) --> Linear  --> (N,*,*,Hout)
+        # Batchnorm1D: (N,C,L) --> BatchNorm1D --> (N,C,L) . i.e. batch norm over (N,L) features
+        #                    input_num_features is C
+        
+        # voxel_count (T) is number of points in voxel [K,T,7] 
         voxel_count = inputs.shape[1]
-        x = self.linear(inputs)
+        x = self.linear(inputs) #[K,T,7] --> [K,T,units]
+        
+        # batch norm is along features of all points, keeping length of each point feature same 
+        #  [K,T,units] -->  [K,units,T] --> batchnorm --> [K,units,T] --> [K,T,units]
+        # batch norm statistics are computed for [K,T] slices
         x = self.norm(x.permute(0, 2, 1).contiguous()).permute(0, 2,
                                                                1).contiguous()
         pointwise = F.relu(x)
         # [K, T, units]
-
+        
+        # now take max along features for all points i.e. along T
         aggregated = torch.max(pointwise, dim=1, keepdim=True)[0]
         # [K, 1, units]
         repeated = aggregated.repeat(1, voxel_count, 1)
@@ -102,7 +120,11 @@ class VoxelFeatureExtractor(nn.Module):
 
     def forward(self, features, num_voxels, coors):
         # features: [concated_num_points, num_voxel_size, 3(4)]
-        # num_voxels: [concated_num_points]
+        # 3(4) is [x,y,z] or [x,y,z,r]
+        # num_voxels: [concated_num_points] number of points in each voxel
+        # features: tensor for all voxels and all points within each voxel
+        # features are assumed to have points with respect to their origins in the voxel
+        #  as _with_distance uses the norm directly
         points_mean = features[:, :, :3].sum(
             dim=1, keepdim=True) / num_voxels.type_as(features).view(-1, 1, 1)
         features_relative = features[:, :, :3] - points_mean

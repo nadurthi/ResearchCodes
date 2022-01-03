@@ -6,12 +6,12 @@ import torch
 from torch import FloatTensor as FTensor
 from torch import stack as tstack
 
-import torchplus
-from torchplus.tools import torch_to_np_dtype
-from second.core.box_np_ops import iou_jit
-from second.core.non_max_suppression.nms_gpu import (nms_gpu, rotate_iou_gpu,
+import lidarprocessing.mlearn.pytorchutils.torchplus
+from lidarprocessing.mlearn.pytorchutils.torchplus.tools import torch_to_np_dtype
+from lidarprocessing.mlearn.pointcloudcore.box_np_ops import iou_jit
+from lidarprocessing.mlearn.pointcloudcore.non_max_suppression.nms_gpu import (nms_gpu, rotate_iou_gpu,
                                                        rotate_nms_gpu)
-from second.core.non_max_suppression.nms_cpu import rotate_nms_cc
+from lidarprocessing.mlearn.pointcloudcore.non_max_suppression.nms_cpu import rotate_nms_cc
 
 
 def second_box_encode(boxes, anchors, encode_angle_to_vector=False, smooth_dim=False):

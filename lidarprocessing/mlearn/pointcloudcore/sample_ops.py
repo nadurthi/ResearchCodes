@@ -14,18 +14,10 @@ import copy
 from lidarprocessing.mlearn.pytorchutils.check import shape_mergeable
 
 class DataBaseSamplerV2:
-    def __init__(self, db_infos, groups, db_prepor=None,
-                 rate=1.0, global_rot_range=None):
-        for k, v in db_infos.items():
-            print(f"load {len(v)} {k} database infos")
+    def __init__(self, dflabels, groups,  rate=1.0, global_rot_range=None):
 
-        if db_prepor is not None:
-            db_infos = db_prepor(db_infos)
-            print("After filter database:")
-            for k, v in db_infos.items():
-                print(f"load {len(v)} {k} database infos")
-
-        self.db_infos = db_infos
+ 
+        self.dflabels = dflabels
         self._rate = rate
         self._groups = groups
         self._group_db_infos = {}
@@ -33,51 +25,23 @@ class DataBaseSamplerV2:
         self._sample_classes = []
         self._sample_max_nums = []
         self._use_group_sampling = False  # slower
-        if any([len(g) > 1 for g in groups]):
-            self._use_group_sampling = True
-        if not self._use_group_sampling:
-            self._group_db_infos = self.db_infos  # just use db_infos
-            for group_info in groups:
-                group_names = list(group_info.keys())
-                self._sample_classes += group_names
-                self._sample_max_nums += list(group_info.values())
-        else:
-            for group_info in groups:
-                group_dict = {}
-                group_names = list(group_info.keys())
-                group_name = ", ".join(group_names)
-                self._sample_classes += group_names
-                self._sample_max_nums += list(group_info.values())
-                self._group_name_to_names.append((group_name, group_names))
-                # self._group_name_to_names[group_name] = group_names
-                for name in group_names:
-                    for item in db_infos[name]:
-                        gid = item["group_id"]
-                        if gid not in group_dict:
-                            group_dict[gid] = [item]
-                        else:
-                            group_dict[gid] += [item]
-                if group_name in self._group_db_infos:
-                    raise ValueError("group must be unique")
-                group_data = list(group_dict.values())
-                self._group_db_infos[group_name] = group_data
-                info_dict = {}
-                if len(group_info) > 1:
-                    for group in group_data:
-                        names = [item["name"] for item in group]
-                        names = sorted(names)
-                        group_name = ", ".join(names)
-                        if group_name in info_dict:
-                            info_dict[group_name] += 1
-                        else:
-                            info_dict[group_name] = 1
-                print(info_dict)
+
+        # self._group_db_infos = self.db_infos  # just use db_infos
+        # for group_info in groups:
+        #     group_names = list(group_info.keys())
+
+    
+        self._sample_classes =groups.keys()
+        self._sample_max_nums = groups.values()
 
 
-        self._sampler_dict = {}
-        for k, v in self._group_db_infos.items():
-            self._sampler_dict[k] = prep.BatchSampler(v, k)
+
+        # self._sampler_dict = {}
+        # for k, v in self._group_db_infos.items():
+        #     self._sampler_dict[k] = prep.BatchSampler(v, k)
+            
         self._enable_global_rot = False
+        
         if global_rot_range is not None:
             if not isinstance(global_rot_range, (list, tuple, np.ndarray)):
                 global_rot_range = [-global_rot_range, global_rot_range]
@@ -86,6 +50,7 @@ class DataBaseSamplerV2:
             if np.abs(global_rot_range[0] -
                         global_rot_range[1]) >= 1e-3:
                 self._enable_global_rot = True
+                
         self._global_rot_range = global_rot_range
 
     @property
@@ -93,7 +58,6 @@ class DataBaseSamplerV2:
         return self._use_group_sampling
 
     def sample_all(self,
-                   root_path,
                    gt_boxes,
                    gt_names,
                    num_point_features,
@@ -102,27 +66,20 @@ class DataBaseSamplerV2:
                    rect=None,
                    Trv2c=None,
                    P2=None):
+        
         sampled_num_dict = {}
         sample_num_per_class = []
-        for class_name, max_sample_num in zip(self._sample_classes,
-                                              self._sample_max_nums):
+        sampled_groups=[]
+        for class_name in self._groups.keys():
+            sampled_groups.append(class_name)
+            max_sample_num = self._groups[class_name]
             sampled_num = int(max_sample_num -
                               np.sum([n == class_name for n in gt_names]))
             sampled_num = np.round(self._rate * sampled_num).astype(np.int64)
             sampled_num_dict[class_name] = sampled_num
             sample_num_per_class.append(sampled_num)
 
-        sampled_groups = self._sample_classes
-        if self._use_group_sampling:
-            assert gt_group_ids is not None
-            sampled_groups = []
-            sample_num_per_class = []
-            for group_name, class_names in self._group_name_to_names:
-                sampled_nums_group = [sampled_num_dict[n] for n in class_names]
-                sampled_num = np.max(sampled_nums_group)
-                sample_num_per_class.append(sampled_num)
-                sampled_groups.append(group_name)
-            total_group_ids = gt_group_ids
+
         sampled = []
         sampled_gt_boxes = []
         avoid_coll_boxes = gt_boxes
@@ -130,11 +87,7 @@ class DataBaseSamplerV2:
         for class_name, sampled_num in zip(sampled_groups,
                                            sample_num_per_class):
             if sampled_num > 0:
-                if self._use_group_sampling:
-                    sampled_cls = self.sample_group(class_name, sampled_num,
-                                                       avoid_coll_boxes, total_group_ids)
-                else:
-                    sampled_cls = self.sample_class_v2(class_name, sampled_num,
+                sampled_cls = self.sample_class_v2(class_name, sampled_num,
                                                        avoid_coll_boxes)
 
                 sampled += sampled_cls
@@ -211,14 +164,9 @@ class DataBaseSamplerV2:
         return ret
 
     def sample(self, name, num):
-        if self._use_group_sampling:
-            group_name = name
-            ret = self._sampler_dict[group_name].sample(num)
-            groups_num = [len(l) for l in ret]
-            return reduce(lambda x, y: x + y, ret), groups_num
-        else:
-            ret = self._sampler_dict[name].sample(num)
-            return ret, np.ones((len(ret), ), dtype=np.int64)
+        
+        ret = self._sampler_dict[name].sample(num)
+        return ret, np.ones((len(ret), ), dtype=np.int64)
 
     def sample_v1(self, name, num):
         if isinstance(name, (list, tuple)):

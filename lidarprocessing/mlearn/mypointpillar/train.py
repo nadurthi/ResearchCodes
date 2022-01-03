@@ -10,12 +10,12 @@ import numpy as np
 import torch
 
 # from tensorboardX import SummaryWriter
-
+from collections import defaultdict
 from lidarprocessing.mlearn.pytorchutils import torchplus
 import lidarprocessing.mlearn.mypointpillar.kitti_common as kitti
-import lidarprocessing.mlearn.mypointpillar.modelBuilders
-import lidarprocessing.mlearn.mypointpillar.train_helpers
-from lidarprocessing.mlearn.mypointpillar.dataset import merge_second_batch
+from lidarprocessing.mlearn.mypointpillar import modelBuilders
+from lidarprocessing.mlearn.mypointpillar import train_helpers
+# from lidarprocessing.mlearn.mypointpillar.dataset import merge_second_batch
 
 
 from lidarprocessing.mlearn.pytorchutils.eval import get_coco_eval_result, get_official_eval_result
@@ -33,11 +33,11 @@ from lidarprocessing.mlearn.pytorchutils.datamanipulators import _flat_nested_js
 """train a VoxelNet model specified by a config file.
 """
 config_path='lidarprocessing/mlearn/mypointpillar/configs'
-with open(os.path.join(config_path,"cars.json"),'r') as F:
+with open(os.path.join(config_path,"car_voxelnet.json"),'r') as F:
     config=json.load(F)
     
 
-model_dir=pathlib.Path(config['train_input_reader']['kitti_root_path'])/'output'
+model_dir=pathlib.Path(config['train_input_reader']['model_path'])
 result_path=None
 create_folder_bool=True
 display_step=50
@@ -76,23 +76,22 @@ voxel_generator = VoxelGenerator(
 ######################
 # BUILD TARGET ASSIGNER
 ######################
-similarity_type = config['target_assigner']['region_similarity_calculator']
-if similarity_type == 'rotate_iou_similarity':
-    similarity_calc= region_similarity.RotateIouSimilarity()
-elif similarity_type == 'nearest_iou_similarity':
-    similarity_calc= region_similarity.NearestIouSimilarity()
 
 
 
-bv_range = config['voxel_generator']['point_cloud_range'][[0, 1, 3, 4]]
-box_coder = modelBuilders.box_coder_builder(config['box_coder'])
-target_assigner = modelBuilders.target_assigner_builder(config,
+
+bv_range = config['model']['voxel_generator']['point_cloud_range']
+bv_range=[bv_range[idx] for idx in [0, 1, 3, 4]] # just get the x and y ranges of the pcl
+
+# box coder is used to encode the 3D box with groundtruth or the BEV box with groundtruth for optimization
+box_coder = modelBuilders.box_coder_builder(config['model']['box_coder'])
+target_assigner = modelBuilders.target_assigner_builder(config['model']['target_assigner'],
                                                 bv_range, box_coder)
 ######################
 # BUILD NET
 ######################
-center_limit_range = model_cfg['post_center_limit_range']
-net = modelBuilders.modelbuild(model_cfg, voxel_generator, target_assigner)
+center_limit_range = config['model']['post_center_limit_range']
+net = modelBuilders.modelbuilder(config['model'], voxel_generator, target_assigner)
 net.cuda()
 # net_train = torch.nn.DataParallel(net).cuda()
 print("num_trainable parameters:", len(list(net.parameters())))
@@ -102,30 +101,65 @@ print("num_trainable parameters:", len(list(net.parameters())))
 # BUILD OPTIMIZER
 ######################
 # we need global_step to create lr_scheduler, so restore net first.
+
 torchplus.train.try_restore_latest_checkpoints(model_dir, [net])
+
 gstep = net.get_global_step() - 1
-optimizer_cfg = train_cfg['optimizer']
-if train_cfg['enable_mixed_precision']:
-    net.half()
-    net.metrics_to_float()
-    net.convert_norm_to_float(net)
-optimizer = modelBuilders.optimizer_builder(optimizer_cfg, net.parameters())
-if train_cfg['enable_mixed_precision']:
-    loss_scale = train_cfg['loss_scale_factor']
-    mixed_optimizer = torchplus.train.MixedPrecisionWrapper(
-        optimizer, loss_scale)
-else:
-    mixed_optimizer = optimizer
+# if train_cfg['enable_mixed_precision']:
+#     net.half()
+#     net.metrics_to_float()
+#     net.convert_norm_to_float(net)
+optimizer,lr_scheduler = modelBuilders.optimizer_builder(config, net.parameters(),last_step=gstep)
+
+
+# if train_cfg['enable_mixed_precision']:
+#     loss_scale = train_cfg['loss_scale_factor']
+#     mixed_optimizer = torchplus.train.MixedPrecisionWrapper(optimizer, loss_scale)
+# else:
+#     mixed_optimizer = optimizer
+    
 # must restore optimizer AFTER using MixedPrecisionWrapper
-torchplus.train.try_restore_latest_checkpoints(model_dir, [mixed_optimizer])
-lr_scheduler = modelBuilders.lr_scheduler_builder(optimizer_cfg, optimizer, gstep)
-if train_cfg['enable_mixed_precision']:
-    float_dtype = torch.float16
-else:
-    float_dtype = torch.float32
+torchplus.train.try_restore_latest_checkpoints(model_dir, [optimizer])
+
+# lr_scheduler = modelBuilders.lr_scheduler_builder(config, optimizer, gstep)
+
+# if train_cfg['enable_mixed_precision']:
+#     float_dtype = torch.float16
+# else:
+
+float_dtype = torch.float32
+
 ######################
 # PREPARE INPUT
 ######################
+
+def merge_second_batch(batch_list, _unused=False):
+    example_merged = defaultdict(list)
+    for example in batch_list:
+        for k, v in example.items():
+            example_merged[k].append(v)
+    ret = {}
+    example_merged.pop("num_voxels")
+    for key, elems in example_merged.items():
+        if key in [
+                'voxels', 'num_points', 'num_gt', 'gt_boxes', 'voxel_labels',
+                'match_indices'
+        ]:
+            ret[key] = np.concatenate(elems, axis=0)
+        elif key == 'match_indices_num':
+            ret[key] = np.concatenate(elems, axis=0)
+        elif key == 'coordinates':
+            coors = []
+            for i, coor in enumerate(elems):
+                coor_pad = np.pad(
+                    coor, ((0, 0), (1, 0)),
+                    mode='constant',
+                    constant_values=i)
+                coors.append(coor_pad)
+            ret[key] = np.concatenate(coors, axis=0)
+        else:
+            ret[key] = np.stack(elems, axis=0)
+    return ret
 
 dataset = modelBuilders.dataset_builder(
     input_cfg,
@@ -133,14 +167,14 @@ dataset = modelBuilders.dataset_builder(
     training=True,
     voxel_generator=voxel_generator,
     target_assigner=target_assigner)
-dataset = modelBuilders.DatasetWrapper(dataset)
+
+
 eval_dataset = modelBuilders.dataset_builder(
     eval_input_cfg,
     model_cfg,
     training=False,
     voxel_generator=voxel_generator,
     target_assigner=target_assigner)
-eval_dataset = modelBuilders.DatasetWrapper(eval_dataset)
 
 def _worker_init_fn(worker_id):
     time_seed = np.array(time.time(), dtype=np.int32)

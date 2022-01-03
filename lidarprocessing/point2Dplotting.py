@@ -184,9 +184,9 @@ def plot_keyscan_path(poseGraphMain,idx1,idx2,params,makeNew=False,skipScanFrame
     Xcomb=np.vstack(Xcomb)
     Xcombfil=pt2dproc.binnerDownSampler(Xcomb,dx=0.1,cntThres=2)
     # Xcomb=pt2dproc.binnerDownSamplerProbs(Xcomb,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])    
-    
-    XcombClose=np.vstack(XcombClose)
-    XcombClosefil=pt2dproc.binnerDownSampler(XcombClose,dx=0.1,cntThres=2)
+    if CloseUpRadiusPlot is not None:
+        XcombClose=np.vstack(XcombClose)
+        XcombClosefil=pt2dproc.binnerDownSampler(XcombClose,dx=0.1,cntThres=2)
     # XcombClose=pt2dproc.binnerDownSamplerProbs(XcombClose,dx=params['Plot_BinDownSampleKeyFrame_dx'],prob=params['Plot_BinDownSampleKeyFrame_probs'])    
     
     if CloseUpRadiusPlot is not None:

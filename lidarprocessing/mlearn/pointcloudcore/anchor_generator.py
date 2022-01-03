@@ -40,6 +40,7 @@ class AnchorGeneratorStride:
         return num_rot * num_size
 
     def generate(self, feature_map_size):
+        # feature_map_size is useful when anchors are created on DNN tensors
         return box_np_ops.create_anchors_3d_stride(
             feature_map_size, self._sizes, self._anchor_strides,
             self._anchor_offsets, self._rotations, self._dtype)

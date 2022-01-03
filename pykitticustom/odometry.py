@@ -7,7 +7,7 @@ from collections import namedtuple
 
 import numpy as np
 
-import pykitti.utils as utils
+import pykitticustom.utils as utils
 
 __author__ = "Lee Clement"
 __email__ = "lee.clement@robotics.utias.utoronto.ca"
@@ -152,7 +152,10 @@ class odometry:
         # Load the calibration file
         calib_filepath = os.path.join(self.sequence_path, 'calib.txt')
         filedata = utils.read_calib_file(calib_filepath)
-
+        
+        times_filepath = os.path.join(self.sequence_path, 'times.txt')
+        self.times=np.loadtxt(times_filepath)
+        
         # Create 3x4 projection matrices
         P_rect_00 = np.reshape(filedata['P0'], (3, 4))
         P_rect_10 = np.reshape(filedata['P1'], (3, 4))
