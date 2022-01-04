@@ -219,7 +219,7 @@ def getcostgradient3Dypr_gmms(x,MU1,P1,W1,MU2,P2,W2):
 #%%
 from sklearn import mixture
 plt.close("all")
-folder='lidarprocessing/datasets/kitti'
+folder='lidarprocessing/'
 
 i=1
 f1="%06d.bin"%i

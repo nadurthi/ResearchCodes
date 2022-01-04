@@ -10,7 +10,8 @@
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
 #include <string>
-#include <pcl/registration/gicp.h>
+// #include <pcl/registration/gicp.h>
+#include <pcl/registration/mygicp.h>
 #include <pcl/registration/ndt.h>
 #include <pcl/registration/icp.h>
 #include <pcl/filters/approximate_voxel_grid.h>

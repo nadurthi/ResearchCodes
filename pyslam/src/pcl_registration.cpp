@@ -93,7 +93,7 @@ std::cout << "Time ICP difference = "<< std::chrono::duration_cast<std::chrono::
 
 std::chrono::steady_clock::time_point begin_gicp = std::chrono::steady_clock::now();
 
-pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+pcl::MyGeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
 gicp.setMaxCorrespondenceDistance(D["gicp_setMaxCorrespondenceDistance"]);
 gicp.setMaximumIterations(D["gicp_setMaximumIterations"]);
 gicp.setMaximumOptimizerIterations(D["gicp_setMaximumOptimizerIterations"]);
