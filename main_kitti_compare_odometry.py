@@ -36,14 +36,14 @@ import scipy.linalg as sclalg
 import scipy.optimize as scopt
 from pykitticustom import odometry
 
-dtype = np.float32
+# dtype = np.float32
 from lidarprocessing import icp
 import open3d as o3d
 
 import importlib
+import json
 
-
-import pyslam.slam as slam
+from pyslam import  slam
 importlib.reload(slam)
 #%%
 
@@ -374,34 +374,44 @@ print("time :",et-st)
 
 #%%
 plt.close("all")
-D={}
-D["icp_setMaximumIterations"]=500
-D["icp_setMaxCorrespondenceDistance"]=10
-D["icp_setRANSACIterations"]=0
-D["icp_setRANSACOutlierRejectionThreshold"]=1.5
-D["icp_setTransformationEpsilon"]=1e-9
-D["icp_setEuclideanFitnessEpsilon"]=0.01
+D={"icp":{},
+   "gicp":{},
+   "gicp_cost":{},
+   "ndt":{}}
+
+D["icp"]["enable"]=1
+D["icp"]["setMaximumIterations"]=500
+D["icp"]["setMaxCorrespondenceDistance"]=10
+D["icp"]["setRANSACIterations"]=0.0
+D["icp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["icp"]["setTransformationEpsilon"]=1e-9
+D["icp"]["setEuclideanFitnessEpsilon"]=0.01
 
 
-D["gicp_setMaxCorrespondenceDistance"]=50
-D["gicp_setMaximumIterations"]=100
-D["gicp_setMaximumOptimizerIterations"]=100
-D["gicp_setRANSACIterations"]=0
-D["gicp_setRANSACOutlierRejectionThreshold"]=1.5
-D["gicp_setTransformationEpsilon"]=1e-9
-D["icp_setUseReciprocalCorrespondences"]=0.1
+D["gicp_cost"]["enable"]=0
 
-D["ndt_setTransformationEpsilon"]=1e-9
-D["ndt_setStepSize"]=2
-D["ndt_setResolution"]=1
-D["ndt_setMaximumIterations"]=25
-D["ndt_initialguess_axisangleA"]=0
-D["ndt_initialguess_axisangleX"]=0
-D["ndt_initialguess_axisangleY"]=0
-D["ndt_initialguess_axisangleZ"]=1
-D["ndt_initialguess_transX"]=0.5
-D["ndt_initialguess_transY"]=0.01
-D["ndt_initialguess_transZ"]=0.01
+
+D["gicp"]["enable"]=1
+D["gicp"]["setMaxCorrespondenceDistance"]=10
+D["gicp"]["setMaximumIterations"]=30.0
+D["gicp"]["setMaximumOptimizerIterations"]=30.0
+D["gicp"]["setRANSACIterations"]=0.0
+D["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["gicp"]["setTransformationEpsilon"]=1e-9
+D["gicp"]["setUseReciprocalCorrespondences"]=1
+
+D["ndt"]["enable"]=0
+D["ndt"]["setTransformationEpsilon"]=1e-9
+D["ndt"]["setStepSize"]=2.0
+D["ndt"]["setResolution"]=1.0
+D["ndt"]["setMaximumIterations"]=25.0
+D["ndt"]["initialguess_axisangleA"]=0.0
+D["ndt"]["initialguess_axisangleX"]=0.0
+D["ndt"]["initialguess_axisangleY"]=0.0
+D["ndt"]["initialguess_axisangleZ"]=1.0
+D["ndt"]["initialguess_transX"]=0.5
+D["ndt"]["initialguess_transY"]=0.01
+D["ndt"]["initialguess_transZ"]=0.01
 
 
 # res2 = minimize(pt3dproc.getcostgradient3Dypr_v2, x,args=(X22,MU,P,W),jac= True,tol=1e-1,method='BFGS',options={'disp':True,'maxiter':15}) # 'Nelder-Mead'
@@ -421,7 +431,7 @@ D["ndt_initialguess_transZ"]=0.01
 
 Xlims=[-50,50]
 Ylims=[-50,50]
-Zlims=[-2,2]
+Zlims=[-3,3]
 def limitpcd(X):
     X=X[(X[:,0]>=Xlims[0]) & (X[:,0]<=Xlims[1])]
     X=X[(X[:,1]>=Ylims[0]) & (X[:,1]<=Ylims[1])]
@@ -438,8 +448,18 @@ def limitpcd(X):
 # ax.plot(X11[:,0],X11[:,1],X11[:,2],'b.')
 
 
-HtransPCL=[[np.identity(4),np.identity(4),np.identity(4)]]
+Hicp=[np.identity(4)]
+Hgicp=[np.identity(4)]
+Hndt=[np.identity(4)]
+
+Xicp=np.zeros((len(dataset),3))
+Xgicp=np.zeros((len(dataset),3))
+Xndt=np.zeros((len(dataset),3))
+
 Hgmmtrans=[np.identity(4)]
+
+fig = plt.figure("gg-plot")
+ax = fig.add_subplot(111,projection='3d')
 
 for pp in range(1,len(dataset)):
     print(pp)
@@ -461,17 +481,17 @@ for pp in range(1,len(dataset)):
 
     pcd1 = o3d.geometry.PointCloud()
     pcd1.points = o3d.utility.Vector3dVector(X1)
-    voxel_down_pcd1 = pcd1.voxel_down_sample(voxel_size=0.5)
+    voxel_down_pcd1 = pcd1.voxel_down_sample(voxel_size=0.1)
     
     X11=np.asarray(voxel_down_pcd1.points)
-    X11=np.ascontiguousarray(X11,dtype=dtype)
+    # X11=np.ascontiguousarray(X11,dtype=dtype)
     
     pcd2 = o3d.geometry.PointCloud()
     pcd2.points = o3d.utility.Vector3dVector(X2)
-    voxel_down_pcd2 = pcd2.voxel_down_sample(voxel_size=0.5)
+    voxel_down_pcd2 = pcd2.voxel_down_sample(voxel_size=0.1)
     
     X22=np.asarray(voxel_down_pcd2.points)
-    X22=np.ascontiguousarray(X22,dtype=dtype)
+    # X22=np.ascontiguousarray(X22,dtype=dtype)
     
     
     
@@ -480,7 +500,7 @@ for pp in range(1,len(dataset)):
     
     ##
     voxel_down_pcd1.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.2, max_nn=30))
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=30))
     Xn=np.array(voxel_down_pcd1.normals)
     Xnormals = np.array(voxel_down_pcd1.normals)
     X11n=np.hstack([X11,Xnormals])
@@ -542,88 +562,62 @@ for pp in range(1,len(dataset)):
     # et=time.time()
     # print("time taken by BFGS = ", et-st)
     
-    X11=limitpcd(X11) 
-    X22=limitpcd(X22) 
+    # X11=limitpcd(X11) 
+    # X22=limitpcd(X22) 
     
-    Hpcl=slam.registrations(X22,X11,D)
+    Hpcl=slam.registrations(X22,X11,json.dumps(D))
+    Hpcl=dict(Hpcl)
     # HH=icp.icp(X22, X11, init_pose=None, max_iterations=100, tolerance=0.001)
-    Hpcl[0]=nplinalg.inv(Hpcl[0])
-    HtransPCL.append(Hpcl)
+    # Hpcl[0]=nplinalg.inv(Hpcl[0])
+    # HtransPCL.append(Hpcl)
     
     # ICP path
-    Hicp=np.identity(4)
-    Hgicp=np.identity(4)
-    Hndt=np.identity(4)
-    Hgmm = np.identity(4)
+
 
     Xicp=np.zeros((len(dataset),3))
     Xgicp=np.zeros((len(dataset),3))
     Xndt=np.zeros((len(dataset),3))
-    Xgmm=np.zeros((len(dataset),3))
 
-    for i in range(1,len(HtransPCL)):
-        H=HtransPCL[i][0]
-        Hicp=Hicp.dot(H)
-        
-        H=HtransPCL[i][1]
-        Hgicp=Hgicp.dot(H)
-        
-        H=HtransPCL[i][2]
-        Hndt=Hndt.dot(H)
-        
-        # H=Hgmmtrans[i]
-        # Hgmm=Hgmm.dot(H)
-        
-        Xicp[i]=Hicp[0:3,3]
-        Xgicp[i]=Hgicp[0:3,3]
-        Xndt[i]=Hndt[0:3,3]
-        # Xgmm[i]=Hgmm[0:3,3]
-        
-    n=len(HtransPCL)    
-    fig = plt.figure("gg-plot")
-    fig.clf()
-    ax = fig.add_subplot(111)
     
-    ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
-    ax.plot(Xgicp[:n,0],Xgicp[:n,1],'r',label='gicp')
-    ax.plot(Xndt[:n,0],Xndt[:n,1],'b',label='ndt')
-    ax.plot(Xicp[:n,0],Xicp[:n,1],'g',label='icp')
+    H=Hpcl["H_icp"]
+    Hicp.append(Hicp[-1].dot(H))
+    
+    H=Hpcl["H_gicp"]
+    Hgicp.append(Hgicp[-1].dot(H))
+    
+    # H=Hpcl["H_ndt"]
+    # Hndt.append(Hndt[-1].dot(H))
+    
+    # H=Hgmmtrans[i]
+    # Hgmm=Hgmm.dot(H)
+    
+    Xicp[pp]=Hicp[-1][0:3,3]
+    Xgicp[pp]=Hgicp[-1][0:3,3]
+    # Xndt[pp]=Hndt[-1][0:3,3]
+    # Xgmm[i]=Hgmm[0:3,3]
+        
+    n=len(Hicp)    
+    
+    ax.cla()
+    
+    
+    # ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
+    ax.plot(Xgicp[:n,0],Xgicp[:n,1],Xgicp[:n,2],'r',label='gicp')
+    # ax.plot(Xndt[:n,0],Xndt[:n,1],Xndt[:n,2],'b',label='ndt')
+    ax.plot(Xicp[:n,0],Xicp[:n,1],Xicp[:n,2],'g',label='icp')
     # ax.plot(Xgmm[:n,0],Xgmm[:n,1],'b',label='gmm')
     ax.legend()
     ax.set_title("main-all")
     plt.pause(0.1)
     plt.show()
     
-# ICP path
-Hicp=np.identity(4)
-Hgicp=np.identity(4)
-Hndt=np.identity(4)
-Hgmm = np.identity(4)
+    if pp>150:
+        break
+    
+    
 
-Xicp=np.zeros((len(dataset),3))
-Xgicp=np.zeros((len(dataset),3))
-Xndt=np.zeros((len(dataset),3))
-Xgmm=np.zeros((len(dataset),3))
+n=len(Hicp)
 
-for i in range(1,len(HtransPCL)):
-    H=HtransPCL[i][0]
-    Hicp=Hicp.dot(H)
-    
-    H=HtransPCL[i][1]
-    Hgicp=Hgicp.dot(H)
-    
-    H=HtransPCL[i][2]
-    Hndt=Hndt.dot(H)
-    
-    H=Hgmmtrans[i]
-    Hgmm=Hgmm.dot(H)
-    
-    Xicp[i]=Hicp[0:3,3]
-    Xgicp[i]=Hgicp[0:3,3]
-    Xndt[i]=Hndt[0:3,3]
-    Xgmm[i]=Hgmm[0:3,3]
-    
-n=len(HtransPCL)    
 
 plt.close("all")   
 fig = plt.figure()
@@ -648,24 +642,24 @@ ax.set_title("gicp")
 
 
 
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
-ax.plot(Xndt[:n,0],Xndt[:n,1],'g',label='ndt')
-ax.legend()
-ax.set_title("ndt")
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
+# ax.plot(Xndt[:n,0],Xndt[:n,1],'g',label='ndt')
+# ax.legend()
+# ax.set_title("ndt")
 
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
-ax.plot(Xgmm[:n,0],Xgmm[:n,1],'b',label='gmm')
-ax.legend()
-ax.set_title("gmm")
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
+# ax.plot(Xgmm[:n,0],Xgmm[:n,1],'b',label='gmm')
+# ax.legend()
+# ax.set_title("gmm")
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.plot(Xtpath[:n,2],-Xtpath[:n,0],'k',label='True')
 ax.plot(Xgicp[:n,0],Xgicp[:n,1],'r',label='gicp')
-ax.plot(Xgmm[:n,0],Xgmm[:n,1],'b',label='gmm')
+# ax.plot(Xgmm[:n,0],Xgmm[:n,1],'b',label='gmm')
 ax.legend()
 ax.set_title("main-all")

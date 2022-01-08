@@ -1,42 +1,53 @@
 import numpy as np
 from pyslam import slam 
+import json
 
 
+D={"icp":{},
+   "gicp":{},
+   "gicp_cost":{},
+   "ndt":{}}
 
-D={}
-D["icp_setMaximumIterations"]=500
-D["icp_setMaxCorrespondenceDistance"]=10
-D["icp_setRANSACIterations"]=0
-D["icp_setRANSACOutlierRejectionThreshold"]=1.5
-D["icp_setTransformationEpsilon"]=1e-9
-D["icp_setEuclideanFitnessEpsilon"]=0.01
-
-
-D["gicp_setMaxCorrespondenceDistance"]=50
-D["gicp_setMaximumIterations"]=1
-D["gicp_setMaximumOptimizerIterations"]=2
-D["gicp_setRANSACIterations"]=0
-D["gicp_setRANSACOutlierRejectionThreshold"]=1.5
-D["gicp_setTransformationEpsilon"]=1e-9
-D["icp_setUseReciprocalCorrespondences"]=0.1
-
-D["ndt_setTransformationEpsilon"]=1e-9
-D["ndt_setStepSize"]=2
-D["ndt_setResolution"]=1
-D["ndt_setMaximumIterations"]=25
-D["ndt_initialguess_axisangleA"]=0
-D["ndt_initialguess_axisangleX"]=0
-D["ndt_initialguess_axisangleY"]=0
-D["ndt_initialguess_axisangleZ"]=1
-D["ndt_initialguess_transX"]=0.5
-D["ndt_initialguess_transY"]=0.01
-D["ndt_initialguess_transZ"]=0.01
+D["icp"]["enable"]=0
+D["icp"]["setMaximumIterations"]=500
+D["icp"]["setMaxCorrespondenceDistance"]=10
+D["icp"]["setRANSACIterations"]=0.0
+D["icp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["icp"]["setTransformationEpsilon"]=1e-9
+D["icp"]["setEuclideanFitnessEpsilon"]=0.01
 
 
-X11=np.random.randn(100,3)
+D["gicp_cost"]["enable"]=1
+
+
+D["gicp"]["enable"]=0
+D["gicp"]["setMaxCorrespondenceDistance"]=50
+D["gicp"]["setMaximumIterations"]=20.0
+D["gicp"]["setMaximumOptimizerIterations"]=20.0
+D["gicp"]["setRANSACIterations"]=0.0
+D["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["gicp"]["setTransformationEpsilon"]=1e-9
+D["gicp"]["setUseReciprocalCorrespondences"]=1
+
+D["ndt"]["enable"]=0
+D["ndt"]["setTransformationEpsilon"]=1e-9
+D["ndt"]["setStepSize"]=2.0
+D["ndt"]["setResolution"]=1.0
+D["ndt"]["setMaximumIterations"]=25.0
+D["ndt"]["initialguess_axisangleA"]=0.0
+D["ndt"]["initialguess_axisangleX"]=0.0
+D["ndt"]["initialguess_axisangleY"]=0.0
+D["ndt"]["initialguess_axisangleZ"]=1.0
+D["ndt"]["initialguess_transX"]=0.5
+D["ndt"]["initialguess_transY"]=0.01
+D["ndt"]["initialguess_transZ"]=0.01
+
+
+X11=np.random.randn(1000,3)
 
 
 X22=X11+1
 
 
-Hpcl=slam.registrations(X22,X11,D)
+Hpcl=slam.registrations(X22,X11,json.dumps(D))
+print(Hpcl)

@@ -6,6 +6,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <vector>
+#include <utility>
 #include <map>
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
@@ -20,6 +21,7 @@
 
 #include <nlohmann/json.hpp>
 
+using Vector6d = Eigen::Matrix<double, 6, 1>;
 using json = nlohmann::json;
 
 namespace py = pybind11;
@@ -31,4 +33,4 @@ int add(int i,int j,py::dict dict,std::string c);
 
 void print4x4Matrix (const Eigen::Matrix4f & matrix);
 
-std::vector<Eigen::MatrixXf>  registrations(const Eigen::Ref<const Eigen::MatrixXf> &big,const Eigen::Ref<const Eigen::MatrixXf> &small,py::dict dict);
+std::vector<std::pair<std::string,Eigen::MatrixXf>>  registrations(const Eigen::Ref<const Eigen::MatrixXf> &big,const Eigen::Ref<const Eigen::MatrixXf> &small,std::string c);

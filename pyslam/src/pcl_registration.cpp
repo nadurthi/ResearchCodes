@@ -36,10 +36,10 @@ int add(int i, int j,py::dict dict,std::string c) {
     return i + j;
 }
 
-std::vector<Eigen::MatrixXf>  registrations(const Eigen::Ref<const Eigen::MatrixXf> &X1,const Eigen::Ref<const Eigen::MatrixXf> &X2,py::dict dict){
+std::vector<std::pair<std::string,Eigen::MatrixXf>>  registrations(const Eigen::Ref<const Eigen::MatrixXf> &X1,const Eigen::Ref<const Eigen::MatrixXf> &X2,std::string c){
 //Eigen::MatrixXf
-std::vector<Eigen::MatrixXf> H;
-auto D=convert_dict_to_map(dict);
+std::vector<std::pair<std::string,Eigen::MatrixXf>> ret;
+json options = json::parse(c);
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr C1(new pcl::PointCloud<pcl::PointXYZ>(X1.rows(),1));
 pcl::PointCloud<pcl::PointXYZ>::Ptr C2(new pcl::PointCloud<pcl::PointXYZ>(X2.rows(),1));
@@ -61,100 +61,160 @@ for(auto& p: *C2){
   ++i;
 }
 
-std::cout << C1->points[20].x << " " << C1->points[20].y << " " << C1->points[20].y << std::endl;
-std::cout << C2->points[20].x << " " << C2->points[20].y << " " << C2->points[20].y << std::endl;
+// std::cout << C1->points[20].x << " " << C1->points[20].y << " " << C1->points[20].y << std::endl;
+// std::cout << C2->points[20].x << " " << C2->points[20].y << " " << C2->points[20].y << std::endl;
 
-std::chrono::steady_clock::time_point begin_icp = std::chrono::steady_clock::now();
 
-pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-icp.setMaximumIterations (D["icp_setMaximumIterations"]);
-icp.setMaxCorrespondenceDistance(D["icp_setMaxCorrespondenceDistance"]); //50
-icp.setRANSACIterations(D["icp_setRANSACIterations"]);
-icp.setRANSACOutlierRejectionThreshold (D["icp_setRANSACOutlierRejectionThreshold"]); //1.5
-icp.setTransformationEpsilon(D["icp_setTransformationEpsilon"]); //1e-9
-icp.setEuclideanFitnessEpsilon(D["icp_setEuclideanFitnessEpsilon"]); //1
+if(options["icp"]["enable"]==1){
+  std::chrono::steady_clock::time_point begin_icp = std::chrono::steady_clock::now();
 
-icp.setInputSource(C2);
-icp.setInputTarget(C1);
+  pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
+  icp.setMaximumIterations (options["icp"]["setMaximumIterations"]);
+  icp.setMaxCorrespondenceDistance(options["icp"]["setMaxCorrespondenceDistance"]); //50
+  icp.setRANSACIterations(options["icp"]["setRANSACIterations"]);
+  icp.setRANSACOutlierRejectionThreshold (options["icp"]["setRANSACOutlierRejectionThreshold"]); //1.5
+  icp.setTransformationEpsilon(options["icp"]["setTransformationEpsilon"]); //1e-9
+  icp.setEuclideanFitnessEpsilon(options["icp"]["setEuclideanFitnessEpsilon"]); //1
 
-icp.align (*resultXicp);
-auto H_icp = icp.getFinalTransformation ();
+  icp.setInputSource(C2);
+  icp.setInputTarget(C1);
 
-std::chrono::steady_clock::time_point end_icp = std::chrono::steady_clock::now();
-std::cout << "Time ICP difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_icp - begin_icp).count() << "[s]"
-                                 << std::chrono::duration_cast<std::chrono::milliseconds>(end_icp - begin_icp).count() << "[ms]"
-                                 << std::chrono::duration_cast<std::chrono::microseconds>(end_icp - begin_icp).count() << "[µs]" << std::endl;
+  icp.align (*resultXicp);
+  auto H_icp = icp.getFinalTransformation ();
 
+
+  std::chrono::steady_clock::time_point end_icp = std::chrono::steady_clock::now();
+  Eigen::MatrixXf t(3,1);
+  t(0,0)=std::chrono::duration_cast<std::chrono::seconds>(end_icp - begin_icp).count();
+  t(1,0)=std::chrono::duration_cast<std::chrono::milliseconds>(end_icp - begin_icp).count();
+  t(2,0)=std::chrono::duration_cast<std::chrono::microseconds>(end_icp - begin_icp).count();
+  std::cout << "Time ICP difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_icp - begin_icp).count() << "[s]"
+                                   << std::chrono::duration_cast<std::chrono::milliseconds>(end_icp - begin_icp).count() << "[ms]"
+                                   << std::chrono::duration_cast<std::chrono::microseconds>(end_icp - begin_icp).count() << "[µs]" << std::endl;
+
+  ret.push_back(std::make_pair("H_icp",H_icp));
+  ret.push_back(std::make_pair("H_icp_time",t));
+}
 // icp.hasConverged ();
 // std::cout << "\nICP has converged, score is " << icp.getFitnessScore () << std::endl;
 // std::cout << "\nICP transformation " << iterations << " : cloud_icp -> cloud_in" << std::endl;
 
 // print4x4Matrix (H_icp);
+if(options["gicp_cost"]["enable"]==1){
+  pcl::MyGeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+  gicp.setMaxCorrespondenceDistance(options["gicp"]["setMaxCorrespondenceDistance"]);
+  gicp.setMaximumIterations(options["gicp"]["setMaximumIterations"]);
+  gicp.setMaximumOptimizerIterations(options["gicp"]["setMaximumOptimizerIterations"]);
+  gicp.setRANSACIterations(options["gicp"]["setRANSACIterations"]);
+  gicp.setRANSACOutlierRejectionThreshold(options["gicp"]["setRANSACOutlierRejectionThreshold"]);
+  gicp.setTransformationEpsilon(options["gicp"]["setTransformationEpsilon"]);
+  if(options["gicp"]["setUseReciprocalCorrespondences"]==1)
+    gicp.setUseReciprocalCorrespondences(1); //0.1
+  else
+    gicp.setUseReciprocalCorrespondences(0); //0.1
+  //
+  
+  gicp.setInputSource(C1);
+  gicp.setInputTarget(C2);
 
-std::chrono::steady_clock::time_point begin_gicp = std::chrono::steady_clock::now();
+  Vector6d xx = Vector6d::Zero();
+  double cost = gicp.getCost(xx);
+  // std::cout<< "gicp initial cost = " << cost << std::endl;
 
-pcl::MyGeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
-gicp.setMaxCorrespondenceDistance(D["gicp_setMaxCorrespondenceDistance"]);
-gicp.setMaximumIterations(D["gicp_setMaximumIterations"]);
-gicp.setMaximumOptimizerIterations(D["gicp_setMaximumOptimizerIterations"]);
-gicp.setRANSACIterations(D["gicp_setRANSACIterations"]);
-gicp.setRANSACOutlierRejectionThreshold(D["gicp_setRANSACOutlierRejectionThreshold"]);
-gicp.setTransformationEpsilon(D["gicp_setTransformationEpsilon"]);
-gicp.setUseReciprocalCorrespondences(D["icp_setUseReciprocalCorrespondences"]); //0.1
+  Eigen::MatrixXf t(1,1);
+  t(0,0)=cost;
+  ret.push_back(std::make_pair("gicp_cost",t));
+}
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr resultXgicp(new pcl::PointCloud<pcl::PointXYZ>);
+if(options["gicp"]["enable"]==1){
+  std::chrono::steady_clock::time_point begin_gicp = std::chrono::steady_clock::now();
 
-gicp.setInputSource(C1);
-gicp.setInputTarget(C2);
+  pcl::MyGeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp;
+  gicp.setMaxCorrespondenceDistance(options["gicp"]["setMaxCorrespondenceDistance"]);
+  gicp.setMaximumIterations(options["gicp"]["setMaximumIterations"]);
+  gicp.setMaximumOptimizerIterations(options["gicp"]["setMaximumOptimizerIterations"]);
+  gicp.setRANSACIterations(options["gicp"]["setRANSACIterations"]);
+  gicp.setRANSACOutlierRejectionThreshold(options["gicp"]["setRANSACOutlierRejectionThreshold"]);
+  gicp.setTransformationEpsilon(options["gicp"]["setTransformationEpsilon"]);
+  if(options["gicp"]["setUseReciprocalCorrespondences"]==1)
+    gicp.setUseReciprocalCorrespondences(1); //0.1
+  else
+    gicp.setUseReciprocalCorrespondences(0); //0.1
+  //
+  pcl::PointCloud<pcl::PointXYZ>::Ptr resultXgicp(new pcl::PointCloud<pcl::PointXYZ>);
 
-gicp.align(*resultXgicp);
-auto H_gicp = gicp.getFinalTransformation();
+  gicp.setInputSource(C1);
+  gicp.setInputTarget(C2);
 
-std::chrono::steady_clock::time_point end_gicp = std::chrono::steady_clock::now();
-std::cout << "Time GICP difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_gicp - begin_gicp).count() << "[s]"
-                                 << std::chrono::duration_cast<std::chrono::milliseconds>(end_gicp - begin_gicp).count() << "[ms]"
-                                 << std::chrono::duration_cast<std::chrono::microseconds>(end_gicp - begin_gicp).count() << "[µs]" << std::endl;
+  Vector6d xx = Vector6d::Zero();
+  double cost = gicp.getCost(xx);
+  std::cout<< "gicp initial cost = " << cost << std::endl;
+
+  gicp.align(*resultXgicp);
+  auto H_gicp = gicp.getFinalTransformation();
+
+  // Eigen::Matrix4f H_gicp=Eigen::Matrix4f::Zero();
+
+  std::chrono::steady_clock::time_point end_gicp = std::chrono::steady_clock::now();
+  Eigen::MatrixXf t(3,1);
+  t(0,0)=std::chrono::duration_cast<std::chrono::seconds>(end_gicp - begin_gicp).count();
+  t(1,0)=std::chrono::duration_cast<std::chrono::milliseconds>(end_gicp - begin_gicp).count();
+  t(2,0)=std::chrono::duration_cast<std::chrono::microseconds>(end_gicp - begin_gicp).count();
+  std::cout << "Time GICP difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_gicp - begin_gicp).count() << "[s]"
+                                   << std::chrono::duration_cast<std::chrono::milliseconds>(end_gicp - begin_gicp).count() << "[ms]"
+                                   << std::chrono::duration_cast<std::chrono::microseconds>(end_gicp - begin_gicp).count() << "[µs]" << std::endl;
+ ret.push_back(std::make_pair("H_gicp",H_gicp));
+ ret.push_back(std::make_pair("H_gicp_time",t));
+}
 // print4x4Matrix (H_gicp);
+if(options["ndt"]["enable"]==1){
+  std::chrono::steady_clock::time_point begin_ndt = std::chrono::steady_clock::now();
 
-std::chrono::steady_clock::time_point begin_ndt = std::chrono::steady_clock::now();
+  pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
+  ndt.setTransformationEpsilon(options["ndt"]["setTransformationEpsilon"]);
+  ndt.setStepSize(options["ndt"]["setStepSize"]); //0.1
+  ndt.setResolution(options["ndt"]["setResolution"]); //1
+  ndt.setMaximumIterations(options["ndt"]["setMaximumIterations"]);
 
-pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
-ndt.setTransformationEpsilon(D["ndt_setTransformationEpsilon"]);
-ndt.setStepSize(D["ndt_setStepSize"]); //0.1
-ndt.setResolution(D["ndt_setResolution"]); //1
-ndt.setMaximumIterations(D["ndt_setMaximumIterations"]);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr resultXndt(new pcl::PointCloud<pcl::PointXYZ>);
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr resultXndt(new pcl::PointCloud<pcl::PointXYZ>);
+  // Set initial alignment estimate found using robot odometry.
+  Eigen::Vector3f ax;
+  ax(0)=options["ndt"]["initialguess_axisangleX"];
+  ax(1)=options["ndt"]["initialguess_axisangleY"];
+  ax(2)=options["ndt"]["initialguess_axisangleZ"];
 
-// Set initial alignment estimate found using robot odometry.
-Eigen::Vector3f ax;
-ax(0)=D["ndt_initialguess_axisangleX"];
-ax(1)=D["ndt_initialguess_axisangleY"];
-ax(2)=D["ndt_initialguess_axisangleZ"];
+  Eigen::Translation3f init_translation(options["ndt"]["initialguess_transX"],options["ndt"]["initialguess_transY"],options["ndt"]["initialguess_transZ"]);
+  // init_translation(0) = D["ndt_initialguess_transX"];
+  // init_translation(1) = D["ndt_initialguess_transY"];
+  // init_translation(2) = D["ndt_initialguess_transZ"];
 
-Eigen::Translation3f init_translation(D["ndt_initialguess_transX"],D["ndt_initialguess_transY"],D["ndt_initialguess_transZ"]);
-// init_translation(0) = D["ndt_initialguess_transX"];
-// init_translation(1) = D["ndt_initialguess_transY"];
-// init_translation(2) = D["ndt_initialguess_transZ"];
+  Eigen::AngleAxisf init_rotation (options["ndt"]["initialguess_axisangleA"], ax);
+  Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix ();
 
-Eigen::AngleAxisf init_rotation (D["ndt_initialguess_axisangleA"], ax);
-Eigen::Matrix4f init_guess = (init_translation * init_rotation).matrix ();
+  ndt.setInputSource(C1);
+  ndt.setInputTarget(C2);
 
-ndt.setInputSource(C1);
-ndt.setInputTarget(C2);
+  ndt.align(*resultXndt,init_guess);
+  auto H_ndt = ndt.getFinalTransformation();
+  // print4x4Matrix (H_ndt);
+  std::chrono::steady_clock::time_point end_ndt = std::chrono::steady_clock::now();
+  Eigen::MatrixXf t(3,1);
+  t(0,0)=std::chrono::duration_cast<std::chrono::seconds>(end_ndt - begin_ndt).count();
+  t(1,0)=std::chrono::duration_cast<std::chrono::milliseconds>(end_ndt - begin_ndt).count();
+  t(2,0)=std::chrono::duration_cast<std::chrono::microseconds>(end_ndt - begin_ndt).count();
 
-ndt.align(*resultXndt,init_guess);
-auto H_ndt = ndt.getFinalTransformation();
-// print4x4Matrix (H_ndt);
-std::chrono::steady_clock::time_point end_ndt = std::chrono::steady_clock::now();
-std::cout << "Time NDT difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_ndt - begin_ndt).count() << "[s]"
-                                 << std::chrono::duration_cast<std::chrono::milliseconds>(end_ndt - begin_ndt).count() << "[ms]"
-                                 << std::chrono::duration_cast<std::chrono::microseconds>(end_ndt - begin_ndt).count() << "[µs]" << std::endl;
 
-H.push_back(H_icp);
-H.push_back(H_gicp);
-H.push_back(H_ndt);
+  std::cout << "Time NDT difference = "<< std::chrono::duration_cast<std::chrono::seconds>(end_ndt - begin_ndt).count() << "[s]"
+                                   << std::chrono::duration_cast<std::chrono::milliseconds>(end_ndt - begin_ndt).count() << "[ms]"
+                                   << std::chrono::duration_cast<std::chrono::microseconds>(end_ndt - begin_ndt).count() << "[µs]" << std::endl;
 
-return H;
+
+
+ ret.push_back(std::make_pair("H_ndt",H_ndt));
+ ret.push_back(std::make_pair("H_ndt_time",t));
+}
+
+return ret;
 
 }
