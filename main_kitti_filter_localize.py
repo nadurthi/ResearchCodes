@@ -29,9 +29,12 @@ from lidarprocessing import point3Dprocessing as pt3dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
 from lidarprocessing.numba_codes import gicp
+import queue
 from sklearn.neighbors import KDTree
 import os
 import pandas as pd
+import multiprocessing as mp
+from multiprocessing import Pool
 time_increment = 1.736111516947858e-05
 angle_increment = 0.004363323096185923
 scan_time = 0.02500000037252903
@@ -54,7 +57,8 @@ from sklearn.neighbors import NearestNeighbors
 import quaternion
 import pickle
 from joblib import dump, load
-
+from pyslam import  slam
+import json
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
     spl0 = UnivariateSpline(tvec, qvec[:,0], k=k,s=s)
     spl1 = UnivariateSpline(tvec, qvec[:,1], k=k,s=s)
@@ -287,6 +291,9 @@ velo = dataset.get_velo(2)
 
 pcd=o3d.io.read_point_cloud("kitti-pcd-seq-%s.pcd"%sequence)
 
+pcddown=pcd.voxel_down_sample(voxel_size=0.25)
+
+
 lines = [[i,i+1] for i in range(Xtpath.shape[0]-1)]
 colors = [[0, 0, 0] for i in range(len(lines))]
 line_set = o3d.geometry.LineSet()
@@ -351,6 +358,45 @@ dump([sktree,neigh], "kitti-pcd-seq-%s-TREES.joblib"%sequence)
 
 #%%
 plt.close("all")
+
+D={"icp":{},
+   "gicp":{},
+   "gicp_cost":{},
+   "ndt":{}}
+
+D["icp"]["enable"]=0
+D["icp"]["setMaximumIterations"]=100
+D["icp"]["setMaxCorrespondenceDistance"]=10
+D["icp"]["setRANSACIterations"]=0.0
+D["icp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["icp"]["setTransformationEpsilon"]=1e-9
+D["icp"]["setEuclideanFitnessEpsilon"]=0.01
+
+
+D["gicp_cost"]["enable"]=0
+
+
+D["gicp"]["enable"]=1
+D["gicp"]["setMaxCorrespondenceDistance"]=20
+D["gicp"]["setMaximumIterations"]=10.0
+D["gicp"]["setMaximumOptimizerIterations"]=10.0
+D["gicp"]["setRANSACIterations"]=0.0
+D["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["gicp"]["setTransformationEpsilon"]=1e-9
+D["gicp"]["setUseReciprocalCorrespondences"]=1
+
+D["ndt"]["enable"]=0
+D["ndt"]["setTransformationEpsilon"]=1e-9
+D["ndt"]["setStepSize"]=2.0
+D["ndt"]["setResolution"]=1.0
+D["ndt"]["setMaximumIterations"]=25.0
+D["ndt"]["initialguess_axisangleA"]=0.0
+D["ndt"]["initialguess_axisangleX"]=0.0
+D["ndt"]["initialguess_axisangleY"]=0.0
+D["ndt"]["initialguess_axisangleZ"]=1.0
+D["ndt"]["initialguess_transX"]=0.5
+D["ndt"]["initialguess_transY"]=0.01
+D["ndt"]["initialguess_transZ"]=0.01
 
 Xlimits_scan=[np.min(np.asarray(pcd.points)[:,0]),np.max(np.asarray(pcd.points)[:,0])]
 Ylimits_scan=[np.min(np.asarray(pcd.points)[:,1]),np.max(np.asarray(pcd.points)[:,1])]
@@ -511,9 +557,9 @@ def getCTinitialSamples_origin(Npf):
     xstatepf[:,2]=0.1*np.random.randn(Npf)
     
     #yaw
-    xstatepf[:,3]=0.001*np.random.randn(Npf)
+    xstatepf[:,3]=0.1*np.random.randn(Npf)
     #pitch
-    xstatepf[:,4]=0.01*np.random.randn(Npf)
+    xstatepf[:,4]=0.1*np.random.randn(Npf)
     #roll
     xstatepf[:,5]=0.001*np.random.randn(Npf)
     
@@ -532,15 +578,15 @@ def getCTinitialSamples_origin(Npf):
     #acc
     a=nplinalg.norm(Acc,axis=1)
     anormlimits=[np.min(a),np.max(a)]
-    xstatepf[:,10]=0.01*np.random.randn(Npf)
+    xstatepf[:,10]=0.01*np.abs(np.random.randn(Npf))
     
     wpf=np.ones(Npf)/Npf
     
-    Q=np.diag([(0.1)**2,(0.1)**2,(0.01)**2, # x-y-z
-                (0.1*np.pi/180)**2,(0.001*np.pi/180)**2,(0.001*np.pi/180)**2, # angles
-                (1)**2,   # velocity
-                (0.05*np.pi/180)**2,(0.025*np.pi/180)**2,(0.25*np.pi/180)**2,# angle rates
-                (1)**2]) #acc
+    Q=np.diag([(0.1)**2,(0.1)**2,(0.1)**2, # x-y-z
+                (2*np.pi/180)**2,(2*np.pi/180)**2,(0.1*np.pi/180)**2, # angles
+                (0.2)**2,   # velocity
+                (0.05*np.pi/180)**2,(0.05*np.pi/180)**2,(0.02*np.pi/180)**2,# angle rates
+                (0.01)**2]) #acc
     
     return xstatepf,wpf,Q
 
@@ -580,9 +626,9 @@ def getCTinitialSamples(Npf):
     
     Q=np.diag([(0.1)**2,(0.1)**2,(0.1)**2, # x-y-z
                 (5*np.pi/180)**2,(5*np.pi/180)**2,(5*np.pi/180)**2, # angles
-                (1)**2,   # velocity
-                (0.2*np.pi/180)**2,(0.2*np.pi/180)**2,(0.2*np.pi/180)**2,# angle rates
-                (1)**2]) #acc
+                (0.5)**2,   # velocity
+                (0.02*np.pi/180)**2,(0.02*np.pi/180)**2,(0.02*np.pi/180)**2,# angle rates
+                (0.01)**2]) #acc
     
     
     return xstatepf,wpf,Q
@@ -645,7 +691,7 @@ def getPose(xx):
 
 Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
     
-Npf=10
+Npf=100
 sampligfunc= getCTinitialSamples_origin
 
 xstatepf, wpf, Q =sampligfunc(Npf)
@@ -665,7 +711,7 @@ axpf.set_title("initial pf points")
 plt.show() 
  
 dmax=10
-sig=5
+sig=1
 
 #
 #
@@ -690,7 +736,43 @@ if makeMatPlotLibdebugPlot:
 # figpftraj = plt.figure()    
 # axpftraj = figpftraj.add_subplot(111,projection='3d')
 
+def MeasUpdt(seqQ,resQ,ExitFlag,Xpf,X1gv,sktree):
+    while True:
+        try:
+            j = seqQ.get(True,0.2)
+        except queue.Empty:
+            j = None
+        print(j)
+        if j is not None:
+            Dv=[]
+            R,t = pose2Rt(Xpf[j][:6])
+            
+            X1gv_pose = R.dot(X1gv.T).T+t
+            
+            ddsktree,idxs = sktree.query(X1gv_pose,k=1, dualtree=False,return_distance = True)
+            ddsktree=ddsktree.reshape(-1)
+            idxs=idxs.reshape(-1)
+            idxs=idxs[ddsktree<=dmax]
+            Dv=ddsktree.copy()
+            Dv[Dv>dmax]=dmax
+            
+            sig=0.1*np.sqrt(X1gv_pose.shape[0])
+            likelihood= np.exp(-np.sum(Dv**2)/sig**2)
+            likelihood=np.max([1e-20,likelihood])
+            
+            resQ.put((j,likelihood))
+            print((j,likelihood))
+        if (ExitFlag.is_set() and seqQ.empty()):
+            break
+        
 
+seqQ = mp.Queue()
+resQ = mp.Queue()
+ExitFlag = mp.Event()
+ExitFlag.clear()
+
+   
+    
 for k in range(1,len(dataset)):
     print(k)
     st=time.time()
@@ -700,6 +782,10 @@ for k in range(1,len(dataset)):
     
     X1v=X1v[:,:3]
     X1v=np.hstack([X1v,np.ones((X1v.shape[0],1))])
+    
+    
+    
+    
     
     H=dataset.calib.T_cam0_velo
     
@@ -712,8 +798,10 @@ for k in range(1,len(dataset)):
     
     pcdXgv = o3d.geometry.PointCloud()
     pcdXgv.points = o3d.utility.Vector3dVector(X1gv[:,:3])
-    pcdXgv_down_pcd = pcdXgv.voxel_down_sample(voxel_size=0.5)
-    X1gv = np.asarray(pcdXgv_down_pcd.points)
+    pcdXgv_down_pcd = pcdXgv.voxel_down_sample(voxel_size=1)
+    X1gv_down = np.asarray(pcdXgv_down_pcd.points)
+    
+    
     
     dt=dataset.times[k]-dataset.times[k-1]
     
@@ -724,11 +812,17 @@ for k in range(1,len(dataset)):
     
     et=time.time()
     print("dyn model time = ",et-st)
-    robotpf.X=robotpf.X+1*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
+    robotpf.X=robotpf.X+0*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
     
     # measurement update
     st=time.time()
     LiK=[]
+    
+    pcdXv = o3d.geometry.PointCloud()
+    pcdXv.points = o3d.utility.Vector3dVector(X1v[:,:3])
+    pcdXv_down_pcd = pcdXv.voxel_down_sample(voxel_size=1)
+    X1v_down = np.asarray(pcdXv_down_pcd.points)
+    
     for j in range(Npf):
         
         # mm=robotpf.X[j][:3] #measModel(robotpf.X[j])
@@ -739,16 +833,16 @@ for k in range(1,len(dataset)):
         Dv=[]
         R,t = pose2Rt(robotpf.X[j][:6])
         
-        X1gv_pose = R.dot(X1gv.T).T+t
+        X1gv_pose = R.dot(X1v_down.T).T+t
         
         
-        # bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
-        # pcdbox=pcd.crop(bbox3d)
+        bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
+        pcdbox=pcddown.crop(bbox3d)
         
         # pcd_tree_local = o3d.geometry.KDTreeFlann(pcdbox)
 
         
-        # Xmap=pcdbox.points
+        Xmap=np.asarray(pcdbox.points)
         # for i in range(X1gv_pose.shape[0]):
         #     [_, idx, _] = pcd_tree.search_hybrid_vector_3d(X1gv_pose[i], dmax, 1)
         #     if len(idx)>0:
@@ -766,24 +860,78 @@ for k in range(1,len(dataset)):
         Dv=ddsktree.copy()
         Dv[Dv>dmax]=dmax
         
-        sig=0.5*np.sqrt(X1gv_pose.shape[0])
+        sig=1*np.sqrt(X1gv_pose.shape[0])
         likelihood= np.exp(-np.sum(Dv**2)/sig**2)
         likelihood=np.max([1e-20,likelihood])
         print(j,likelihood)
         LiK.append(likelihood)
-        # robotpf.wts[j]=likelihood*robotpf.wts[j]
+        robotpf.wts[j]=likelihood*robotpf.wts[j]
+        
+        # Hpcl=slam.registrations(X1gv_down,X1gv_pose,json.dumps(D))
+        # Hpcl=dict(Hpcl)
+        # H=Hpcl["H_gicp"]
+        # Hj = np.zeros((4,4))
+        # Hj[0:3,0:3]=R
+        # Hj[0:3,3]=t
+        # Hj[3,3]=1
+        
+        # Hj=nplinalg.inv(Hj)
+        
+        # Hj=Hj.dot(H)
+        # RR=Hj[0:3,0:3]
+        # tt=Hj[0:3,3]
+        # xpose=Rt2pose(RR,tt)
+        # # pose2Rt
+        # robotpf.X[j][0:6]=xpose
+
+        
     et=time.time()
     
+    # st=time.time()
+    # Ncore = 8
+    # processes = []
+    # for i in range(Ncore):
+    #     p = mp.Process(target=MeasUpdt, args=(seqQ,resQ,ExitFlag,robotpf.X,X1gv,sktree))
+    #     processes.append( p )
+    #     p.start()
+    #     print("created thread")    
+    #     time.sleep(0.02) 
+    
+    # cnt=0
+    # for j in range(Npf):
+    #     seqQ.put(j)
+    #     cnt+=1
+    
+    # ExitFlag.set() 
+    # rescnt=0
+    # while True:
+    #     res=None
+    #     try:
+    #         res=resQ.get(True,1)
+    #         j=res[0]
+    #         likelihood=res[1]
+    #         robotpf.wts[j]=likelihood*robotpf.wts[j]
+    #         rescnt+=1
+    #     except queue.Empty:
+    #         time.sleep(0.1)
+        
+    #     if rescnt==cnt:
+    #         break
+        
+       
+    # for i in range(len(processes)):
+    #     processes[i].join()
+    # et=time.time()
     
     print("meas model time = ",et-st)
     
     robotpf.renormlizeWts()
     
-    # Neff=robotpf.getNeff()
-    # if Neff/Npf<=2:
-    #     robotpf.bootstrapResample()
+    Neff=robotpf.getNeff()
+    if Neff/Npf<=2:
+        robotpf.bootstrapResample()
     
-    # robotpf.regularizedresample(kernel='gaussian')
+    robotpf.regularizedresample(kernel='gaussian',scale=1/25)
     
     m,P=robotpf.getEst()
     XpfTraj[k]=m
@@ -891,6 +1039,6 @@ for k in range(1,len(dataset)):
     # plt.show()
     plt.pause(0.1)
     
-    if k>=15:
+    if k>=450:
         break
 # vis.destroy_window()    
