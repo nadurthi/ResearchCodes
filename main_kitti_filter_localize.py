@@ -710,7 +710,7 @@ axpf.plot(robotpf.X[:,0],robotpf.X[:,1],'r.')
 axpf.set_title("initial pf points")
 plt.show() 
  
-dmax=10
+dmax=50
 sig=1
 
 #
@@ -812,7 +812,7 @@ for k in range(1,len(dataset)):
     
     et=time.time()
     print("dyn model time = ",et-st)
-    robotpf.X=robotpf.X+0*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
+    robotpf.X=robotpf.X+2*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
     
     # measurement update
     st=time.time()
@@ -860,7 +860,7 @@ for k in range(1,len(dataset)):
         Dv=ddsktree.copy()
         Dv[Dv>dmax]=dmax
         
-        sig=1*np.sqrt(X1gv_pose.shape[0])
+        sig=0.5*np.sqrt(X1gv_pose.shape[0])
         likelihood= np.exp(-np.sum(Dv**2)/sig**2)
         likelihood=np.max([1e-20,likelihood])
         print(j,likelihood)
@@ -928,10 +928,10 @@ for k in range(1,len(dataset)):
     robotpf.renormlizeWts()
     
     Neff=robotpf.getNeff()
-    if Neff/Npf<=2:
+    if Neff/Npf<2:
         robotpf.bootstrapResample()
     
-    robotpf.regularizedresample(kernel='gaussian',scale=1/25)
+    # robotpf.regularizedresample(kernel='gaussian',scale=1/25)
     
     m,P=robotpf.getEst()
     XpfTraj[k]=m
