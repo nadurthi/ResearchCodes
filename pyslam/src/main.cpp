@@ -1,7 +1,7 @@
 #include <pybind11/pybind11.h>
 #include "pcl_registration.h"
-// #include <pybind11/eigen.h>
-
+#include "localize.h"
+#include "donseg.h"
 
 
 
@@ -33,6 +33,9 @@ PYBIND11_MODULE(slam, m) {
         ICP in PCL
     )pbdoc");
 
+    m.def("donsegmentation", &donsegmentation, R"pbdoc(
+        ICP in PCL
+    )pbdoc");
 
 
     m.def("add", &add,py::return_value_policy::reference_internal,R"pbdoc(
@@ -41,11 +44,12 @@ PYBIND11_MODULE(slam, m) {
         Some other explanation about the add function.
     )pbdoc");
 
-    m.def("subtract", [](int i, int j) { return i - j; }, R"pbdoc(
-        Subtract two numbers
 
-        Some other explanation about the subtract function.
-    )pbdoc");
+
+    py::class_<Localize>(m, "Localize")
+        .def(py::init<const std::string &>())
+        .def("setMapX", &Localize::setMapX)
+        .def("computeLikelihood", &Localize::computeLikelihood);
 
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

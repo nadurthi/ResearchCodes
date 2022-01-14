@@ -29,6 +29,7 @@ file(GLOB SRC_FILES ${SOURCE_DIR}/*.cpp)
 find_package (Boost)
 find_package(Eigen3 REQUIRED)
 find_package(PCL)
+find_package(OpenMP REQUIRED)
 # find_package(spdlog REQUIRED)
 #
 
@@ -46,7 +47,7 @@ add_definitions(${PCL_DEFINITIONS})
 pybind11_add_module(${CMAKE_PROJECT_NAME} "${SOURCE_DIR}/main.cpp" ${SRC_FILES} )
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} )
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
 
 #target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} ${PCL_DEFINITIONS})
 #target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})

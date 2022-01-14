@@ -57,6 +57,7 @@ from sklearn.neighbors import NearestNeighbors
 import quaternion
 import pickle
 from joblib import dump, load
+from importlib import reload 
 from pyslam import  slam
 import json
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
@@ -249,8 +250,8 @@ plt.show()
 
 
 
-pose = dataset.poses[1]
-velo = dataset.get_velo(2)
+# pose = dataset.poses[1]
+# velo = dataset.get_velo(2)
 
 
 #%%
@@ -291,7 +292,7 @@ velo = dataset.get_velo(2)
 
 pcd=o3d.io.read_point_cloud("kitti-pcd-seq-%s.pcd"%sequence)
 
-pcddown=pcd.voxel_down_sample(voxel_size=0.25)
+pcddown=pcd.voxel_down_sample(voxel_size=1)
 
 
 lines = [[i,i+1] for i in range(Xtpath.shape[0]-1)]
@@ -301,7 +302,7 @@ line_set.points = o3d.utility.Vector3dVector(Xtpath[:,:3])
 line_set.lines = o3d.utility.Vector2iVector(lines)
 line_set.colors = o3d.utility.Vector3dVector(colors)
 
-o3d.visualization.draw_geometries([pcd,line_set])
+# o3d.visualization.draw_geometries([pcd,line_set])
 
 
 sktree,neigh=load( "kitti-pcd-seq-%s-TREES.joblib"%sequence) 
@@ -316,61 +317,59 @@ sktree,neigh=load( "kitti-pcd-seq-%s-TREES.joblib"%sequence)
 # o3d.visualization.draw_geometries([pcdbox,line_set])
 
 
-pcd_tree = o3d.geometry.KDTreeFlann(pcd)
+# pcd_tree = o3d.geometry.KDTreeFlann(pcd.voxel_down_sample(voxel_size=0.5))
 
 
 
-neigh = NearestNeighbors(n_neighbors=3,radius=20,n_jobs=5,algorithm='kd_tree')
-neigh.fit(np.asarray(pcd.points))
+# neigh = NearestNeighbors(n_neighbors=3,radius=20,n_jobs=5,algorithm='kd_tree')
+# neigh.fit(np.asarray(pcd.points))
 
-sktree = KDTree(np.asarray(pcd.voxel_down_sample(voxel_size=0.5).points), leaf_size=30)
-
-
-qp=[373.0,   1.3,   6.8]
-radius=20
-maxnn=1
-st=time.time()
-[k, idx, dd] = pcd_tree.search_hybrid_vector_3d(qp, radius, maxnn)
-et=time.time()
-print("kd tree search time = ",et-st)
+# sktree = KDTree(np.asarray(pcd.voxel_down_sample(voxel_size=0.5).points), leaf_size=30)
 
 
-
-
-st=time.time()
-ddsk,neighbors = neigh.radius_neighbors([qp],radius=radius, return_distance = True)
-et=time.time()
-print("nn sklearn search time = ",et-st)
-
-
-
-st=time.time()
-ddsktree,idxs = sktree.query([qp],k=1, dualtree=True,return_distance = True)
-et=time.time()
-print("sklearn tree search time = ",et-st)
-
-dump([sktree,neigh], "kitti-pcd-seq-%s-TREES.joblib"%sequence) 
+# qp=[373.0,   1.3,   6.8]
+# radius=20
+# maxnn=1
+# st=time.time()
+# [k, idx, dd] = pcd_tree.search_hybrid_vector_3d(qp, radius, maxnn)
+# et=time.time()
+# print("kd tree search time = ",et-st)
 
 
 
 
+# st=time.time()
+# ddsk,neighbors = neigh.radius_neighbors([qp],radius=radius, return_distance = True)
+# et=time.time()
+# print("nn sklearn search time = ",et-st)
 
 
-#%%
-plt.close("all")
+
+# st=time.time()
+# ddsktree,idxs = sktree.query([qp],k=1, dualtree=True,return_distance = True)
+# et=time.time()
+# print("sklearn tree search time = ",et-st)
+
+# dump([sktree,neigh], "kitti-pcd-seq-%s-TREES.joblib"%sequence) 
+
+
 
 D={"icp":{},
    "gicp":{},
    "gicp_cost":{},
-   "ndt":{}}
+   "ndt":{},
+   "sig0":0.5,
+   "dmax":50,
+   "DoIcpCorrection":0}
 
 D["icp"]["enable"]=0
-D["icp"]["setMaximumIterations"]=100
-D["icp"]["setMaxCorrespondenceDistance"]=10
+D["icp"]["setMaximumIterations"]=5
+D["icp"]["setMaxCorrespondenceDistance"]=25
 D["icp"]["setRANSACIterations"]=0.0
 D["icp"]["setRANSACOutlierRejectionThreshold"]=1.5
-D["icp"]["setTransformationEpsilon"]=1e-9
-D["icp"]["setEuclideanFitnessEpsilon"]=0.01
+D["icp"]["setTransformationEpsilon"]=1e-3
+D["icp"]["setEuclideanFitnessEpsilon"]=1
+
 
 
 D["gicp_cost"]["enable"]=0
@@ -378,9 +377,9 @@ D["gicp_cost"]["enable"]=0
 
 D["gicp"]["enable"]=1
 D["gicp"]["setMaxCorrespondenceDistance"]=20
-D["gicp"]["setMaximumIterations"]=10.0
-D["gicp"]["setMaximumOptimizerIterations"]=10.0
-D["gicp"]["setRANSACIterations"]=0.0
+D["gicp"]["setMaximumIterations"]=50.0
+D["gicp"]["setMaximumOptimizerIterations"]=20.0
+D["gicp"]["setRANSACIterations"]=0
 D["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
 D["gicp"]["setTransformationEpsilon"]=1e-9
 D["gicp"]["setUseReciprocalCorrespondences"]=1
@@ -397,6 +396,19 @@ D["ndt"]["initialguess_axisangleZ"]=1.0
 D["ndt"]["initialguess_transX"]=0.5
 D["ndt"]["initialguess_transY"]=0.01
 D["ndt"]["initialguess_transZ"]=0.01
+
+pclloc=slam.Localize(json.dumps(D))
+
+Xmap_down = np.asarray(pcd.voxel_down_sample(voxel_size=0.5).points)
+pclloc.setMapX(Xmap_down)
+
+#%%
+plt.close("all")
+
+Npf=100
+
+
+
 
 Xlimits_scan=[np.min(np.asarray(pcd.points)[:,0]),np.max(np.asarray(pcd.points)[:,0])]
 Ylimits_scan=[np.min(np.asarray(pcd.points)[:,1]),np.max(np.asarray(pcd.points)[:,1])]
@@ -557,9 +569,9 @@ def getCTinitialSamples_origin(Npf):
     xstatepf[:,2]=0.1*np.random.randn(Npf)
     
     #yaw
-    xstatepf[:,3]=0.1*np.random.randn(Npf)
+    xstatepf[:,3]=5*np.random.randn(Npf)
     #pitch
-    xstatepf[:,4]=0.1*np.random.randn(Npf)
+    xstatepf[:,4]=5*np.random.randn(Npf)
     #roll
     xstatepf[:,5]=0.001*np.random.randn(Npf)
     
@@ -691,7 +703,7 @@ def getPose(xx):
 
 Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
     
-Npf=100
+
 sampligfunc= getCTinitialSamples_origin
 
 xstatepf, wpf, Q =sampligfunc(Npf)
@@ -710,8 +722,8 @@ axpf.plot(robotpf.X[:,0],robotpf.X[:,1],'r.')
 axpf.set_title("initial pf points")
 plt.show() 
  
-dmax=50
-sig=1
+dmax=D["dmax"]
+# sig=1
 
 #
 #
@@ -736,42 +748,12 @@ if makeMatPlotLibdebugPlot:
 # figpftraj = plt.figure()    
 # axpftraj = figpftraj.add_subplot(111,projection='3d')
 
-def MeasUpdt(seqQ,resQ,ExitFlag,Xpf,X1gv,sktree):
-    while True:
-        try:
-            j = seqQ.get(True,0.2)
-        except queue.Empty:
-            j = None
-        print(j)
-        if j is not None:
-            Dv=[]
-            R,t = pose2Rt(Xpf[j][:6])
-            
-            X1gv_pose = R.dot(X1gv.T).T+t
-            
-            ddsktree,idxs = sktree.query(X1gv_pose,k=1, dualtree=False,return_distance = True)
-            ddsktree=ddsktree.reshape(-1)
-            idxs=idxs.reshape(-1)
-            idxs=idxs[ddsktree<=dmax]
-            Dv=ddsktree.copy()
-            Dv[Dv>dmax]=dmax
-            
-            sig=0.1*np.sqrt(X1gv_pose.shape[0])
-            likelihood= np.exp(-np.sum(Dv**2)/sig**2)
-            likelihood=np.max([1e-20,likelihood])
-            
-            resQ.put((j,likelihood))
-            print((j,likelihood))
-        if (ExitFlag.is_set() and seqQ.empty()):
-            break
+
         
 
-seqQ = mp.Queue()
-resQ = mp.Queue()
-ExitFlag = mp.Event()
-ExitFlag.clear()
 
-   
+# with open("testpcllocalize.pkl","wb") as FF:
+#     pickle.dump([robotpf.X,X1v_down],FF)
     
 for k in range(1,len(dataset)):
     print(k)
@@ -815,117 +797,129 @@ for k in range(1,len(dataset)):
     robotpf.X=robotpf.X+2*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
     
     # measurement update
-    st=time.time()
+    
     LiK=[]
     
     pcdXv = o3d.geometry.PointCloud()
     pcdXv.points = o3d.utility.Vector3dVector(X1v[:,:3])
-    pcdXv_down_pcd = pcdXv.voxel_down_sample(voxel_size=1)
+    pcdXv_down_pcd = pcdXv.voxel_down_sample(voxel_size=0.5)
     X1v_down = np.asarray(pcdXv_down_pcd.points)
-    
-    for j in range(Npf):
-        
-        # mm=robotpf.X[j][:3] #measModel(robotpf.X[j])
-        # ypdf = multivariate_normal.pdf(Xtpath[k,:3], mean=mm, cov=Rposnoise)
-        # robotpf.wts[j]=(1e-6+ypdf)*robotpf.wts[j]
-        
-        # print("j=",j)
-        Dv=[]
-        R,t = pose2Rt(robotpf.X[j][:6])
-        
-        X1gv_pose = R.dot(X1v_down.T).T+t
-        
-        
-        bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
-        pcdbox=pcddown.crop(bbox3d)
-        
-        # pcd_tree_local = o3d.geometry.KDTreeFlann(pcdbox)
-
-        
-        Xmap=np.asarray(pcdbox.points)
-        # for i in range(X1gv_pose.shape[0]):
-        #     [_, idx, _] = pcd_tree.search_hybrid_vector_3d(X1gv_pose[i], dmax, 1)
-        #     if len(idx)>0:
-        #         d=nplinalg.norm(pcd.points[idx[0]]-X1gv_pose[i])
-        #         Dv.append(d)
-        #     else:
-        #         Dv.append(dmax)
-        # Dv=np.array(Dv)
-        
-        
-        ddsktree,idxs = sktree.query(X1gv_pose,k=1, dualtree=False,return_distance = True)
-        ddsktree=ddsktree.reshape(-1)
-        idxs=idxs.reshape(-1)
-        idxs=idxs[ddsktree<=dmax]
-        Dv=ddsktree.copy()
-        Dv[Dv>dmax]=dmax
-        
-        sig=0.5*np.sqrt(X1gv_pose.shape[0])
-        likelihood= np.exp(-np.sum(Dv**2)/sig**2)
-        likelihood=np.max([1e-20,likelihood])
-        print(j,likelihood)
-        LiK.append(likelihood)
-        robotpf.wts[j]=likelihood*robotpf.wts[j]
-        
-        # Hpcl=slam.registrations(X1gv_down,X1gv_pose,json.dumps(D))
-        # Hpcl=dict(Hpcl)
-        # H=Hpcl["H_gicp"]
-        # Hj = np.zeros((4,4))
-        # Hj[0:3,0:3]=R
-        # Hj[0:3,3]=t
-        # Hj[3,3]=1
-        
-        # Hj=nplinalg.inv(Hj)
-        
-        # Hj=Hj.dot(H)
-        # RR=Hj[0:3,0:3]
-        # tt=Hj[0:3,3]
-        # xpose=Rt2pose(RR,tt)
-        # # pose2Rt
-        # robotpf.X[j][0:6]=xpose
-
-        
-    et=time.time()
-    
     # st=time.time()
-    # Ncore = 8
-    # processes = []
-    # for i in range(Ncore):
-    #     p = mp.Process(target=MeasUpdt, args=(seqQ,resQ,ExitFlag,robotpf.X,X1gv,sktree))
-    #     processes.append( p )
-    #     p.start()
-    #     print("created thread")    
-    #     time.sleep(0.02) 
-    
-    # cnt=0
     # for j in range(Npf):
-    #     seqQ.put(j)
-    #     cnt+=1
-    
-    # ExitFlag.set() 
-    # rescnt=0
-    # while True:
-    #     res=None
-    #     try:
-    #         res=resQ.get(True,1)
-    #         j=res[0]
-    #         likelihood=res[1]
-    #         robotpf.wts[j]=likelihood*robotpf.wts[j]
-    #         rescnt+=1
-    #     except queue.Empty:
-    #         time.sleep(0.1)
         
-    #     if rescnt==cnt:
-    #         break
+    #     # mm=robotpf.X[j][:3] #measModel(robotpf.X[j])
+    #     # ypdf = multivariate_normal.pdf(Xtpath[k,:3], mean=mm, cov=Rposnoise)
+    #     # robotpf.wts[j]=(1e-6+ypdf)*robotpf.wts[j]
         
-       
-    # for i in range(len(processes)):
-    #     processes[i].join()
+    #     # print("j=",j)
+    #     Dv=[]
+    #     R,t = pose2Rt(robotpf.X[j][:6])
+        
+    #     X1gv_pose = R.dot(X1v_down.T).T+t
+        
+        
+    #     # bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
+    #     # pcdbox=pcddown.crop(bbox3d)
+        
+    #     # pcd_tree_local = o3d.geometry.KDTreeFlann(pcdbox)
+
+        
+    #     # Xmap=np.asarray(pcdbox.points)
+    #     # for i in range(X1gv_pose.shape[0]):
+    #     #     [_, idx, d] = pcd_tree.search_hybrid_vector_3d(X1gv_pose[i], dmax, 1)
+    #     #     if len(idx)>0:
+    #     #         Dv.append(d[0])
+    #     #     else:
+    #     #         Dv.append(dmax)
+    #     # Dv=np.array(Dv)
+        
+        
+    #     ddsktree,idxs = sktree.query(X1gv_pose,k=1, dualtree=False,return_distance = True)
+    #     ddsktree=ddsktree.reshape(-1)
+    #     idxs=idxs.reshape(-1)
+    #     idxs=idxs[ddsktree<=dmax]
+    #     Dv=ddsktree.copy()
+    #     Dv[Dv>dmax]=dmax
+        
+    #     sig=D["sig0"]*np.sqrt(X1gv_pose.shape[0])
+    #     likelihood= np.exp(-np.sum(Dv**2)/sig**2)
+    #     likelihood=np.max([1e-20,likelihood])
+    #     print(j,likelihood)
+    #     LiK.append(likelihood)
+    #     robotpf.wts[j]=likelihood*robotpf.wts[j]
+        
+    #     # Hpcl=slam.registrations(X1gv_down,X1gv_pose,json.dumps(D))
+    #     # Hpcl=dict(Hpcl)
+    #     # H=Hpcl["H_gicp"]
+    #     # Hj = np.zeros((4,4))
+    #     # Hj[0:3,0:3]=R
+    #     # Hj[0:3,3]=t
+    #     # Hj[3,3]=1
+        
+    #     # Hj=nplinalg.inv(Hj)
+        
+    #     # Hj=Hj.dot(H)
+    #     # RR=Hj[0:3,0:3]
+    #     # tt=Hj[0:3,3]
+    #     # xpose=Rt2pose(RR,tt)
+    #     # # pose2Rt
+    #     # robotpf.X[j][0:6]=xpose
+
+        
     # et=time.time()
+    # print("meas model time = ",et-st)
     
-    print("meas model time = ",et-st)
+    st=time.time()
+    ret=pclloc.computeLikelihood(robotpf.X,X1v_down)
+    ret=dict(ret)
+    likelihood=ret['likelihood'].reshape(-1)
+    # Xposes=ret['Xposes_corrected']
+    # likelihood=np.array(likelihood)
+    likelihood=np.exp(-likelihood)
+    likelihood[likelihood<1e-20]=1e-20
+    robotpf.wts=likelihood*robotpf.wts
+    et=time.time()
+    print("pcl meas model time = ",et-st)
     
     robotpf.renormlizeWts()
+    
+    # now do icp for the highest wt
+    st=time.time()
+    mxwtidx = np.argmax(robotpf.wts)
+    Rj,tj = pose2Rt(robotpf.X[mxwtidx][:6])
+    iddx=np.abs(X1v_down[:,0])<75
+    iddy=np.abs(X1v_down[:,1])<75
+    iddz=X1v_down[:,2]>0
+    idd = iddx & iddy & iddz
+    X1gv_pose = Rj.dot(X1v_down[idd,:].T).T+tj
+    
+    bbox3dmap=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
+    pcdboxmap=pcddown.crop(bbox3dmap)
+    Xmaplocal=np.asarray(pcdboxmap.points)
+    Hpcl=slam.registrations(Xmaplocal,X1gv_pose,json.dumps(D))
+    Hpcl=dict(Hpcl)
+    H_gicp=Hpcl["H_gicp"]
+    # H_gicp= nplinalg.inv(H_gicp)
+    Hj = np.zeros((4,4))
+    
+    Hj[0:3,0:3]=Rj
+    Hj[0:3,3]=tj
+    Hj[3,3]=1
+    
+    X1gv_pose_corr = H_gicp[0:3,0:3].dot(X1gv_pose.T).T+H_gicp[0:3,3]
+    
+    figcorr = plt.figure()    
+    axcorr= figcorr.add_subplot(111)
+    axcorr.cla()
+    axcorr.plot(Xmaplocal[:,0],Xmaplocal[:,1],'k.',label='map')
+    axcorr.plot(X1gv_pose[:,0],X1gv_pose[:,1],'r.',label='orig-pose')
+    axcorr.plot(X1gv_pose_corr[:,0],X1gv_pose_corr[:,1],'b.',label='corr-pose')
+    axcorr.legend()
+    
+    et=time.time()
+    print("icp correction time = ",et-st)
+    
+    
     
     Neff=robotpf.getNeff()
     if Neff/Npf<2:
@@ -1039,6 +1033,6 @@ for k in range(1,len(dataset)):
     # plt.show()
     plt.pause(0.1)
     
-    if k>=450:
+    if k>=1:
         break
 # vis.destroy_window()    

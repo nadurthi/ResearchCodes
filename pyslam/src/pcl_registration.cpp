@@ -113,7 +113,7 @@ if(options["gicp_cost"]["enable"]==1){
   else
     gicp.setUseReciprocalCorrespondences(0); //0.1
   //
-  
+
   gicp.setInputSource(C1);
   gicp.setInputTarget(C2);
 
