@@ -373,8 +373,11 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     mxLVL=len(HLevels)-1
     HLevels=HLevels[::-1]
     HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
-
-        
+    
+    P2=0.5*P
+    Lmax=P2*(np.floor(Lmax/P2)+1)
+    Lmax=np.maximum(Lmax,P)
+    
     LmaxOrig=np.zeros(2,dtype=np.float64)
     LmaxOrig[0]=Lmax[0]
     LmaxOrig[1]=Lmax[1]
@@ -384,6 +387,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     X2[:,1]=X2[:,1]-LmaxOrig[1]
     
     Lmax=dxs[0]*(np.floor(Lmax/dxs[0])+1)
+    
     for xs in np.arange(0,2*Lmax[0],dxs[0][0]):
         for ys in np.arange(0,2*Lmax[1],dxs[0][1]):
             SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
@@ -421,7 +425,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
             
     heapq.heapify(h)
     
-
+    print("len(heap) = ",len(h))
 
     while(1):
         (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)

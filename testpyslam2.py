@@ -181,24 +181,3 @@ et=time.time()
 print("meas model time = ",et-st)
 
 #%%
-D["DON"]={}
-D["DON"]["scale1"]=1;
-D["DON"]["scale2"]=5;
-D["DON"]["threshold"]=0.1;
-D["DON"]["segradius"]=1;
-
-
-
-st=time.time()
-ret=slam.donsegmentation(json.dumps(D),X1v_down)
-ret=dict(ret)
-X1v_down_ret=ret["Xout"]
-et=time.time()
-print("time taken for DON = ",et-st)
-
-print(X1v_down_ret.shape)
-
-pcdX1gv_pose = o3d.geometry.PointCloud()
-pcdX1gv_pose.points = o3d.utility.Vector3dVector(X1v_down_ret)
-pcdX1gv_pose.paint_uniform_color([0,1,0]) #green
-o3d.visualization.draw_geometries([pcdX1gv_pose])

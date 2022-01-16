@@ -33,10 +33,6 @@ PYBIND11_MODULE(slam, m) {
         ICP in PCL
     )pbdoc");
 
-    m.def("donsegmentation", &donsegmentation, R"pbdoc(
-        ICP in PCL
-    )pbdoc");
-
 
     m.def("add", &add,py::return_value_policy::reference_internal,R"pbdoc(
         Add two numbers
@@ -44,7 +40,12 @@ PYBIND11_MODULE(slam, m) {
         Some other explanation about the add function.
     )pbdoc");
 
-
+    py::class_<Don>(m, "Don")
+        .def(py::init<const std::string &>())
+        .def("setMapX", &Don::setMapX)
+        .def("computeNormals", &Don::computeNormals)
+        .def("computeDon", &Don::computeDon)
+        .def("filter", &Don::filter);
 
     py::class_<Localize>(m, "Localize")
         .def(py::init<const std::string &>())
