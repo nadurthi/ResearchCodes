@@ -15,14 +15,6 @@
 	},
 	"buffers":
 	[
-		{
-			"file": "/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
-			"settings":
-			{
-				"buffer_size": 2131,
-				"line_ending": "Unix"
-			}
-		}
 	],
 	"build_system": "",
 	"build_system_choices":
@@ -68,6 +60,7 @@
 	],
 	"file_history":
 	[
+		"/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pytorchutils/losses.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointcloudmodels/voxelnet.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/mypointpillar/train_helpers.py",
@@ -91,7 +84,6 @@
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/torchplus/train/common.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointpillar-second-pytorch/torchplus/train/__init__.py",
 		"/C/Users/Nagnanamus/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
-		"/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/lidarprocessing/pointcloudmodels/__init__.py",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/reinforcement/invertedbar.py",
 		"/C/Users/Nagnanamus/Downloads/lidarprocessing/point2Dprocessing.py",
@@ -237,37 +229,8 @@
 	"groups":
 	[
 		{
-			"selected": 0,
 			"sheets":
 			[
-				{
-					"buffer": 0,
-					"file": "/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 2131,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								519,
-								519
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 432.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
-					"type": "text"
-				}
 			]
 		}
 	],

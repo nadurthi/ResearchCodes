@@ -290,9 +290,14 @@ plt.show()
 #%% PF 
 
 
-pcd=o3d.io.read_point_cloud("kitti-pcd-seq-%s.pcd"%sequence)
+pcd3D=o3d.io.read_point_cloud("kitti-pcd-seq-%s.pcd"%sequence)
+pcd3DdownSensorCost=pcd3D.voxel_down_sample(voxel_size=0.5)
 
-pcddown=pcd.voxel_down_sample(voxel_size=1)
+
+pcd3Droadremove=o3d.io.read_point_cloud("kitti-pcd-seq-roadremove-%s.pcd"%sequence)
+np.asarray(pcd3Droadremove.points)[:,2]=0
+X2Dmap_down=np.array(pcd3Droadremove.voxel_down_sample(voxel_size=0.1).points)
+X2Dmap_down=X2Dmap_down[:,:2]
 
 
 lines = [[i,i+1] for i in range(Xtpath.shape[0]-1)]
@@ -305,7 +310,10 @@ line_set.colors = o3d.utility.Vector3dVector(colors)
 # o3d.visualization.draw_geometries([pcd,line_set])
 
 
-sktree,neigh=load( "kitti-pcd-seq-%s-TREES.joblib"%sequence) 
+
+
+
+# sktree,neigh=load( "kitti-pcd-seq-%s-TREES.joblib"%sequence) 
 
 # min_bound=np.min(np.asarray(pcd.points),axis=0)
 # max_bound=np.max(np.asarray(pcd.points),axis=0)
@@ -375,7 +383,7 @@ D["icp"]["setEuclideanFitnessEpsilon"]=1
 D["gicp_cost"]["enable"]=0
 
 
-D["gicp"]["enable"]=1
+D["gicp"]["enable"]=0
 D["gicp"]["setMaxCorrespondenceDistance"]=20
 D["gicp"]["setMaximumIterations"]=50.0
 D["gicp"]["setMaximumOptimizerIterations"]=20.0
@@ -397,22 +405,318 @@ D["ndt"]["initialguess_transX"]=0.5
 D["ndt"]["initialguess_transY"]=0.01
 D["ndt"]["initialguess_transZ"]=0.01
 
+D["DON"]={}
+D["DON"]["scale1"]=1;
+D["DON"]["scale2"]=2;
+D["DON"]["threshold"]=0.2;
+D["DON"]["threshold_small_z"]=0.5;
+D["DON"]["threshold_large_z"]=0.5;
+
+D["DON"]["segradius"]=1;
+
+D["DON"]["threshold_curv_lb"]=0.1;
+D["DON"]["threshold_curv_ub"]=100000;
+D["DON"]["threshold_small_nz_lb"]=-0.5;
+D["DON"]["threshold_small_nz_ub"]=0.5;
+D["DON"]["threshold_large_nz_lb"]=-5;
+D["DON"]["threshold_large_nz_ub"]=5;
+
 pclloc=slam.Localize(json.dumps(D))
 
-Xmap_down = np.asarray(pcd.voxel_down_sample(voxel_size=0.5).points)
-pclloc.setMapX(Xmap_down)
+X3Dmap_down = np.asarray(pcd3DdownSensorCost.voxel_down_sample(voxel_size=0.25).points)
+pclloc.setMapX(X3Dmap_down)
+
+opts = json.dumps(D)
+
+
+
+
 
 #%%
 plt.close("all")
 
-Npf=100
+def down_sample(X,voxel_size):
+    X=np.asarray(X)
+    NN=X.ndim
+    if NN==2:
+        X=np.hstack([X,np.zeros((X.shape[0],1))])
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(X)
+    voxel_down_pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+    XX=np.asarray(voxel_down_pcd.points)
+    return XX[:,:NN]
+
+import heapq
+numba_cache=True
+dtype=np.float64
+
+from numba.core import types
+from numba.typed import Dict
+float_2Darray = types.float64[:,:]
+
+def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
+    #  X11 are global points
+    # X22 are points with respect to a local frame (like origin of velodyne)
+    # H12 takes points in the velodyne frame to X11 frame (global)
+    
+    n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
+    H21comp=np.identity(3)
+        
+    mn=np.zeros(2)
+    mx=np.zeros(2)
+    mn_orig=np.zeros(2)
+    mn_orig[0] = np.min(X11[:,0])
+    mn_orig[1] = np.min(X11[:,1])
+    
+    mn_orig=mn_orig-dxMatch
+    
+    
+    # R=H12[0:2,0:2]
+    # t=H12[0:2,2]
+    # X222 = R.dot(X22.T).T+t
+    
+    H12mn = H12.copy()
+    H12mn[0:2,2]=H12mn[0:2,2]-mn_orig
+    # print("mn_orig = ",mn_orig)
+    
+    # X2=X222-mn_orig
+    X1=X11-mn_orig
+    
+    
+    # t2 = np.mean(X2,axis=0)
+    # X20 = X2-t2
+    
+    mn[0] = np.min(X1[:,0])
+    mn[1] = np.min(X1[:,1])
+    mx[0] = np.max(X1[:,0])
+    mx[1] = np.max(X1[:,1])
+    # rmax=np.max(np.sqrt(X2[:,0]**2+X2[:,1]**2))
+    
+    t0 = H12mn[0:2,2]
+    L0=t0-Lmax
+    L1=t0+Lmax
+    
+    
+    
+    P = mx-mn
+
+    mxlvl=0
+    dx0=mx+dxMatch
+    dxs = []
+    XYedges=[]
+    for i in range(0,100):
+        f=2**i
+        
+        xedges=np.linspace(0,mx[0]+1*dxMatch[0],f+1)
+        yedges=np.linspace(0,mx[1]+1*dxMatch[0],f+1)
+        XYedges.append((xedges,yedges))
+        dx=np.array([xedges[1]-xedges[0],yedges[1]-yedges[0]])
+    
+        dxs.append(dx)
+        
+        if np.any(dx<=dxMatch):
+            break
+        
+    mxlvl=len(dxs)
+    
+
+    dxs=[dx.astype(np.float64) for dx in dxs]
+
+    
+    
+    H1match=nbpt2Dproc.numba_histogram2D(X1, XYedges[-1][0],XYedges[-1][1])
+    H1match = np.sign(H1match)
+    
+    
+    
+    
+
+    levels=[]
+    HLevels=[H1match]
+    
+    
+    
+    
+    
+    for i in range(1,mxlvl):
+        
+    
+    
+        Hup = HLevels[i-1]
+        H=nbpt2Dproc.UpsampleMax(Hup,n)
+
+        HLevels.append(H)
+          
+    
+    mxLVL=len(HLevels)-1
+    HLevels=HLevels[::-1]
+    HLevels=[np.ascontiguousarray(H).astype(np.int32) for H in HLevels]
+    
+    # P2=0.001*P
+    # Lmax=P2*(np.floor(Lmax/P2)+1)
+    # Lmax=np.maximum(Lmax,P)
+    
+    LmaxOrig=np.zeros(2,dtype=np.float64)
+    LmaxOrig[0]=Lmax[0]
+    LmaxOrig[1]=Lmax[1]
+
+    SolBoxes_init=[]
+    # X2[:,0]=X2[:,0]-LmaxOrig[0]
+    # X2[:,1]=X2[:,1]-LmaxOrig[1]
+    
+    # print("Lmax = ",Lmax)
+    # print("LmaxSide = ",2*Lmax)
+    L0=dxs[-1]*(np.floor(L0/dxs[-1]))
+    L1=dxs[-1]*(np.floor(L1/dxs[-1])+1)
+    # print("L0=",L0)
+    # print("L1=",L1)
+    # print("L0+mn=",L0+mn_orig)
+    # print("L1+mn=",L1+mn_orig)
+    LmaxNside = L1-L0
+    n=np.floor(np.log2(LmaxNside/dxs[-1]))+1
+    LmaxNside=dxs[-1]*np.power(2, n)
+    # print("LmaxNside = ",LmaxNside)
+    # Lmax=dxs[-1]*(np.floor(Lmax/dxs[-1])+1)
+    # Lmax=dxs[-1]*(np.floor(Lmax/dxs[-1])+1)
+    # print("Lmax = ",Lmax)
+    # for xs in np.arange(L0[0],L1[0],dxs[0][0]):
+    #     for ys in np.arange(-Lmax[1],Lmax[1],dxs[0][1]):
+    #         SolBoxes_init.append( (xs,ys,dxs[0][0],dxs[0][1]) )
+    # for xs in np.arange(-Lmax[0],Lmax[0],Lmax[0]):
+    #     for ys in np.arange(-Lmax[1],Lmax[1],Lmax[1]):
+    #         SolBoxes_init.append( (xs,ys,Lmax[0],Lmax[1]) )        
+    
+    
+    # print(SolBoxes_init)
+    
+    
+    h=[(100000.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+    lvl=0
+    dx=dxs[lvl]
+    H=HLevels[lvl]
+    
+    Xth= Dict.empty(
+        key_type=types.float64,
+        value_type=float_2Darray,
+    )
+    ii=0
+
+    thfineRes = thmin
+    thL=np.arange(-thmax,thmax+thfineRes,thfineRes,dtype=np.float64)
+    
+    
+    
+    # X2=np.ascontiguousarray(X2)
+    for j in range(len(thL)):
+        th=thL[j]
+        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+        XX=np.transpose(R.dot(X22.T))
+        XX=np.transpose(H12mn[0:2,0:2].dot(XX.T))+H12mn[0:2,2]
+        Xth[th]=XX
+        
+        
+        # for solbox in SolBoxes_init:
+        #     xs,ys,d0,d1 = solbox
+        #     Tj=np.array((d0,d1))
+        #     Oj = np.array((xs,ys)) 
+        d0,d1=Tj=dxs[0]
+        xs,ys=Oj = np.array((0,0)) 
+        
+        cost2=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj)
+        h.append((-cost2-np.random.rand()/1e10,xs,ys,d0,d1,lvl,th))
+    
+    heapq.heapify(h)
+    
+    XX=np.transpose(H12mn[0:2,0:2].dot(X22.T))+H12mn[0:2,2]
+    zz=np.zeros(2,dtype=np.float64)
+    # print("dxs[-1] = ",dxs[-1])
+    cost0=nbpt2Dproc.getPointCost(HLevels[-1],dxs[-1],XX,zz,dxs[-1])
+    # print("cost0 = ",cost0)
+    # print("len(heap) = ",len(h))
+
+    while(1):
+        (cost,xs,ys,d0,d1,lvl,th)=heapq.heappop(h)
+        mainSolbox = (cost,xs,ys,d0,d1,lvl,th)
+        if lvl==mxLVL:
+            break
+        
+        nlvl = int(lvl)+1
+        dx=dxs[nlvl]
+        H=HLevels[nlvl]
+        Tj=np.array((d0,d1))
+        Oj = np.array((xs,ys))
+
+        
+        
+        Xg=np.arange(Oj[0],Oj[0]+Tj[0],dx[0])
+        Yg=np.arange(Oj[1],Oj[1]+Tj[1],dx[1])
+        
+        d0,d1=dx[0],dx[1]
+        Tj=np.array((d0,d1))
+        
+        for xs in Xg[:2]:
+            for ys in Yg[:2]:
+                if xs+t0[0]>L1[0] or ys+t0[1]>L1[1]:
+                    continue
+                if xs+d0+t0[0]<L0[0] or ys+d1+t0[1]<L0[1]:
+                    continue
+                
+                Oj = np.array((xs,ys))
+                cost3=nbpt2Dproc.getPointCost(H,dx,Xth[th],Oj,Tj) 
+                heapq.heappush(h,(-cost3-np.random.rand()/1e10,xs,ys,d0,d1,float(nlvl),th))
+
+    # print("lvl,mxLVL,mxlvl",lvl,mxLVL,mxlvl) 
+    t=mainSolbox[1:3]
+    # print("t=",t)  
+    th = mainSolbox[6]
+    cost=-mainSolbox[0]
+    
+
+    
+    HcompR=np.identity(3)
+    R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    HcompR[0:2,0:2]=R
+    
+    Ht=np.identity(3)
+    Ht[0:2,2]=t
+    
+    # first rotation by HcompR or R
+    # then H12mn
+    # then translate by t
+    # Ht*H12mn*HcompR*X22v
+    H12comp=np.dot(Ht.dot(H12mn),HcompR)
+    H12comp[0:2,2]=H12comp[0:2,2]+mn_orig
+    
+    
+
+    
+    # H1=np.identity(3)
+    # H1[0:2,2]=-mn_orig
+    
+    # Hlmax=np.identity(3)
+    # Hlmax[0:2,2]=-LmaxOrig
+
+    
+    # H2=nplinalg.inv(H1)
+    # H2=H2.dot(Hcomp)
+    # H3=H2.dot(Hlmax)
+    # H4=H3.dot(H1)
+    # H12comp=H4.dot(H12)
+
+    H21comp=nplinalg.inv(H12comp)
+    
+    return H21comp,(cost0,cost)
+    
+
+Npf=2000
 
 
 
 
-Xlimits_scan=[np.min(np.asarray(pcd.points)[:,0]),np.max(np.asarray(pcd.points)[:,0])]
-Ylimits_scan=[np.min(np.asarray(pcd.points)[:,1]),np.max(np.asarray(pcd.points)[:,1])]
-Zlimits_scan=[np.min(np.asarray(pcd.points)[:,2]),np.max(np.asarray(pcd.points)[:,2])]
+
+Xlimits_scan=[np.min(np.asarray(pcd3DdownSensorCost.points)[:,0]),np.max(np.asarray(pcd3DdownSensorCost.points)[:,0])]
+Ylimits_scan=[np.min(np.asarray(pcd3DdownSensorCost.points)[:,1]),np.max(np.asarray(pcd3DdownSensorCost.points)[:,1])]
+Zlimits_scan=[np.min(np.asarray(pcd3DdownSensorCost.points)[:,2]),np.max(np.asarray(pcd3DdownSensorCost.points)[:,2])]
 
 
 Xlimits=[np.min(Xtpath[:,0]),np.max(Xtpath[:,0])]
@@ -443,7 +747,7 @@ dx=[0.1,0.1,0.1]
 
 
 def pose2Rt(x):
-    t=x[0:3]
+    t=x[0:3].copy()
     phi=x[3]
     xi=x[4]
     zi=x[5]
@@ -637,9 +941,9 @@ def getCTinitialSamples(Npf):
     wpf=np.ones(Npf)/Npf
     
     Q=np.diag([(0.1)**2,(0.1)**2,(0.1)**2, # x-y-z
-                (5*np.pi/180)**2,(5*np.pi/180)**2,(5*np.pi/180)**2, # angles
-                (0.5)**2,   # velocity
-                (0.02*np.pi/180)**2,(0.02*np.pi/180)**2,(0.02*np.pi/180)**2,# angle rates
+                (2*np.pi/180)**2,(2*np.pi/180)**2,(0.1*np.pi/180)**2, # angles
+                (0.2)**2,   # velocity
+                (0.05*np.pi/180)**2,(0.05*np.pi/180)**2,(0.02*np.pi/180)**2,# angle rates
                 (0.01)**2]) #acc
     
     
@@ -703,8 +1007,8 @@ def getPose(xx):
 
 Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
     
-
-sampligfunc= getCTinitialSamples_origin
+sampligfunc = getCTinitialSamples
+# sampligfunc= getCTinitialSamples_origin
 
 xstatepf, wpf, Q =sampligfunc(Npf)
 # xstatepf, wpf, Q =getUMinitialSamples(Npf)
@@ -763,25 +1067,31 @@ for k in range(1,len(dataset)):
     print("read velo time = ",et-st)
     
     X1v=X1v[:,:3]
-    X1v=np.hstack([X1v,np.ones((X1v.shape[0],1))])
+    
+    idxx=(X1v[:,0]>-200) & (X1v[:,0]<200) & (X1v[:,1]>-200) & (X1v[:,1]<200 )& (X1v[:,2]>-100) & (X1v[:,2]<100)
+    X1v=X1v[idxx,:]
+    
+    
+    # X1v=np.hstack([X1v,np.ones((X1v.shape[0],1))])
     
     
     
     
     
-    H=dataset.calib.T_cam0_velo
+    Hgt=dataset.calib.T_cam0_velo
     
     
-    H=np.dot(nplinalg.inv(H),dataset.poses[k].dot(H))
-    X1gv=H.dot(X1v.T).T
+    Hgt=np.dot(nplinalg.inv(Hgt),dataset.poses[k].dot(Hgt))
+    X1gv=Hgt[0:3,0:3].dot(X1v.T).T+Hgt[0:3,3]
     
 
-    X1gv=X1gv[:,:3]
+
+
     
-    pcdXgv = o3d.geometry.PointCloud()
-    pcdXgv.points = o3d.utility.Vector3dVector(X1gv[:,:3])
-    pcdXgv_down_pcd = pcdXgv.voxel_down_sample(voxel_size=1)
-    X1gv_down = np.asarray(pcdXgv_down_pcd.points)
+    # pcdXgv = o3d.geometry.PointCloud()
+    # pcdXgv.points = o3d.utility.Vector3dVector(X1gv[:,:3])
+    # pcdXgv_down_pcd = pcdXgv.voxel_down_sample(voxel_size=1)
+    # X1gv_down = np.asarray(pcdXgv_down_pcd.points)
     
     
     
@@ -869,6 +1179,97 @@ for k in range(1,len(dataset)):
     # et=time.time()
     # print("meas model time = ",et-st)
     
+    
+    
+    #
+    doBinMatch=1
+    if doBinMatch:
+        # st=time.time()
+        # pcldon = slam.Don(opts)
+        # pcldon.setMapX(X1v)
+        # pcldon.computeNormals(opts)
+        # pcldon.computeDon(opts)
+        # ret=pcldon.filter(opts)
+        # ret=dict(ret)
+        # X1v_roadrem=ret["Xout"]
+        # et=time.time()
+        # print("time to remove road from scan = ",et-st)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(X1v[:,:3])
+        downpcd = pcd.voxel_down_sample(voxel_size=0.05)
+        downpcd.estimate_normals(
+            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=1, max_nn=30))
+        X1vnorm = np.asarray(downpcd.normals)
+        idd=np.abs(X1vnorm[:,2])<0.5
+        
+        
+        X1v_roadrem=np.asarray(downpcd.points)
+        X1v_roadrem=X1v_roadrem[idd]
+        
+        X1gv_roadrem=Hgt[0:3,0:3].dot(X1v_roadrem.T).T+Hgt[0:3,3]
+        
+        dxMatch=np.array([3,3])
+        Lmax=np.array([250,250])
+        thmax=179*np.pi/180
+        thmin=3*np.pi/180
+    
+        idxpf=np.argmax(robotpf.wts)
+        Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
+        phiidx = robotpf.X[idxpf][3]
+        Rzphiidx,_=gicp.Rz(phiidx)
+        
+        H12est=np.identity(3)
+        H12est[0:2,0:2]=Rzphiidx[0:2,0:2]
+        H12est[0:2,2]=tidx[:2]
+        
+        X1v2D=X1v_roadrem[:,:2].copy()
+        X1v2D=down_sample(X1v2D,dxMatch[0])
+        #ax.cla()
+        #ax.plot(X1v_roadrem[:,0],X1v_roadrem[:,1],'k.')
+    
+        X1v2Dgpf=H12est[0:2,0:2].dot(X1v2D.T).T+H12est[0:2,2]
+    
+    
+        X1gvdown=down_sample(X1gv[:,:2],dxMatch[0])
+    
+    
+        st=time.time()
+        # Hbin21=binMatcherAdaptive3(X11,X2,H12est,Lmax,thmax,thmin,dxMatch)
+        Hbin21,costs=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch)
+        et=time.time()
+        print(costs)
+        Hbin12 = nplinalg.inv(Hbin21)
+        X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
+        
+        figbf = plt.figure("bin-fit")
+        if len(figbf.axes)>0:
+            ax = figbf.axes[0]
+        else:
+            ax = figbf.add_subplot(111)
+        ax.cla()
+        ax.plot(X2Dmap_down[:,0],X2Dmap_down[:,1],'k.')
+        ax.plot(X1v2Dgpf[:,0],X1v2Dgpf[:,1],'b.',label='pf-pose')
+        ax.plot(X1v2Dgc[:,0],X1v2Dgc[:,1],'r.',label='pf-pose-corrected')
+        ax.plot(X1gv_roadrem[:,0],X1gv_roadrem[:,1],'g.',label='ground truth')
+        ax.legend()
+        ax.axis("equal")
+        
+        
+        tc,thc=nbpt2Dproc.extractPosAngle(Hbin12)
+        
+        if costs[1]>costs[0]:
+            # idxpfleast=np.argmin(robotpf.wts)
+            # robotpf.X[idxpfleast]=robotpf.X[idxpf]
+            # robotpf.wts[idxpfleast]=robotpf.wts[idxpf]
+            # robotpf.X[idxpfleast][3]=thc
+            # robotpf.X[idxpfleast][:2]=tc
+            robotpf.X[idxpf][3]=thc
+            robotpf.X[idxpf][:2]=tc
+            # print(thc)
+            pass
+            
+        robotpf.renormlizeWts()
+    
     st=time.time()
     ret=pclloc.computeLikelihood(robotpf.X,X1v_down)
     ret=dict(ret)
@@ -884,45 +1285,45 @@ for k in range(1,len(dataset)):
     robotpf.renormlizeWts()
     
     # now do icp for the highest wt
-    st=time.time()
-    mxwtidx = np.argmax(robotpf.wts)
-    Rj,tj = pose2Rt(robotpf.X[mxwtidx][:6])
-    iddx=np.abs(X1v_down[:,0])<75
-    iddy=np.abs(X1v_down[:,1])<75
-    iddz=X1v_down[:,2]>0
-    idd = iddx & iddy & iddz
-    X1gv_pose = Rj.dot(X1v_down[idd,:].T).T+tj
+    # st=time.time()
+    # mxwtidx = np.argmax(robotpf.wts)
+    # Rj,tj = pose2Rt(robotpf.X[mxwtidx][:6])
+    # iddx=np.abs(X1v_down[:,0])<75
+    # iddy=np.abs(X1v_down[:,1])<75
+    # iddz=X1v_down[:,2]>0
+    # idd = iddx & iddy & iddz
+    # X1gv_pose = Rj.dot(X1v_down[idd,:].T).T+tj
     
-    bbox3dmap=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
-    pcdboxmap=pcddown.crop(bbox3dmap)
-    Xmaplocal=np.asarray(pcdboxmap.points)
-    Hpcl=slam.registrations(Xmaplocal,X1gv_pose,json.dumps(D))
-    Hpcl=dict(Hpcl)
-    H_gicp=Hpcl["H_gicp"]
-    # H_gicp= nplinalg.inv(H_gicp)
-    Hj = np.zeros((4,4))
+    # bbox3dmap=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
+    # pcdboxmap=pcddown.crop(bbox3dmap)
+    # Xmaplocal=np.asarray(pcdboxmap.points)
+    # Hpcl=slam.registrations(Xmaplocal,X1gv_pose,json.dumps(D))
+    # Hpcl=dict(Hpcl)
+    # H_gicp=Hpcl["H_gicp"]
+    # # H_gicp= nplinalg.inv(H_gicp)
+    # Hj = np.zeros((4,4))
     
-    Hj[0:3,0:3]=Rj
-    Hj[0:3,3]=tj
-    Hj[3,3]=1
+    # Hj[0:3,0:3]=Rj
+    # Hj[0:3,3]=tj
+    # Hj[3,3]=1
     
-    X1gv_pose_corr = H_gicp[0:3,0:3].dot(X1gv_pose.T).T+H_gicp[0:3,3]
+    # X1gv_pose_corr = H_gicp[0:3,0:3].dot(X1gv_pose.T).T+H_gicp[0:3,3]
     
-    figcorr = plt.figure()    
-    axcorr= figcorr.add_subplot(111)
-    axcorr.cla()
-    axcorr.plot(Xmaplocal[:,0],Xmaplocal[:,1],'k.',label='map')
-    axcorr.plot(X1gv_pose[:,0],X1gv_pose[:,1],'r.',label='orig-pose')
-    axcorr.plot(X1gv_pose_corr[:,0],X1gv_pose_corr[:,1],'b.',label='corr-pose')
-    axcorr.legend()
+    # figcorr = plt.figure()    
+    # axcorr= figcorr.add_subplot(111)
+    # axcorr.cla()
+    # axcorr.plot(Xmaplocal[:,0],Xmaplocal[:,1],'k.',label='map')
+    # axcorr.plot(X1gv_pose[:,0],X1gv_pose[:,1],'r.',label='orig-pose')
+    # axcorr.plot(X1gv_pose_corr[:,0],X1gv_pose_corr[:,1],'b.',label='corr-pose')
+    # axcorr.legend()
     
-    et=time.time()
-    print("icp correction time = ",et-st)
+    # et=time.time()
+    # print("icp correction time = ",et-st)
     
     
     
     Neff=robotpf.getNeff()
-    if Neff/Npf<2:
+    if Neff/Npf<0.5:
         robotpf.bootstrapResample()
     
     # robotpf.regularizedresample(kernel='gaussian',scale=1/25)
@@ -952,7 +1353,7 @@ for k in range(1,len(dataset)):
         # xmap = np.asarray(pcdbox.points)
         # axpf.plot(xmap[:,0],xmap[:,1],xmap[:,2],'k.')
     
-    
+    st=time.time()
     ArrXpf=[]
     for i in range(robotpf.X.shape[0]):
         xx=robotpf.X[i]
@@ -979,10 +1380,11 @@ for k in range(1,len(dataset)):
                 pcdX1gv_pose.paint_uniform_color([0,1,0]) #green
                 
                 bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
-                pcdbox=pcd.crop(bbox3d)
+                pcdbox=pcd3DdownSensorCost.crop(bbox3d)
                 pcdbox.paint_uniform_color([220,220,220])
 
-    
+    et=time.time()
+    print("arrow 3d plot time of pf partilees = ",et-st)
     if makeOpen3DdebugPlot:
         # plot PF points as black
         pcdPF = o3d.geometry.PointCloud()
@@ -1033,6 +1435,6 @@ for k in range(1,len(dataset)):
     # plt.show()
     plt.pause(0.1)
     
-    if k>=1:
+    if k>=400:
         break
 # vis.destroy_window()    

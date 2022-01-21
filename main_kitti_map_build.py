@@ -122,7 +122,8 @@ def Fconsumer(inputarg):
 #     print("recieved ",i)
     
 pcd=None
-PCD=[]
+PCD=None
+j=None
 for i in range(0,len(dataset)):
     print(i,len(dataset))
     X1 = dataset.get_velo(i)
@@ -142,16 +143,16 @@ for i in range(0,len(dataset)):
 
     pcd1 = o3d.geometry.PointCloud()
     pcd1.points = o3d.utility.Vector3dVector(X1)
-    pcd1, ind = pcd1.remove_radius_outlier(nb_points=5, radius=0.5)
+
     # PCD.append(pcd1)
     
-    if pcd is None:
-        pcd=pcd1
+    if PCD is None:
+        PCD=pcd1
     else:
-        pcd=pcd+pcd1
-        
-    pcd = pcd.voxel_down_sample(voxel_size=0.05)    
+        PCD=PCD+pcd1
+            
     
+        
     # if i>15:
     #     break
     # Hf=numba_histogram3D(X1, xedges,yedges,zedges)
@@ -160,13 +161,24 @@ for i in range(0,len(dataset)):
     # else:
     #     Hf+=Ht
     
-#     if i>100:
-#         break
+    if j is None or i-j>10:
+        j=i
+        PCD = PCD.voxel_down_sample(voxel_size=0.015)    
+        pcd2, ind = PCD.remove_radius_outlier(nb_points=20, radius=0.1)
+        if pcd is None:
+            pcd=pcd2
+        else:
+            pcd=pcd+pcd2
+        pcd = pcd.voxel_down_sample(voxel_size=0.05)    
+        PCD=None
+        
+    # if i>950:
+    #     break
 
     
 o3d.visualization.draw_geometries([pcd])
 # o3d.visualization.draw_geometries(PCD)
-o3d.io.write_point_cloud("kitti-pcd-seq-%s.pcd"%sequence, pcd)
+o3d.io.write_point_cloud("kitti-pcd-seq-movingObjRem-%s.pcd"%sequence, pcd)
 # #%%
 # pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.5, max_nn=30))
 
@@ -201,3 +213,7 @@ o3d.io.write_point_cloud("kitti-pcd-seq-%s.pcd"%sequence, pcd)
 
 # # ans = scene.cast_rays(rays)
 
+
+#%%
+pcd=o3d.io.read_point_cloud("kitti-pcd-seq-movingObjRem-%s.pcd"%sequence)
+o3d.visualization.draw_geometries([pcd])

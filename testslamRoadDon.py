@@ -32,6 +32,8 @@ with open("testpcllocalize.pkl","rb") as FF:
     Xpf,X1v_down=pickle.load(FF)
 
 pcd=o3d.io.read_point_cloud("kitti-pcd-seq-%s.pcd"%sequence)
+o3d.visualization.draw_geometries([pcd])
+
 pcdboxdown=pcd.voxel_down_sample(voxel_size=0.2)
 
 # bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1v_down,axis=0)-50,max_bound=np.max(X1v_down,axis=0)+50)
@@ -86,6 +88,13 @@ D["DON"]["threshold_small_z"]=0.5;
 D["DON"]["threshold_large_z"]=0.5;
 
 D["DON"]["segradius"]=1;
+
+D["DON"]["threshold_curv_lb"]=0.1;
+D["DON"]["threshold_curv_ub"]=100000;
+D["DON"]["threshold_small_nz_lb"]=-0.5;
+D["DON"]["threshold_small_nz_ub"]=0.5;
+D["DON"]["threshold_large_nz_lb"]=-5;
+D["DON"]["threshold_large_nz_ub"]=5;
 
 opts = json.dumps(D)
 
@@ -507,7 +516,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     return H21comp
     
 
-dxMatch=np.array([2,2])
+dxMatch=np.array([5,5])
 
 def down_sample(X,voxel_size):
     NN=X.ndim
