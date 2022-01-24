@@ -28,6 +28,7 @@ from lidarprocessing import point2Dprocessing as pt2dproc
 from lidarprocessing import point3Dprocessing as pt3dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
+import lidarprocessing.numba_codes.binmatchers as binmatchers
 from lidarprocessing.numba_codes import gicp
 import queue
 from sklearn.neighbors import KDTree
@@ -349,7 +350,12 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch,dxBase):
         h=HH
         if flg==False:
             break
-        
+    
+    heapq.heapify(h)
+    
+    print("len heap at 1 = ",len(h))
+    
+    
     while(1):
         (cost,xs,ys,d0,d1,lvl,th,mxLVL)=heapq.heappop(h)
         mainSolbox = (cost,xs,ys,d0,d1,lvl,th,mxLVL)
@@ -461,21 +467,21 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch,dxBase):
     hh=[tuple(ss) for ss in hh]
     
     hR = []
-    for i in range(len(h)):
-        g= list(h[i])
-        t=g[1:3]-t0
-        R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
-        H0=np.identity(3)
-        H0[0:2,0:2]=R
-        H1=np.identity(3)
-        H1[0:2,2]=t
+    # for i in range(len(h)):
+    #     g= list(h[i])
+    #     t=g[1:3]-t0
+    #     R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
+    #     H0=np.identity(3)
+    #     H0[0:2,0:2]=R
+    #     H1=np.identity(3)
+    #     H1[0:2,2]=t
         
-        H12i=np.dot(H1.dot(H12mn),H0)
-        H12i[0:2,2]=H12i[0:2,2]+mn_orig
+    #     H12i=np.dot(H1.dot(H12mn),H0)
+    #     H12i[0:2,2]=H12i[0:2,2]+mn_orig
         
         
-        g.append(H12i)
-        hR.append(g)
+    #     g.append(H12i)
+    #     hR.append(g)
     
     return H21comp,(cost0,cost),hh,hR
     
@@ -535,15 +541,15 @@ X1v_roadrem=X1v_roadrem[idd]
 
 
 
-dxMatch=np.array([0.25,0.25])
-dxBase=np.array([1,1])
+dxMatch=np.array([3,3])
+dxBase=np.array([70,70])
 Lmax=np.array([5100,5100])
 thmax=170*np.pi/180
-thmin=2.5*np.pi/180
+thmin=5*np.pi/180
 
 
 H12est=np.identity(3)
-H12est[0:2,2]=[30,30]
+H12est[0:2,2]=[300,300]
 
 X1v2D=X1v_roadrem[:,:2].copy()
 X1v2D=down_sample(X1v2D,dxMatch[0])
@@ -557,9 +563,11 @@ X1v2Dgpf=H12est[0:2,0:2].dot(X1v2D.T).T+H12est[0:2,2]
 
 st=time.time()
 # Hbin21=binMatcherAdaptive3(X11,X2,H12est,Lmax,thmax,thmin,dxMatch)
-Hbin21,costs,hh,h=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase)
+# Hbin21,costs,hh,h=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase)
+Hbin21=binmatchers.binMatcherAdaptive_super(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase)
 et=time.time()
-print("costs=",costs)
+print("time taken = ",et-st)
+# print("costs=",costs)
 Hbin12 = nplinalg.inv(Hbin21)
 X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
 
@@ -574,8 +582,8 @@ ax.plot(X1v2Dgpf[:,0],X1v2Dgpf[:,1],'b.',label='pf-pose')
 ax.plot(X1v2Dgc[:,0],X1v2Dgc[:,1],'r.',label='pf-pose-corrected')
 ax.legend()
 ax.axis("equal")
-Xp = np.array([g[-1][0:2,2] for g in h if g[5]>(g[7]-5)])
-ax.plot(Xp[:,0],Xp[:,1],'go')
+# Xp = np.array([g[-1][0:2,2] for g in h if g[5]>(g[7]-5)])
+# ax.plot(Xp[:,0],Xp[:,1],'go')
         
 tc,thc=nbpt2Dproc.extractPosAngle(Hbin12)
 print("tc=",tc)

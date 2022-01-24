@@ -708,6 +708,8 @@ def binMatcherAdaptive4_good(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     return H21comp
     
 
+
+
 @jit(int32[:,:](float64[:,:], float64[:], float64[:]),nopython=True, nogil=True,cache=True) 
 def numba_histogram2D(X, xedges,yedges):
     x_min = np.min(xedges)

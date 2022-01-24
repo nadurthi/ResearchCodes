@@ -28,6 +28,7 @@ from lidarprocessing import point2Dprocessing as pt2dproc
 from lidarprocessing import point3Dprocessing as pt3dproc
 from lidarprocessing import point2Dplotting as pt2dplot
 import lidarprocessing.numba_codes.point2Dprocessing_numba as nbpt2Dproc
+import lidarprocessing.numba_codes.binmatchers as binmatchers
 from lidarprocessing.numba_codes import gicp
 import queue
 from sklearn.neighbors import KDTree
@@ -367,11 +368,11 @@ D={"icp":{},
    "gicp_cost":{},
    "ndt":{},
    "sig0":0.5,
-   "dmax":50,
+   "dmax":10,
    "DoIcpCorrection":0}
 
-D["icp"]["enable"]=0
-D["icp"]["setMaximumIterations"]=5
+D["icp"]["enable"]=1
+D["icp"]["setMaximumIterations"]=50
 D["icp"]["setMaxCorrespondenceDistance"]=25
 D["icp"]["setRANSACIterations"]=0.0
 D["icp"]["setRANSACOutlierRejectionThreshold"]=1.5
@@ -423,7 +424,8 @@ D["DON"]["threshold_large_nz_ub"]=5;
 
 pclloc=slam.Localize(json.dumps(D))
 
-X3Dmap_down = np.asarray(pcd3DdownSensorCost.voxel_down_sample(voxel_size=0.25).points)
+pcd3DdownSensorCostDown=pcd3DdownSensorCost.voxel_down_sample(voxel_size=0.25)
+X3Dmap_down = np.asarray(pcd3DdownSensorCostDown.points)
 pclloc.setMapX(X3Dmap_down)
 
 opts = json.dumps(D)
@@ -708,7 +710,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     return H21comp,(cost0,cost)
     
 
-Npf=2000
+Npf=1000
 
 
 
@@ -994,16 +996,7 @@ def measModel(xx):
     
     return np.array([r,th,phi])
 
-def getPose(xx):
-    t=xx[0:3]
-    v=xx[3:6]
 
-    
-    
-    phi=np.arctan2(v[1],v[0]) # z
-    xi=np.arccos(v[2]/r)  # y
-    zi=xx[5]  # x
-    
 
 Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
     
@@ -1019,12 +1012,12 @@ robotpf=pf.Particles(X=xstatepf,wts=wpf)
 
 
 
-figpf = plt.figure()    
-axpf = figpf.add_subplot(111)
-axpf.plot(Xtpath[:,0],Xtpath[:,1],'k')
-axpf.plot(robotpf.X[:,0],robotpf.X[:,1],'r.')
-axpf.set_title("initial pf points")
-plt.show() 
+# figpf = plt.figure()    
+# axpf = figpf.add_subplot(111)
+# axpf.plot(Xtpath[:,0],Xtpath[:,1],'k')
+# axpf.plot(robotpf.X[:,0],robotpf.X[:,1],'r.')
+# axpf.set_title("initial pf points")
+# plt.show() 
  
 dmax=D["dmax"]
 # sig=1
@@ -1182,8 +1175,14 @@ for k in range(1,len(dataset)):
     
     
     #
-    doBinMatch=1
+    idxpf=0
+    doBinMatch=0
     if doBinMatch:
+        st=time.time()
+        ret=pclloc.computeLikelihood(robotpf.X,X1v_down)
+        ret=dict(ret)
+        beforelikelihood=ret['likelihood'].reshape(-1)
+        
         # st=time.time()
         # pcldon = slam.Don(opts)
         # pcldon.setMapX(X1v)
@@ -1208,68 +1207,91 @@ for k in range(1,len(dataset)):
         
         X1gv_roadrem=Hgt[0:3,0:3].dot(X1v_roadrem.T).T+Hgt[0:3,3]
         
-        dxMatch=np.array([3,3])
-        Lmax=np.array([250,250])
-        thmax=179*np.pi/180
-        thmin=3*np.pi/180
-    
-        idxpf=np.argmax(robotpf.wts)
-        Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
-        phiidx = robotpf.X[idxpf][3]
-        Rzphiidx,_=gicp.Rz(phiidx)
+        dxMatch=np.array([2,2])
+        dxBase=np.array([30,30])
+        Lmax=np.array([200,200])
+        thmax=170*np.pi/180
+        thmin=2.5*np.pi/180
         
-        H12est=np.identity(3)
-        H12est[0:2,0:2]=Rzphiidx[0:2,0:2]
-        H12est[0:2,2]=tidx[:2]
+        idxpfmx=np.argmax(robotpf.wts)
+        for idxpf in [idxpfmx]:
+            
+            Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
+            phiidx = robotpf.X[idxpf][3]
+            Rzphiidx,_=gicp.Rz(phiidx)
+            
+            H12est=np.identity(3)
+            H12est[0:2,0:2]=Rzphiidx[0:2,0:2]
+            H12est[0:2,2]=tidx[:2]
+            
+            X1v2D=X1v_roadrem[:,:2].copy()
+            X1v2D=down_sample(X1v2D,dxMatch[0])
+            #ax.cla()
+            #ax.plot(X1v_roadrem[:,0],X1v_roadrem[:,1],'k.')
         
-        X1v2D=X1v_roadrem[:,:2].copy()
-        X1v2D=down_sample(X1v2D,dxMatch[0])
-        #ax.cla()
-        #ax.plot(X1v_roadrem[:,0],X1v_roadrem[:,1],'k.')
-    
-        X1v2Dgpf=H12est[0:2,0:2].dot(X1v2D.T).T+H12est[0:2,2]
-    
-    
-        X1gvdown=down_sample(X1gv[:,:2],dxMatch[0])
-    
-    
-        st=time.time()
-        # Hbin21=binMatcherAdaptive3(X11,X2,H12est,Lmax,thmax,thmin,dxMatch)
-        Hbin21,costs=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch)
-        et=time.time()
-        print(costs)
-        Hbin12 = nplinalg.inv(Hbin21)
-        X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
-        
-        figbf = plt.figure("bin-fit")
-        if len(figbf.axes)>0:
-            ax = figbf.axes[0]
-        else:
-            ax = figbf.add_subplot(111)
-        ax.cla()
-        ax.plot(X2Dmap_down[:,0],X2Dmap_down[:,1],'k.')
-        ax.plot(X1v2Dgpf[:,0],X1v2Dgpf[:,1],'b.',label='pf-pose')
-        ax.plot(X1v2Dgc[:,0],X1v2Dgc[:,1],'r.',label='pf-pose-corrected')
-        ax.plot(X1gv_roadrem[:,0],X1gv_roadrem[:,1],'g.',label='ground truth')
-        ax.legend()
-        ax.axis("equal")
+            X1v2Dgpf=H12est[0:2,0:2].dot(X1v2D.T).T+H12est[0:2,2]
         
         
-        tc,thc=nbpt2Dproc.extractPosAngle(Hbin12)
+            X1gvdown=down_sample(X1gv[:,:2],dxMatch[0])
         
-        if costs[1]>costs[0]:
-            # idxpfleast=np.argmin(robotpf.wts)
-            # robotpf.X[idxpfleast]=robotpf.X[idxpf]
-            # robotpf.wts[idxpfleast]=robotpf.wts[idxpf]
-            # robotpf.X[idxpfleast][3]=thc
-            # robotpf.X[idxpfleast][:2]=tc
-            robotpf.X[idxpf][3]=thc
-            robotpf.X[idxpf][:2]=tc
-            # print(thc)
-            pass
+        
+            st=time.time()
+            # Hbin21=binMatcherAdaptive3(X11,X2,H12est,Lmax,thmax,thmin,dxMatch)
+            # Hbin21,costs=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch)
+            Hbin21,cost0,cost,hh,hR=binmatchers.binMatcherAdaptive_super(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase)
+            et=time.time()
+            
+            Hbin12 = nplinalg.inv(Hbin21)
+            X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
+            
+            figbf = plt.figure("bin-fit")
+            if len(figbf.axes)>0:
+                ax = figbf.axes[0]
+            else:
+                ax = figbf.add_subplot(111)
+            ax.cla()
+            ax.plot(X2Dmap_down[:,0],X2Dmap_down[:,1],'k.')
+            ax.plot(X1v2Dgpf[:,0],X1v2Dgpf[:,1],'b.',label='pf-pose')
+            ax.plot(X1v2Dgc[:,0],X1v2Dgc[:,1],'r.',label='pf-pose-corrected')
+            ax.plot(X1gv_roadrem[:,0],X1gv_roadrem[:,1],'g.',label='ground truth')
+            ax.legend()
+            ax.axis("equal")
+            
+            
+            tc,thc=nbpt2Dproc.extractPosAngle(Hbin12)
+            
+            
+            if cost>cost0:
+                # idxpfleast=np.argmin(robotpf.wts)
+                # robotpf.X[idxpfleast]=robotpf.X[idxpf]
+                # robotpf.wts[idxpfleast]=robotpf.wts[idxpf]
+                # robotpf.X[idxpfleas50t][3]=thc
+                # robotpf.X[idxpfleast][:2]=tc
+                
+                robotpf.X[idxpf][3]=thc
+                robotpf.X[idxpf][:2]=tc
+                # robotpf.wts[idxpf]=0.8
+                # print(thc)
+                Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
+                Hidx=np.identity(4)
+                Hidx[0:3,0:3]=Ridx
+                Hidx[0:3,3]=tidx
+                X1v_down_pfpose = Ridx.dot(X1v_down.T).T+tidx
+                
+                Hpcl={'H_icp':np.identity(4)}
+                # bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1v_down_pfpose,axis=0)-5,max_bound=np.max(X1v_down_pfpose,axis=0)+5)
+                # pcdbox=pcd3DdownSensorCostDown.crop(bbox3d)
+                # Xmappflocal = np.asarray(pcdbox.points)
+                # Hpcl=slam.registrations(Xmappflocal.copy(),X1v_down_pfpose.copy(),json.dumps(D))
+                # Hpcl=dict(Hpcl)
+                Ha=Hpcl['H_icp'].dot(Hidx)
+                xx=Rt2pose(Ha[0:3,0:3],Ha[0:3,3])
+                robotpf.X[idxpf][:6]=xx
+                pass
             
         robotpf.renormlizeWts()
     
+    print("Pf#%d wt before = ",robotpf.wts[idxpf])
     st=time.time()
     ret=pclloc.computeLikelihood(robotpf.X,X1v_down)
     ret=dict(ret)
@@ -1278,11 +1300,13 @@ for k in range(1,len(dataset)):
     # likelihood=np.array(likelihood)
     likelihood=np.exp(-likelihood)
     likelihood[likelihood<1e-20]=1e-20
+    # break
     robotpf.wts=likelihood*robotpf.wts
     et=time.time()
     print("pcl meas model time = ",et-st)
     
     robotpf.renormlizeWts()
+    print("Pf#%d wt after = ",robotpf.wts[idxpf])
     
     # now do icp for the highest wt
     # st=time.time()
@@ -1323,7 +1347,7 @@ for k in range(1,len(dataset)):
     
     
     Neff=robotpf.getNeff()
-    if Neff/Npf<0.5:
+    if Neff/Npf<0.25:
         robotpf.bootstrapResample()
     
     # robotpf.regularizedresample(kernel='gaussian',scale=1/25)

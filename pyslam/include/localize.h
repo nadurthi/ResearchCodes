@@ -47,6 +47,8 @@ public:
   Localize(std::string opt);
 
   void setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX);
+  void setMapX( pcl::PointCloud<pcl::PointXYZ> MapX);
+
   std::vector<std::pair<std::string,Eigen::MatrixXf>>
   computeLikelihood(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,const Eigen::Ref<const Eigen::MatrixXf> &Xmeas);
 

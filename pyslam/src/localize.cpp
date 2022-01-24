@@ -54,6 +54,18 @@ void Localize::setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX){
 
   std::cout << "Built KDtree " << std::endl;
 }
+void Localize::setMapX( pcl::PointCloud<pcl::PointXYZ> MapX){
+  mapX.reset(MapX);
+  // mapX->points.resize(MapX.rows());
+
+  kdtree.setInputCloud (mapX);
+  icp.setInputTarget(mapX);
+  // octree.setInputCloud (mapX);
+  // octree.addPointsFromInputCloud ();
+
+  std::cout << "Built KDtree " << std::endl;
+}
+
 
 float Localize::getNNsqrddist2Map(pcl::PointXYZ searchPoint,float dmax){
   std::vector<int> pointIdxRadiusSearch;
