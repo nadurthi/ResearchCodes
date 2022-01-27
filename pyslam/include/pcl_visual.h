@@ -1,11 +1,7 @@
-#include <iostream>
-#include <thread>
+#pragma once
 
-#include <pcl/common/common_headers.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/console/parse.h>
+#include "base.h"
+
 
 void
 plotpcd(pcl::visualization::PCLVisualizer::Ptr viewer,
@@ -92,7 +88,37 @@ public:
     viewer->spinOnce (100);
     std::this_thread::sleep_for(100ms);
   };
+  void clear(){
+    viewer->removeAllPointClouds();
+    viewer->removeAllShapes();
+  };
+  void plotMap(pcl::PointCloud<pcl::PointXYZ>::Ptr C1){
+    int r = options["plotting"]["map_color_r"];
+    int g = options["plotting"]["map_color_g"];
+    int b = options["plotting"]["map_color_b"];
+    int pointsize = options["plotting"]["map_pointsize"];
+    plotpcd(viewer, C1,"mappcd",{r,g,b},pointsize);
+  };
+  void plottraj(const Eigen::Ref<const Eigen::MatrixXf> &points){
+    int r = options["plotting"]["traj_color_r"];
+    int g = options["plotting"]["traj_color_g"];
+    int b = options["plotting"]["traj_color_b"];
+    int pointsize = options["plotting"]["traj_pointsize"];
+    plottraj(viewer,points,"traj",{r,g,b},pointsize);
+  }
+  void plotPFpoints(const Eigen::Ref<const Eigen::MatrixXf> &points,
+    const Eigen::Ref<const Eigen::MatrixXf> &dirs){
+    int r = options["plotting"]["pf_color_r"];
+    int g = options["plotting"]["pf_color_g"];
+    int b = options["plotting"]["pf_color_b"];
+    int pointsize = options["plotting"]["pf_pointsize"];
+    float arrowlen= options["plotting"]["pf_arrowlen"];
+    plotpoints(viewer,points,"pfpoints",color,pointsize);
+    plotpointarrows(viewer,points,dirs,"pfdirs",color,pointsize,arrowlen);
+  }
+
   pcl::visualization::PCLVisualizer::Ptr viewer;
+  json options;
 };
 // viewer->setBackgroundColor (0, 0, 0);
 // viewer->addCoordinateSystem (1.0);

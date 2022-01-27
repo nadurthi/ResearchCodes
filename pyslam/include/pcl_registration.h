@@ -1,25 +1,5 @@
 #pragma once
-
-#include <pybind11/eigen.h>
-#include <iostream>
-#include <thread>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <vector>
-#include <utility>
-#include <map>
-#include <pybind11/stl.h>
-#include <pybind11/pybind11.h>
-#include <string>
-// #include <pcl/registration/gicp.h>
-#include <pcl/registration/mygicp.h>
-#include <pcl/registration/ndt.h>
-#include <pcl/registration/icp.h>
-#include <pcl/filters/approximate_voxel_grid.h>
-
-#include <pcl/visualization/pcl_visualizer.h>
-
-#include <nlohmann/json.hpp>
+#include "base.h"
 
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using json = nlohmann::json;
@@ -33,4 +13,4 @@ int add(int i,int j,py::dict dict,std::string c);
 
 void print4x4Matrix (const Eigen::Matrix4f & matrix);
 
-std::vector<std::pair<std::string,Eigen::MatrixXf>>  registrations(const Eigen::Ref<const Eigen::MatrixXf> &big,const Eigen::Ref<const Eigen::MatrixXf> &small,std::string c);
+std::vector<std::pair<std::string,Eigen::MatrixXf> >  registrations(const Eigen::Ref<const Eigen::MatrixXf> &big,const Eigen::Ref<const Eigen::MatrixXf> &small,std::string c);

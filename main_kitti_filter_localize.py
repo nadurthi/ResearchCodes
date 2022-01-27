@@ -1035,7 +1035,7 @@ XpfTraj[0]=m
 save_image = False
 
 
-makeMatPlotLibdebugPlot=True
+makeMatPlotLibdebugPlot=False
 makeOpen3DdebugPlot=False
 
 if makeMatPlotLibdebugPlot:
@@ -1377,39 +1377,40 @@ for k in range(1,len(dataset)):
         # xmap = np.asarray(pcdbox.points)
         # axpf.plot(xmap[:,0],xmap[:,1],xmap[:,2],'k.')
     
-    st=time.time()
-    ArrXpf=[]
-    for i in range(robotpf.X.shape[0]):
-        xx=robotpf.X[i]
-        
-        
-        R,t = pose2Rt(robotpf.X[i][:6])
-        
-        drn = R.dot([1,0,0])
-        t2=t+5*drn
-        ArrXpf.append(t2)
-        G=np.vstack([t,t2])
-        if makeMatPlotLibdebugPlot:
-            axpf.plot(G[:,0],G[:,1],G[:,2],'r')
-        
-        
-        if makeOpen3DdebugPlot:
-            if i==0:     
-                X1gv_pose = R.dot(X1gv.T).T+t
-                # axpf.plot(G[:,0],G[:,1],G[:,2],'b')
-                # axpf.plot(X1gv_pose[:,0],X1gv_pose[:,1],X1gv_pose[:,2],'r.')
-                
-                pcdX1gv_pose = o3d.geometry.PointCloud()
-                pcdX1gv_pose.points = o3d.utility.Vector3dVector(X1gv_pose)
-                pcdX1gv_pose.paint_uniform_color([0,1,0]) #green
-                
-                bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
-                pcdbox=pcd3DdownSensorCost.crop(bbox3d)
-                pcdbox.paint_uniform_color([220,220,220])
-
-    et=time.time()
-    print("arrow 3d plot time of pf partilees = ",et-st)
-    if makeOpen3DdebugPlot:
+    if makeMatPlotLibdebugPlot:
+        st=time.time()
+        ArrXpf=[]
+        for i in range(robotpf.X.shape[0]):
+            xx=robotpf.X[i]
+            
+            
+            R,t = pose2Rt(robotpf.X[i][:6])
+            
+            drn = R.dot([1,0,0])
+            t2=t+5*drn
+            ArrXpf.append(t2)
+            G=np.vstack([t,t2])
+            if makeMatPlotLibdebugPlot:
+                axpf.plot(G[:,0],G[:,1],G[:,2],'r')
+            
+            
+            if makeOpen3DdebugPlot:
+                if i==0:     
+                    X1gv_pose = R.dot(X1gv.T).T+t
+                    # axpf.plot(G[:,0],G[:,1],G[:,2],'b')
+                    # axpf.plot(X1gv_pose[:,0],X1gv_pose[:,1],X1gv_pose[:,2],'r.')
+                    
+                    pcdX1gv_pose = o3d.geometry.PointCloud()
+                    pcdX1gv_pose.points = o3d.utility.Vector3dVector(X1gv_pose)
+                    pcdX1gv_pose.paint_uniform_color([0,1,0]) #green
+                    
+                    bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1gv_pose,axis=0)-5,max_bound=np.max(X1gv_pose,axis=0)+5)
+                    pcdbox=pcd3DdownSensorCost.crop(bbox3d)
+                    pcdbox.paint_uniform_color([220,220,220])
+    
+        et=time.time()
+        print("arrow 3d plot time of pf partilees = ",et-st)
+    if makeOpen3DdebugPlot :
         # plot PF points as black
         pcdPF = o3d.geometry.PointCloud()
         pcdPF.points = o3d.utility.Vector3dVector(robotpf.X[:,:3])

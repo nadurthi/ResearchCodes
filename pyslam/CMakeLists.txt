@@ -20,6 +20,7 @@ endif()
 #-------------------------------------------------------
 set(HEADER_BASE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(SCRIPT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
 file(GLOB SRC_FILES ${SOURCE_DIR}/*.cpp)
 
 #---------------------------------------------------------------------------------------
@@ -27,7 +28,7 @@ file(GLOB SRC_FILES ${SOURCE_DIR}/*.cpp)
 #---------------------------------------------------------------------------------------
 #find_package (Threads)
 find_package (Boost)
-find_package(Eigen3 REQUIRED)
+find_package(Eigen3 3.4 REQUIRED)
 find_package(PCL)
 find_package(OpenMP REQUIRED)
 # find_package(spdlog REQUIRED)
@@ -44,10 +45,18 @@ add_definitions(${PCL_DEFINITIONS})
 
 
 
-pybind11_add_module(${CMAKE_PROJECT_NAME} "${SOURCE_DIR}/main.cpp" ${SRC_FILES} )
+pybind11_add_module(${CMAKE_PROJECT_NAME} "${SCRIPT_DIR}/main.cpp" ${SRC_FILES} )
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} )
+target_precompile_headers(${CMAKE_PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/base.h")
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen)
+
+add_executable(kittilocal "${SCRIPT_DIR}/kittiLocalize.cpp" ${SRC_FILES} )
+target_compile_definitions(kittilocal PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} )
+target_precompile_headers(kittilocal PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/base.h")
+target_include_directories(kittilocal PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} pybind11::headers)
+target_link_libraries(kittilocal PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX pybind11::module  Eigen3::Eigen pybind11::embed)
+
 
 #target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} ${PCL_DEFINITIONS})
 #target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
