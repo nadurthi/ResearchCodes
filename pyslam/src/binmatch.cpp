@@ -8,22 +8,23 @@ void takejson(const nlohmann::json& json){
 }
 MatrixXXi
 UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n){
-        printmsg("Hup.rows()",Hup.rows());
-        printmsg("Hup.cols()",Hup.cols());
+        // printmsg("Hup.rows()",Hup.rows());
+        // printmsg("Hup.cols()",Hup.cols());
         MatrixXXi H=MatrixXXi::Zero(Hup.rows()/2,Hup.cols()/2);
-        printmsg("H.rows()",H.rows());
-        printmsg("H.cols()",H.cols());
+        // printmsg("H.rows()",H.rows());
+        // printmsg("H.cols()",H.cols());
         for(int j=0; j<H.rows(); ++j) {
-                for(int k=0; j<H.cols(); ++k) {
+                for(int k=0; k<H.cols(); ++k) {
                         int lbx=std::max(2*j,0);
-                        int ubx=std::min(2*j+n,int(Hup.rows())-1);
+                        int ubx=std::min(2*j+n,int(Hup.rows()));
                         int lby=std::max(2*k,0);
-                        int uby=std::min(2*k+n,int(Hup.cols())-1);
-                        printmsg("lbx",lbx);
-                        printmsg("ubx",ubx);
-                        printmsg("lby",lby);
-                        printmsg("uby",uby);
-                        H(j,k) = Hup(Eigen::seq(lbx,ubx),Eigen::seq(lby,uby)).maxCoeff();
+                        int uby=std::min(2*k+n,int(Hup.cols()));
+                        // printmsg("lbx",lbx);
+                        // printmsg("ubx",ubx);
+                        // printmsg("lby",lby);
+                        // printmsg("uby",uby);
+                        // H(j,k) = Hup(Eigen::seq(lbx,ubx),Eigen::seq(lby,uby)).maxCoeff();
+                        H(j,k) = Hup.block(lbx,lby,ubx-lbx,uby-lby).maxCoeff();
                 }
 
         }
@@ -32,16 +33,16 @@ UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n){
 
 
 MatrixXXi
-computeHitogram2D(const Eigen::Ref<const MatrixX2f>& X,Matrix2irow n_edges, Matrix2frow xmin, Matrix2frow xmax){
+computeHitogram2D(const Eigen::Ref<const MatrixX2f>& X,Matrix2irow n_edges, Matrix2frow xymin, Matrix2frow xymax){
         // Lxy is the length
 
         MatrixXXi H = MatrixXXi::Zero(n_edges(0)-1,n_edges(1)-1);
 
-        Matrix2frow dxy({xmax(0)-xmin(0),xmax(1)-xmin(1)});
-        Matrix2frow xymin({xmin(0),xmin(1)});
-        Matrix2frow xymax({xmax(0),xmax(1)});
+        Matrix2frow dxy({xymax(0)-xymin(0),xymax(1)-xymin(1)});
+        // Matrix2frow xymin({xmin(0),xmin(1)});
+        // Matrix2frow xymax({xmax(0),xmax(1)});
 
-        Matrix2irow nxy({n_edges(0)-1,n_edges(1)-1});
+        Matrix2frow nxy({n_edges(0)-1,n_edges(1)-1});
         // MatrixX2f X1 = X;
         MatrixX2f X1 = X.rowwise()-xymin;
         MatrixX2f X2 = -(X.rowwise()-xymax);
@@ -49,8 +50,8 @@ computeHitogram2D(const Eigen::Ref<const MatrixX2f>& X,Matrix2irow n_edges, Matr
 
         MatrixXbcol inbnd= ( (X1.array()>=0 ).array() * (X2.array()>=0 ).array()).rowwise().all();
 
-        MatrixX2i dd =( (X1.array().rowwise())/dxy.array() ).cast<int>();
-        dd = dd.array().rowwise()*nxy.array();
+        MatrixX2i dd =( ( (X1.array().rowwise())/dxy.array() ).array().rowwise()*nxy.array() ).cast<int>();
+        // dd = dd.array().rowwise()*nxy.array();
 
         for(int i=0; i< X.rows(); ++i) {
                 if (inbnd(i))
@@ -186,7 +187,6 @@ void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
         mx(0) = Xtarg1.col(0).maxCoeff();
         mx(1) = Xtarg1.col(1).maxCoeff();
 
-        printmsg("mn",mn);
 
 
         // Matrix2frow P = mx-mn;
@@ -203,34 +203,34 @@ void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
                 if ( (dxlevels.back().array()<=dxMatch.array()).array().any() )
                         break;
         }
-        printmsg("f",f);
 
         mxlvl=dxlevels.size();
         Matrix2irow n_edges = ( (mx+1*dxMatch).array()/dxlevels.back().array()+1 ).cast<int>();
         MatrixXXi H1match= computeHitogram2D(Xtarg1,n_edges, Matrix2frow({0,0}), mx+1*dxMatch);
 
-        printmsg("computeHitogram2D","computeHitogram2D is done");
+        // printmsg("computeHitogram2D","computeHitogram2D is done");
+        // printmsg("H1match rowwise max",H1match.rowwise().maxCoeff() );
 
         MatrixXXi H2match = H1match.unaryExpr(
                 [](int x) {
                 return ((x>0) ? 1 : 0 );
         });
 
-        printmsg("H2match","H2match is done");
+        // printmsg("H2match","H2match is done");
 
         HLevels.push_back(H2match);
         int n=2;
 
-        printmsg("mxlvl = ",mxlvl);
+        // printmsg("mxlvl = ",mxlvl);
 
         for(int i=1; i<mxlvl; ++i) {
-                printmsg("UpsampleMax i",i);
+                // printmsg("UpsampleMax i",i);
                 auto Hup = HLevels.back();
                 auto H=UpsampleMax(Hup,n);
                 HLevels.push_back(H);
         }
 
-        printmsg("HLevels[0]",HLevels[0]);
+        // printmsg("HLevels[0]",HLevels[0]);
 
         mxLVL=int(HLevels.size())-1;
         std::reverse(HLevels.begin(),HLevels.end());
@@ -239,10 +239,12 @@ void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
 
 }
 
-BinMatchSol
+std::vector<BinMatchSol>
 BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<const Eigen::Matrix3f>& H12){
         Eigen::Matrix3f H12mn = H12;
-        H12mn.block(0,2,2,0)=H12mn.block(0,2,2,0)-mn_orig.matrix().transpose();
+        // H12mn.block(0,2,2,0)=H12mn.block(0,2,2,0)-mn_orig.matrix().transpose();
+        H12mn(0,2)=H12mn(0,2)-mn_orig(0);
+        H12mn(1,2)=H12mn(1,2)-mn_orig(1);
         Matrix2frow t0;
         t0(0)= H12mn(0,2);
         t0(1)= H12mn(1,2);
@@ -276,6 +278,8 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                 sb.th = th;
                 qv.push_back(sb);
         }
+
+
 
         BBox bb1;
         bb1.x1=t0(0)-Lmax(0);
@@ -314,7 +318,9 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                 }
         }
 
-    #pragma omp parallel for num_threads(6)
+
+
+        #pragma omp parallel for num_threads(6)
         for(std::size_t i=0; i<qv.size(); ++i) {
                 qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                 qv[i].flg=true;
@@ -322,19 +328,60 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
 
 
 
-        std::priority_queue<SolBox, std::vector<SolBox>, decltype(cmp)> q(cmp,std::move(qv));
+        std::priority_queue<SolBox, std::deque<SolBox>, decltype(cmp)> q(cmp);
+        for(std::size_t i=0; i<qv.size(); ++i) {
+                q.push(qv[i]);
+        }
+        qv.clear();
 
         MatrixX2f XX0=((H12mn.block(0,0,2,2))*(Xsrc.transpose())).transpose();
         XX0 = XX0.rowwise()+t0;
-        int cost0 = getPointCost(H,dx,XX0,Matrix2frow({0,0}));
-        SolBox finalsol;
+        int cost0 = getPointCost(HLevels[mxLVL],dxlevels[mxLVL],XX0,Matrix2frow({0,0}));
+
+        std::vector<SolBox> qvMxLvL;
+        qvMxLvL.reserve(200);
+        qv.reserve(100);
         while(1) {
+                // pull all the solution boxes with same cost
+                // bool flg=false;
+                // auto cst = q.top().cost;
+                qv.clear();
+                qvMxLvL.clear();
+                for(std::size_t i=0; i<200; ++i) {
+                        if (q.empty())
+                                break;
+                        SolBox sb=q.top();
+                        if(sb.lvl<mxLVL) {
+                                auto qsv = quadSplitSolBox(sb);
+                                for(std::size_t j=0; j<qsv.size(); ++j) {
+                                        if(SolBoxesIntersect(bb1,qsv[j])) {
+                                                qsv[j].lvl = sb.lvl+1;
+                                                qv.push_back(qsv[j]);
+                                        }
+                                }
+                        }
+                        else{
+                                qvMxLvL.push_back(sb);
+                        }
+                        q.pop();
+                }
+                #pragma omp parallel for num_threads(6)
+                for(std::size_t i=0; i<qv.size(); ++i) {
+                        qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
+                        qv[i].flg=true;
+                }
+                for(std::size_t i=0; i<qv.size(); ++i) {
+                        q.push(qv[i]);
+                }
+                for(std::size_t i=0; i<qvMxLvL.size(); ++i) {
+                        q.push(qvMxLvL[i]);
+                }
+
                 SolBox sb=q.top();
-                q.pop();
                 if(sb.lvl==mxLVL) {
-                        finalsol=sb;
                         break;
                 }
+                q.pop();
                 auto qsv = quadSplitSolBox(sb);
                 for(std::size_t j=0; j<qsv.size(); ++j) {
                         if(SolBoxesIntersect(bb1,qsv[j])) {
@@ -345,27 +392,42 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                 }
 
         }
+        auto bestcst = q.top().cost;
+        std::vector<BinMatchSol> finalsols;
+        finalsols.reserve(30);
+        while(1) {
+                if(q.top().cost==bestcst) {
+                        SolBox sb=q.top();
+                        q.pop();
 
-        auto sb = finalsol;
-        auto t=sb.lb-t0;
+                        auto t=sb.lb-t0;
 
-        Eigen::Matrix3f HcompR = Eigen::Matrix3f::Identity();
-        Eigen::Matrix2f R ({{std::cos(sb.th), -std::sin(sb.th)},{std::sin(sb.th), std::cos(sb.th)}});
-        HcompR.block(0,0,2,2)=R;
+                        Eigen::Matrix3f HcompR = Eigen::Matrix3f::Identity();
+                        Eigen::Matrix2f R ({{std::cos(sb.th), -std::sin(sb.th)},{std::sin(sb.th), std::cos(sb.th)}});
+                        HcompR.block(0,0,2,2)=R;
 
-        Eigen::Matrix3f Ht= Eigen::Matrix3f::Identity();
-        Ht(0,2)=t(0);
-        Ht(1,2)=t(1);
+                        Eigen::Matrix3f Ht= Eigen::Matrix3f::Identity();
+                        Ht(0,2)=t(0);
+                        Ht(1,2)=t(1);
 
-        Eigen::Matrix3f H12comp = (Ht*H12mn)*HcompR;
-        H12comp(0,2)+=mn_orig(0);
-        H12comp(1,2)+=mn_orig(1);
+                        Eigen::Matrix3f H12comp = (Ht*H12mn)*HcompR;
+                        H12comp(0,2)+=mn_orig(0);
+                        H12comp(1,2)+=mn_orig(1);
 
-        // Eigen::Matrix3f H21comp=H12comp.inverse()
+                        // Eigen::Matrix3f H21comp=H12comp.inverse()
 
-        BinMatchSol bms;
-        bms.H=H12comp;
-        bms.cost0=cost0;
-        bms.cost=sb.cost;
-        return bms;
+                        BinMatchSol bms;
+                        bms.H=H12comp;
+                        bms.cost0=cost0;
+                        bms.cost=sb.cost;
+
+                        finalsols.push_back(bms);
+                }
+                else
+                        break;
+
+
+        }
+
+        return finalsols;
 }

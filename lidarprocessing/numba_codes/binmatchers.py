@@ -43,7 +43,7 @@ float_2Darray = types.float64[:,:]
 
 
 
-@njit
+@njit(cache=True)
 def binMatcherAdaptive_super(X11,X22,H12,Lmax,thmax,thmin,dxMatch,dxBase):
     #  X11 are global points
     # X22 are points with respect to a local frame (like origin of velodyne)

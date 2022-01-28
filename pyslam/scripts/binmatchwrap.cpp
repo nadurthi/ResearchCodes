@@ -23,7 +23,10 @@ PYBIND11_MODULE(binmatch, m) {
            subtract
     )pbdoc";
 
-
+        py::class_<BinMatchSol>(m, "BinMatchSol")
+        .def_readwrite("H", &BinMatchSol::H)
+        .def_readwrite("cost0", &BinMatchSol::cost0)
+        .def_readwrite("cost", &BinMatchSol::cost);
 
         m.def("UpsampleMax", &UpsampleMax,R"pbdoc(
         Add two numbers Some other explanation about the add function.)pbdoc");
@@ -38,7 +41,12 @@ PYBIND11_MODULE(binmatch, m) {
         py::class_<BinMatch>(m, "BinMatch")
         .def(py::init<const std::string &>())
         .def("computeHlevels", &BinMatch::computeHlevels)
-        .def("getmatch", &BinMatch::getmatch);
+        .def("getmatch", &BinMatch::getmatch)
+        .def_readwrite("mxLVL", &BinMatch::mxLVL)
+        .def_readwrite("mn_orig", &BinMatch::mn_orig)
+        .def_readwrite("levels", &BinMatch::levels)
+        .def_readwrite("HLevels", &BinMatch::HLevels)
+        .def_readwrite("dxlevels", &BinMatch::dxlevels);
 
 
 #ifdef VERSION_INFO

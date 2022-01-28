@@ -51,7 +51,7 @@ BinMatch(std::string options_);
 
 void computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg);
 
-BinMatchSol
+std::vector<BinMatchSol>
 getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<const Eigen :: Matrix3f>& H12);
 
 std::vector<int> levels;

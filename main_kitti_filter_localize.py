@@ -1234,7 +1234,7 @@ for k in range(1,len(dataset)):
         
             X1gvdown=down_sample(X1gv[:,:2],dxMatch[0])
         
-        
+            
             st=time.time()
             # Hbin21=binMatcherAdaptive3(X11,X2,H12est,Lmax,thmax,thmin,dxMatch)
             # Hbin21,costs=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch)
@@ -1244,9 +1244,9 @@ for k in range(1,len(dataset)):
             Hbin12 = nplinalg.inv(Hbin21)
             X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
             
-            
-            with open("testBinMatch.pkl","wb") as FF:
-                pickle.dump([X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase],FF)
+            # with open("testBinMatch.pkl","wb") as FF:
+            #     pkl.dump([X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase,Hbin12],FF)
+
             
             figbf = plt.figure("bin-fit")
             if len(figbf.axes)>0:
