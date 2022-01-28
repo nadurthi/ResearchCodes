@@ -4,6 +4,7 @@
 #include <fstream>
 
 //pybind
+#include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
@@ -24,6 +25,7 @@
 #include <queue>
 #include <array>
 #include <numeric>
+#include <cstddef>
 
 //eigen`
 #include <Eigen/Core>
@@ -61,7 +63,7 @@
 #include <omp.h>
 
 
-
+namespace py = pybind11;
 
 
 using MatrixXbcol = Eigen::Matrix<bool, Eigen::Dynamic, 1>;
@@ -98,3 +100,9 @@ parseOptions(std::string opt);
 
 json
 readOptionsFile(std::string file);
+
+
+template <class myType>
+void printmsg(std::string var, myType b) {
+ std::cout<< var <<" = " << b << std::endl;
+}

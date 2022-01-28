@@ -142,7 +142,7 @@ Don::filter(std::string opt){
         Xout.resize(doncloud->size(),3);
 
         int j=0;
-        for(int i=0; i<doncloud->size(); ++i) {
+        for(std::size_t i=0; i<doncloud->size(); ++i) {
                 if( (doncloud->points[i].curvature >= threshold_curv_lb) &&
                     (doncloud->points[i].curvature <= threshold_curv_ub) &&
                     (normals_small_scale->points[i].normal_z >= threshold_small_nz_lb) &&

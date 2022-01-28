@@ -47,14 +47,14 @@ plotpointarrows(pcl::visualization::PCLVisualizer::Ptr viewer,
           p.z = points(i,2);
           ++i;
         }
-        for(int j=0;j<i;++j){
+        for(std::size_t j=0;j<i;++j){
           C2->points[j].x = C1->points[j].x+arrowlen*dirs(j,0);
           C2->points[j].y = C1->points[j].y+arrowlen*dirs(j,1);
           C2->points[j].z = C1->points[j].z+arrowlen*dirs(j,2);
         }
 
         plotpcd(viewer,C1,handleID,color,pointsize);
-        for（int nIndex = 0； nIndex < C1->points.size()-1; nIndex++）{
+        for（std::size_t nIndex = 0； nIndex < C1->points.size()-1; nIndex++）{
           viewer->addArrow (C1->points[nIndex], C2->points[nIndex], color[0], color[1], color[2], handleID);
         }
 }
@@ -63,7 +63,7 @@ void
 plottraj(pcl::visualization::PCLVisualizer::Ptr viewer,
   onst Eigen::Ref<const Eigen::MatrixXf> &points,
   std::string handleID,std::vector<int> color,int pointsize){
-    for（int nIndex = 0； nIndex < points.rows()-1; nIndex++）{
+    for（std::size_t nIndex = 0； nIndex < points.rows()-1; nIndex++）{
       pcl::PointXYZ p1,p2;
       p1.x = points(nIndex,0);
       p1.x = points(nIndex,1);

@@ -28,15 +28,17 @@ from uq.quadratures import cubatures as uqcub
 import math
 from scipy.sparse import csr_matrix,lil_matrix
 import heapq
+import time
 numba_cache=True
 dtype=np.float64
+
 
 from numba.core import types
 from numba.typed import Dict
 float_2Darray = types.float64[:,:]
 #%% histogram bins
 
-@njit(cache=True)
+@njit(cache=numba_cache)
 def UpsampleMax(Hup,n):
     H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2))),dtype=np.int32)
     for j in range(H.shape[0]):
@@ -50,8 +52,8 @@ def UpsampleMax(Hup,n):
 
 
 
-# @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=True) 
-@njit(cache=True)
+# @jit(int32(int32[:,:], float32[:], float32[:,:], float32[:], float32[:]),nopython=True, nogil=True,cache=numba_cache) 
+@njit(cache=numba_cache)
 def getPointCost(H,dx,X,Oj,Tj):
     # Tj is the 2D index of displacement
     # X are the points
@@ -99,7 +101,7 @@ def getPointCost(H,dx,X,Oj,Tj):
         
     return c
 
-@njit(cache=True)
+@njit(cache=numba_cache)
 def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
@@ -292,7 +294,7 @@ def binMatcherAdaptive2(X11,X22,H12,Lmax,thmax,dxMatch):
     Htotal21_updt = nplinalg.inv(Htotal12_updt)
     return Htotal21_updt,cost,HLevels
 
-@njit(cache=True)
+@njit(cache=numba_cache)
 def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     n=histsmudge =2 # how much overlap when computing max over adjacent hist for levels
     H21comp=np.identity(3)
@@ -490,7 +492,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     
     return H21comp
 
-@njit(cache=True)
+@njit(cache=numba_cache)
 def binMatcherAdaptive4_good(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     #  X11 are global points
     # X22 are points with respect to a local frame (like origin of velodyne)
@@ -710,7 +712,7 @@ def binMatcherAdaptive4_good(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
 
 
 
-@jit(int32[:,:](float64[:,:], float64[:], float64[:]),nopython=True, nogil=True,cache=True) 
+@jit(int32[:,:](float64[:,:], float64[:], float64[:]),nopython=True, nogil=True,cache=numba_cache) 
 def numba_histogram2D(X, xedges,yedges):
     x_min = np.min(xedges)
     x_max = np.max(xedges)
@@ -741,7 +743,7 @@ def numba_histogram2D(X, xedges,yedges):
 
 
     
-@jit(float32(float64[:], int32[:,:], float64[:,:], float64[:], float64[:], int32),nopython=True, nogil=True,cache=True) 
+@jit(float32(float64[:], int32[:,:], float64[:,:], float64[:], float64[:], int32),nopython=True, nogil=True,cache=numba_cache) 
 def binScanCost(x,P,Xt,xedges,yedges,cntThres):
     # x is the pose
     # P is the Probability of bins of the keyframe
@@ -783,7 +785,7 @@ def binScanCost(x,P,Xt,xedges,yedges,cntThres):
 
     return mbinfrac_ActiveOvrlp
 
-@jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=True) 
+@jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=numba_cache) 
 def binScanEdges(Xb,Xt,dx):
     mn=np.zeros(2)
     mn[0] = np.min(Xb[:,0])
@@ -816,7 +818,7 @@ def binScanEdges(Xb,Xt,dx):
     
     return P, xedges,yedges
 
-# @jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=True) 
+# @jit(numba.types.Tuple((int32[:,:],float64[:],float64[:]))(float64[:,:], float64[:,:], float64[:]),nopython=True, nogil=True,cache=numba_cache) 
 # def posematchMetrics(X1,X2,H12,dx):
 #     # transform points to X1 space, bin it and then compute the posematch cost
 #     R=H12[0:2,0:2]
@@ -825,7 +827,7 @@ def binScanEdges(Xb,Xt,dx):
             
 
 
-@jit(numba.types.Tuple((float64[:],float64))(float64[:,:], int32[:,:], float64[:,:],float64[:],float64[:], int32),nopython=True, nogil=True,cache=True) 
+@jit(numba.types.Tuple((float64[:],float64))(float64[:,:], int32[:,:], float64[:,:],float64[:],float64[:], int32),nopython=True, nogil=True,cache=numba_cache) 
 def binScanMatcher(Posegrid,P,Xt,xedges,yedges,cntThres):
     # Xb are keyframe points
     # Xt are are scan points
@@ -851,7 +853,7 @@ def binScanMatcher(Posegrid,P,Xt,xedges,yedges,cntThres):
 
 #%%
 
-@jit(float64(float64[:], float64[:,::1], float64[:,:], float64[:,:,:],float64[:]),nopython=True, nogil=True,cache=True) 
+@jit(float64(float64[:], float64[:,::1], float64[:,:], float64[:,:,:],float64[:]),nopython=True, nogil=True,cache=numba_cache) 
 def getcostalign(x,Xt,MU,P,W):
     th=x[0]
     t=np.array([x[1],x[2]])
@@ -868,13 +870,13 @@ def getcostalign(x,Xt,MU,P,W):
 
 #%%
 
-@jit(numba.types.Tuple((float64[:],float64))(float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(numba.types.Tuple((float64[:],float64))(float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def extractPosAngle(H):
     theta = np.arctan2(-H[0,1],H[0,0])
     txy = H[:2,2]
     return txy,theta
 
-@jit(float64[:,:](float64, float64[:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64[:,:](float64, float64[:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def getHmat(th,t):
     R = np.array([[np.cos(th), -np.sin(th)],[np.sin(th), np.cos(th)]])
     H=np.identity(3)
@@ -882,7 +884,7 @@ def getHmat(th,t):
     H[0:2,2]=t
     return H
 
-@jit(float64(float64, float64),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64(float64, float64),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def anglediff(th1,th2):
     a = th1-th2
     if a>np.pi:
@@ -896,7 +898,7 @@ def anglediff(th1,th2):
 
 
 #%%
-@jit(float64[:](float64[:,:], float64[:,:], float64[:,:,:],float64[:], float64[:,::1]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64[:](float64[:,:], float64[:,:], float64[:,:,:],float64[:], float64[:,::1]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def gridsearch_alignment(Posegrid,MU,P,W,X):
     
     m=np.zeros(Posegrid.shape[0])
@@ -908,7 +910,7 @@ def gridsearch_alignment(Posegrid,MU,P,W,X):
 
 
 
-@jit(numba.types.Tuple((float64,float64[:]))(float64[:], float64[:,::1], float64[:,:], float64[:,:,:],float64[:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(numba.types.Tuple((float64,float64[:]))(float64[:], float64[:,::1], float64[:,:], float64[:,:,:],float64[:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def getcostgradient(x,Xt,MU,P,W):
     npt=Xt.shape[0]
     ncomp=MU.shape[0]
@@ -958,7 +960,7 @@ def getcostgradient(x,Xt,MU,P,W):
 #%% Loop closure
 
 
-@jit(float64(float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64(float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCost(x,Hrelsidx,Hrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]
@@ -1019,7 +1021,7 @@ def globalPoseCost(x,Hrelsidx,Hrels):
 
     return F
 
-@jit(numba.types.Tuple((float64,float64[:]))(float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(numba.types.Tuple((float64,float64[:]))(float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCost_Fjac(x,Hrelsidx,Hrels,Hessrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]
@@ -1133,7 +1135,7 @@ def globalPoseCost_Fjac(x,Hrelsidx,Hrels,Hessrels):
         
     
 
-@jit(float64[:](float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64[:](float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCost_lsq(x,Hrelsidx,Hrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]
@@ -1198,7 +1200,7 @@ def globalPoseCost_lsq(x,Hrelsidx,Hrels):
     # f=1.3
     return F
 
-# @jit(float64[:,:](float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+# @jit(float64[:,:](float64[:],int32[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCost_lsq_jac(x,Hrelsidx,Hrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]
@@ -1309,7 +1311,7 @@ def globalPoseCost_lsq_jac(x,Hrelsidx,Hrels):
     # f=1.3
     return jac
 
-@jit(float64[:](float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64[:](float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCostHess_lsq(x,Hrelsidx,Hrels,Hessrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]
@@ -1380,7 +1382,7 @@ def globalPoseCostHess_lsq(x,Hrelsidx,Hrels,Hessrels):
     # f=1.3
     return F
 
-@jit(float64[:,:](float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=True) 
+@jit(float64[:,:](float64[:],int32[:,:],float64[:,:],float64[:,:]),nopython=True, nogil=True,parallel=False,cache=numba_cache) 
 def globalPoseCostHess_lsq_jac(x,Hrelsidx,Hrels,Hessrels):
     # x is global poses
     # Hrels=[[i,j,thji,txji,tyji],...]

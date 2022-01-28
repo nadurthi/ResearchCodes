@@ -64,7 +64,7 @@ void MeasManager::resetH(){
 
 
 void MeasManager::computeSeqH(){
-        for(int i=1; i<meas.size(); ++i) {
+        for(std::size_t i=1; i<meas.size(); ++i) {
                 if(i<gHs.size())
                         continue;
                 else
@@ -75,7 +75,7 @@ void MeasManager::computeSeqH(){
 
 void MeasManager::registerSeqMeas(){
 
-        for(int i=0; i<meas.size()-1; ++i) {
+        for(std::size_t i=0; i<meas.size()-1; ++i) {
                 auto kk=std::make_pair(i,i+1);
                 if(i1Hi_seq.find(kk)!=i1Hi_seq.end()) {
                         gicp.setInputSource(meas[i]);
@@ -211,7 +211,7 @@ computeLikelihood(MapManager &map,
 
         //
   #pragma omp parallel for num_threads(6)
-        for(int j=0; j<Xposes.rows(); ++j) {
+        for(std::size_t j=0; j<Xposes.rows(); ++j) {
                 // std::cout << "j = " << j << std::endl;
 
                 Vector6f xx = Xposes.row(j).head(6);
@@ -226,7 +226,7 @@ computeLikelihood(MapManager &map,
 
                 std::vector<float> s;
                 s.resize(Xmeas.rows());
-                for(int i=0; i<Xmeas.rows(); ++i) {
+                for(std::size_t i=0; i<Xmeas.rows(); ++i) {
                         Eigen::Vector3f xm=Xmeas.row(i).head(3);
                         Eigen::Vector3f xt=R*xm+t;
                         s[i]=map.getNNsqrddist2Map(pcl::PointXYZ(xt(0),xt(1),xt(2)),dmax);

@@ -1,15 +1,28 @@
 #include "binmatch.h"
 
+void takejson(const nlohmann::json& json){
+        std::cout << "I got json as :"<<std::endl;
+        std::cout << json << std::endl;
 
+
+}
 MatrixXXi
 UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n){
+        printmsg("Hup.rows()",Hup.rows());
+        printmsg("Hup.cols()",Hup.cols());
         MatrixXXi H=MatrixXXi::Zero(Hup.rows()/2,Hup.cols()/2);
+        printmsg("H.rows()",H.rows());
+        printmsg("H.cols()",H.cols());
         for(int j=0; j<H.rows(); ++j) {
                 for(int k=0; j<H.cols(); ++k) {
                         int lbx=std::max(2*j,0);
-                        int ubx=std::min(2*j+n,int(Hup.rows())-1)+1;
+                        int ubx=std::min(2*j+n,int(Hup.rows())-1);
                         int lby=std::max(2*k,0);
-                        int uby=std::min(2*k+n,int(Hup.cols())-1)+1;
+                        int uby=std::min(2*k+n,int(Hup.cols())-1);
+                        printmsg("lbx",lbx);
+                        printmsg("ubx",ubx);
+                        printmsg("lby",lby);
+                        printmsg("uby",uby);
                         H(j,k) = Hup(Eigen::seq(lbx,ubx),Eigen::seq(lby,uby)).maxCoeff();
                 }
 
@@ -141,21 +154,24 @@ SolBoxesIntersect(SolBox sb1,SolBox sb2){
 
 
 
-BinMatch::BinMatch(const Eigen::Ref<const Matrix2frow>& Lmax_,
-                   const Eigen::Ref<const Matrix2frow>& dxMatch_,
-                   const Eigen::Ref<const Matrix2frow>& dxBase_,std::string opt){
-        Lmax=Lmax_;
-        dxMatch=dxMatch_;
-        dxBase=dxBase_;
+BinMatch::BinMatch(std::string opt){
+
         options=json::parse(opt);
+        Lmax=Matrix2frow(options["Lmax"][0],options["Lmax"][1]);
+        dxMatch=Matrix2frow(options["dxMatch"][0],options["dxMatch"][1]);
+        dxBase=Matrix2frow(options["dxBase"][0],options["dxBase"][1]);
+        thmax=options["thmax"];
+        thfineres=options["thfineres"];
+
+
 }
 
 void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
-        int n=2;
+
         Matrix2frow mn=Matrix2frow::Zero();
         Matrix2frow mx=Matrix2frow::Zero();
         mn_orig=Matrix2frow::Zero();
-        Eigen::Matrix3f H21comp=Eigen::Matrix3f::Identity();
+        // Eigen::Matrix3f H21comp=Eigen::Matrix3f::Identity();
 
 
         mn_orig(0) = Xtarg.col(0).minCoeff();
@@ -170,38 +186,51 @@ void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
         mx(0) = Xtarg1.col(0).maxCoeff();
         mx(1) = Xtarg1.col(1).maxCoeff();
 
+        printmsg("mn",mn);
 
 
-        Matrix2frow P = mx-mn;
+        // Matrix2frow P = mx-mn;
 
         int mxlvl=0;
-        Matrix2frow dx0=mx+dxMatch;
+        // Matrix2frow dx0=mx+dxMatch;
 
 
         int f;
-        for(int i=0; i<100; ++i) {
+        for(std::size_t i=0; i<100; ++i) {
                 f=std::pow(2,i);
                 dxlevels.emplace_back(Matrix2frow ({ (mx(0)+1*dxMatch(0))/f, (mx(1)+1*dxMatch(1))/f}));
 
                 if ( (dxlevels.back().array()<=dxMatch.array()).array().any() )
                         break;
         }
+        printmsg("f",f);
 
         mxlvl=dxlevels.size();
         Matrix2irow n_edges = ( (mx+1*dxMatch).array()/dxlevels.back().array()+1 ).cast<int>();
         MatrixXXi H1match= computeHitogram2D(Xtarg1,n_edges, Matrix2frow({0,0}), mx+1*dxMatch);
+
+        printmsg("computeHitogram2D","computeHitogram2D is done");
 
         MatrixXXi H2match = H1match.unaryExpr(
                 [](int x) {
                 return ((x>0) ? 1 : 0 );
         });
 
+        printmsg("H2match","H2match is done");
+
         HLevels.push_back(H2match);
+        int n=2;
+
+        printmsg("mxlvl = ",mxlvl);
+
         for(int i=1; i<mxlvl; ++i) {
+                printmsg("UpsampleMax i",i);
                 auto Hup = HLevels.back();
                 auto H=UpsampleMax(Hup,n);
                 HLevels.push_back(H);
         }
+
+        printmsg("HLevels[0]",HLevels[0]);
 
         mxLVL=int(HLevels.size())-1;
         std::reverse(HLevels.begin(),HLevels.end());
@@ -217,8 +246,8 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         Matrix2frow t0;
         t0(0)= H12mn(0,2);
         t0(1)= H12mn(1,2);
-        Matrix2frow L0=t0-Lmax;
-        Matrix2frow L1=t0+Lmax;
+        // Matrix2frow L0=t0-Lmax;
+        // Matrix2frow L1=t0+Lmax;
 
 
 
@@ -263,10 +292,10 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         if (dxBase(0)>0) {
                 while(1) {
                         cnt=0;
-                        for(int i=0; i<qv.size(); ++i) {
+                        for(std::size_t i=0; i<qv.size(); ++i) {
                                 if ((qv[i].dx.array()>dxBase.array()).array().any()) {
                                         auto qsv = quadSplitSolBox(qv[i]);
-                                        for(int j=0; j<qsv.size(); ++j) {
+                                        for(std::size_t j=0; j<qsv.size(); ++j) {
                                                 if(SolBoxesIntersect(bb1,qsv[j])) {
                                                         qsv[j].lvl = qv[i].lvl+1;
                                                         qv.push_back(qsv[j]);
@@ -286,7 +315,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         }
 
     #pragma omp parallel for num_threads(6)
-        for(int i=0; i<qv.size(); ++i) {
+        for(std::size_t i=0; i<qv.size(); ++i) {
                 qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                 qv[i].flg=true;
         }
@@ -307,7 +336,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                         break;
                 }
                 auto qsv = quadSplitSolBox(sb);
-                for(int j=0; j<qsv.size(); ++j) {
+                for(std::size_t j=0; j<qsv.size(); ++j) {
                         if(SolBoxesIntersect(bb1,qsv[j])) {
                                 qsv[j].lvl = sb.lvl+1;
                                 qsv[j].cost=getPointCost(HLevels[qsv[j].lvl],dxlevels[qsv[j].lvl],Xth[qsv[j].th],qsv[j].lb);

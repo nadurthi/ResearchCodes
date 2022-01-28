@@ -1035,7 +1035,7 @@ XpfTraj[0]=m
 save_image = False
 
 
-makeMatPlotLibdebugPlot=False
+makeMatPlotLibdebugPlot=True
 makeOpen3DdebugPlot=False
 
 if makeMatPlotLibdebugPlot:
@@ -1176,7 +1176,7 @@ for k in range(1,len(dataset)):
     
     #
     idxpf=0
-    doBinMatch=0
+    doBinMatch=1
     if doBinMatch:
         st=time.time()
         ret=pclloc.computeLikelihood(robotpf.X,X1v_down)
@@ -1207,7 +1207,7 @@ for k in range(1,len(dataset)):
         
         X1gv_roadrem=Hgt[0:3,0:3].dot(X1v_roadrem.T).T+Hgt[0:3,3]
         
-        dxMatch=np.array([2,2])
+        dxMatch=np.array([1,1])
         dxBase=np.array([30,30])
         Lmax=np.array([200,200])
         thmax=170*np.pi/180
@@ -1240,9 +1240,13 @@ for k in range(1,len(dataset)):
             # Hbin21,costs=binMatcherAdaptive3(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch)
             Hbin21,cost0,cost,hh,hR=binmatchers.binMatcherAdaptive_super(X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase)
             et=time.time()
-            
+            pkl
             Hbin12 = nplinalg.inv(Hbin21)
             X1v2Dgc=Hbin12[0:2,0:2].dot(X1v2D.T).T+Hbin12[0:2,2]
+            
+            
+            with open("testBinMatch.pkl","wb") as FF:
+                pickle.dump([X2Dmap_down,X1v2D,H12est,Lmax,thmax,thmin,dxMatch,dxBase],FF)
             
             figbf = plt.figure("bin-fit")
             if len(figbf.axes)>0:
@@ -1279,11 +1283,11 @@ for k in range(1,len(dataset)):
                 X1v_down_pfpose = Ridx.dot(X1v_down.T).T+tidx
                 
                 Hpcl={'H_icp':np.identity(4)}
-                # bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1v_down_pfpose,axis=0)-5,max_bound=np.max(X1v_down_pfpose,axis=0)+5)
-                # pcdbox=pcd3DdownSensorCostDown.crop(bbox3d)
-                # Xmappflocal = np.asarray(pcdbox.points)
-                # Hpcl=slam.registrations(Xmappflocal.copy(),X1v_down_pfpose.copy(),json.dumps(D))
-                # Hpcl=dict(Hpcl)
+                bbox3d=o3d.geometry.AxisAlignedBoundingBox(min_bound=np.min(X1v_down_pfpose,axis=0)-5,max_bound=np.max(X1v_down_pfpose,axis=0)+5)
+                pcdbox=pcd3DdownSensorCostDown.crop(bbox3d)
+                Xmappflocal = np.asarray(pcdbox.points)
+                Hpcl=slam.registrations(Xmappflocal.copy(),X1v_down_pfpose.copy(),json.dumps(D))
+                Hpcl=dict(Hpcl)
                 Ha=Hpcl['H_icp'].dot(Hidx)
                 xx=Rt2pose(Ha[0:3,0:3],Ha[0:3,3])
                 robotpf.X[idxpf][:6]=xx

@@ -2,6 +2,7 @@
 
 #include "base.h"
 
+void takejson(const nlohmann::json& json);
 
 MatrixXXi
 UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n);
@@ -46,8 +47,7 @@ bool SolBoxesIntersect(BBox bb1,SolBox sb2);
 
 class BinMatch {
 public:
-BinMatch(const Eigen::Ref<const Matrix2frow>& Lmax_,const Eigen::Ref<const Matrix2frow>& dxMatch_,
-  const Eigen::Ref<const Matrix2frow>& dxBase_,std::string options_);
+BinMatch(std::string options_);
 
 void computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg);
 

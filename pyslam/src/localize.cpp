@@ -119,7 +119,7 @@ Localize::computeLikelihood(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
 
         //
   #pragma omp parallel for num_threads(6)
-        for(int j=0; j<Xposes.rows(); ++j) {
+        for(std::size_t j=0; j<Xposes.rows(); ++j) {
                 // std::cout << "j = " << j << std::endl;
 
                 Vector6f xx = Xposes.row(j).head(6);
@@ -134,7 +134,7 @@ Localize::computeLikelihood(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
 
                 std::vector<float> s;
                 s.resize(Xmeas.rows());
-                for(int i=0; i<Xmeas.rows(); ++i) {
+                for(std::size_t i=0; i<Xmeas.rows(); ++i) {
                         Eigen::Vector3f xm=Xmeas.row(i).head(3);
                         Eigen::Vector3f xt=R*xm+t;
                         s[i]=getNNsqrddist2Map(pcl::PointXYZ(xt(0),xt(1),xt(2)),dmax);
@@ -144,7 +144,7 @@ Localize::computeLikelihood(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
 
         }
         Eigen::MatrixXf Lk(1,Xposes.rows());
-        for(int j=0; j<Xposes.rows(); ++j) {
+        for(std::size_t j=0; j<Xposes.rows(); ++j) {
                 Lk(j)=likelihoods[j];
         }
         ret.push_back(std::make_pair("likelihood",Lk));

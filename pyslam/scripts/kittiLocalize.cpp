@@ -6,9 +6,15 @@
 
 
 int main(){
-        MeasManager measmang("{'a':1}");
-        MapManager mapmang("{'a':1}");
-        BinMatch bm(Matrix2frow({10,10}),Matrix2frow({1,1}),Matrix2frow({1,1}),"{'a':1}");
+        std::string optstr =R"(
+          {
+            "happy": true,
+            "Lmax": [30,30]
+          }
+        )";
+        MeasManager measmang(optstr);
+        MapManager mapmang(optstr);
+        BinMatch bm(optstr);
 
 
 

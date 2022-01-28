@@ -14,7 +14,7 @@ import time
 
 import cudaFunctions as cF
 
-@jit(int32[:,:,:](float64[:,:], float64[:], float64[:], float64[:]),nopython=True, nogil=True,cache=True) 
+@jit(int32[:,:,:](float64[:,:], float64[:], float64[:], float64[:]),nopython=True, nogil=True,cache=False) 
 def numba_histogram3D(X, xedges,yedges,zedges):
     """bins 3D points into the defined edges and creates a 3D histogram"""
     x_min = np.min(xedges) #get the min and max dimension of the x,y,z edges
@@ -47,7 +47,7 @@ def numba_histogram3D(X, xedges,yedges,zedges):
     return H
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=False, nogil=True)
 def UpsampleMax3D(Hup,n):
     """Creates Sequentially Lower Resolution Search Spaces"""
     H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2)),int(np.ceil(Hup.shape[2]/2))),dtype=np.int32) #take previous H and divide size in half
@@ -69,7 +69,7 @@ def UpsampleMax3D(Hup,n):
     return H
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=False, nogil=True)
 def UpsampleMax3DParallel(H,dummyVar,Hup,n):
     """Creates Sequentially Lower Resolution Search Spaces"""
     # H=np.zeros((int(np.ceil(Hup.shape[0]/2)),int(np.ceil(Hup.shape[1]/2)),int(np.ceil(Hup.shape[2]/2))),dtype=np.int32) #take previous H and divide size in half
@@ -92,7 +92,7 @@ def UpsampleMax3DParallel(H,dummyVar,Hup,n):
 
 
 
-# @njit(cache=True)
+# @njit(cache=False)
 def setup(X11,X22,H12,Lmax,thmax,dxMatch,GPU_CORES,thStep):
     # dxMax is the max resolution allowed
     # Lmax =[xmax,ymax]
@@ -210,7 +210,7 @@ def setup(X11,X22,H12,Lmax,thmax,dxMatch,GPU_CORES,thStep):
     return thL,H,dx,X2,lvl,SolBoxes_init,h,mxLVL,dxs, HLevels,mn_orig
 
 
-@njit(cache=True, nogil=True)
+@njit(cache=False, nogil=True)
 def getPointCost3D(H,dx,X,Oj,Tj):
     """Calculates the number points that fall in a box"""
     # Tj is the 2D index of displacement
@@ -234,7 +234,7 @@ def getPointCost3D(H,dx,X,Oj,Tj):
     return c
 
 
-@njit(cache=True)
+@njit(cache=False)
 def initilizeBoxes(thL,H,dx,X2,lvl,SolBoxes_init,h):
     """Initilizes all of the box errors for the lowest resolution"""
     # count = 0
@@ -264,7 +264,7 @@ def initilizeBoxes(thL,H,dx,X2,lvl,SolBoxes_init,h):
 
     return Xth, h
 
-@njit(cache=True)
+@njit(cache=False)
 def boxSearchNumba(h,mxLVL,dxs,HLevels,Xth):
     """Attempts to find the highest cost box which is the solution"""
     heapq.heapify(h)
@@ -304,7 +304,7 @@ def boxSearchNumba(h,mxLVL,dxs,HLevels,Xth):
 
 
 
-@njit(cache=True)
+@njit(cache=False)
 def boxSearchNumbaSetup(Xth,popCount,hList,dxs,HLevels,mxLVL,thmax,maxLevelCount):
     # cudaList = [] #[0 for j in range(popCount*2**3)]
     cudaList2 = [(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0) for j in range(popCount*2**3)]
@@ -357,7 +357,7 @@ def boxSearchNumbaSetup(Xth,popCount,hList,dxs,HLevels,mxLVL,thmax,maxLevelCount
     return cudaList2,XthArray, mainSolbox
 
 
-# @njit(cache=True)
+# @njit(cache=False)
 def solution(mainSolbox,H12,mn_orig,H):
     t=mainSolbox[1:4] #(-cost2-np.random.rand()/1000,xs,ys,zs,d0,d1,d2,lvl,th)
     th = mainSolbox[8]
@@ -400,7 +400,7 @@ def thetaRot(Xth,th,X2):
 
     return XX
 
-@njit(cache=True)
+@njit(cache=False)
 def scanBoundReduction(X1,scanBounds):
     """Reduces the size of the scan to be withing the desired bounds"""
     idxX = np.logical_and(X1[:,0]<scanBounds[0],X1[:,0]> -scanBounds[0])
@@ -414,7 +414,7 @@ def scanBoundReduction(X1,scanBounds):
 
 ### UNUSED #####
 
-@jit(nopython=True,nogil=True, cache=True)
+@jit(nopython=True,nogil=True, cache=False)
 def boxLoop(SolBoxes_init,H,dx,Xth,th,lvl,h):
     for solbox in SolBoxes_init:
         xs,ys, zs, d0,d1, d2 = solbox
@@ -427,7 +427,7 @@ def boxLoop(SolBoxes_init,H,dx,Xth,th,lvl,h):
         h.append((-cost2-np.random.rand()/1000,xs,ys,zs,d0,d1,d2,lvl,th))
     return h
 
-@jit(nopython=True,nogil=True, cache=True)
+@jit(nopython=True,nogil=True, cache=False)
 def loopTest(result,SolBoxes_init,H,dx,Xth,th,lvl):
     # i = 0
     # print(h.shape)
@@ -515,7 +515,7 @@ def make_multithread_upsample(inner_func, numthreads):
     return func_mt
 
 
-@njit(cache=True)
+@njit(cache=False)
 def buildHLevels(HLevels):
     maxZ = 0
     maxX = 0
