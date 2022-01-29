@@ -16,7 +16,7 @@ class Localize {
 public:
 
 Localize(std::string opt);
-
+void setOptions(std::string opt);
 void setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX);
 // void setMapX( pcl::PointCloud<pcl::PointXYZ> MapX);
 
@@ -29,7 +29,6 @@ pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree;
 pcl::PointCloud<pcl::PointXYZ>::Ptr mapX;
 json options;
 pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
 
 
 

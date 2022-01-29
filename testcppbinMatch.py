@@ -384,7 +384,7 @@ print("correct Hbin21 = ",nplinalg.inv(Hbin12))
 
 for i in range(len(sol)):
     print("---------------------")
-    # print(sol[i].H)
+    print(sol[i].H)
     print(sol[i].cost0,sol[i].cost)
     
 

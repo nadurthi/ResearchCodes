@@ -20,20 +20,18 @@ void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H){
 }
 
 
-Localize::Localize(std::string opt) : kdtree(false),octree(128.0f){
+Localize::Localize(std::string opt) : kdtree(false),octree(1.0f){
         options=json::parse(opt);
-        std::cout << "dmax = "<<static_cast<float>( options["dmax"] ) << std::endl;
-        std::cout << "sig0 = "<<static_cast<float>( options["sig0"] ) << std::endl;
+        std::cout << "dmax = "<<static_cast<float>( options["Localize"]["dmax"] ) << std::endl;
+        std::cout << "sig0 = "<<static_cast<float>( options["Localize"]["sig0"] ) << std::endl;
 
-        icp.setMaximumIterations (options["icp"]["setMaximumIterations"]);
-        icp.setMaxCorrespondenceDistance(options["icp"]["setMaxCorrespondenceDistance"]); //50
-        icp.setRANSACIterations(options["icp"]["setRANSACIterations"]);
-        icp.setRANSACOutlierRejectionThreshold (options["icp"]["setRANSACOutlierRejectionThreshold"]); //1.5
-        icp.setTransformationEpsilon(options["icp"]["setTransformationEpsilon"]); //1e-9
-        icp.setEuclideanFitnessEpsilon(options["icp"]["setEuclideanFitnessEpsilon"]); //1
 
-        // octree=pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>(128);
+        if (options["Localize"]["octree"]["enable"])
+                octree=pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>(options["Localize"]["octree"]["resolution"]);
 
+}
+void Localize::setOptions(std::string opt){
+        options=json::parse(opt);
 }
 
 void Localize::setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX){
@@ -48,11 +46,14 @@ void Localize::setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX){
                 ++i;
         }
         kdtree.setInputCloud (mapX);
-        icp.setInputTarget(mapX);
-        // octree.setInputCloud (mapX);
-        // octree.addPointsFromInputCloud ();
-
         std::cout << "Built KDtree " << std::endl;
+
+        if (options["Localize"]["octree"]["enable"]) {
+                octree.setInputCloud (mapX);
+                octree.addPointsFromInputCloud ();
+                std::cout << "Built Octtree " << std::endl;
+        }
+
 }
 // void Localize::setMapX( pcl::PointCloud<pcl::PointXYZ> MapX){
 //         mapX.reset(MapX);
@@ -70,22 +71,41 @@ void Localize::setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX){
 float Localize::getNNsqrddist2Map(pcl::PointXYZ searchPoint,float dmax){
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
-        float d;
-        if ( kdtree.radiusSearch (searchPoint, dmax, pointIdxRadiusSearch, pointRadiusSquaredDistance,1) > 0 )
-        {
-                d=pointRadiusSquaredDistance[0];
-                // for (std::size_t i = 0; i < pointIdxRadiusSearch.size (); ++i)
-                // std::cout << "    "  <<   (*cloud)[ pointIdxRadiusSearch[i] ].x
-                //           << " " << (*cloud)[ pointIdxRadiusSearch[i] ].y
-                //           << " " << (*cloud)[ pointIdxRadiusSearch[i] ].z
-                //           << " (squared distance: " << pointRadiusSquaredDistance[i] << ")" << std::endl;
+        float d=-1;
+        float dmaxsq = std::pow(dmax,2);
+        float res = options["Localize"]["octree"]["resolution"];
+        if (options["Localize"]["octree"]["enable"]) {
+                if(options["Localize"]["octree"]["UseApprxNN"]) {
+                        int pointIdxRadiusSearch;
+                        float pointRadiusSquaredDistance;
+                        octree.approxNearestSearch(searchPoint,pointIdxRadiusSearch,pointRadiusSquaredDistance);
+                        if (pointRadiusSquaredDistance<=dmaxsq)
+                                d = pointRadiusSquaredDistance;
+
+                }
+                else if(options["Localize"]["octree"]["UseRadiusSearch"]) {
+                        if ( octree.radiusSearch (searchPoint, dmax, pointIdxRadiusSearch, pointRadiusSquaredDistance,1) > 0 )
+                        {
+                                d=pointRadiusSquaredDistance[0];
+                        }
+                }
+                else if(octree.isVoxelOccupiedAtPoint(searchPoint)) {
+                        d=std::pow(res/2,2);
+                }
         }
-        else
-                d=std::pow(dmax,2);
+        else{
+                if ( kdtree.radiusSearch (searchPoint, dmax, pointIdxRadiusSearch, pointRadiusSquaredDistance,1) > 0 )
+                {
+                        d=pointRadiusSquaredDistance[0];
+                }
+        }
+        if(d==-1)
+                d=dmaxsq;
 
         return d;
 
 }
+
 
 
 /**

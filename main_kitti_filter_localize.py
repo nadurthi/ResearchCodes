@@ -369,7 +369,8 @@ D={"icp":{},
    "ndt":{},
    "sig0":0.5,
    "dmax":10,
-   "DoIcpCorrection":0}
+   "DoIcpCorrection":0,
+   "Localize":{}}
 
 D["icp"]["enable"]=1
 D["icp"]["setMaximumIterations"]=50
@@ -422,6 +423,15 @@ D["DON"]["threshold_small_nz_ub"]=0.5;
 D["DON"]["threshold_large_nz_lb"]=-5;
 D["DON"]["threshold_large_nz_ub"]=5;
 
+D["Localize"]["sig0"]=0.5
+D["Localize"]["dmax"]=10
+D["Localize"]["octree"]={"enable":True,
+                         "resolution":0.1,
+                         "UseApprxNN":True,
+                         "UseRadiusSearch":False}
+
+
+
 pclloc=slam.Localize(json.dumps(D))
 
 pcd3DdownSensorCostDown=pcd3DdownSensorCost.voxel_down_sample(voxel_size=0.25)
@@ -436,6 +446,8 @@ opts = json.dumps(D)
 
 #%%
 plt.close("all")
+opts = json.dumps(D)
+pclloc.setOptions(opts)
 
 def down_sample(X,voxel_size):
     X=np.asarray(X)
@@ -710,7 +722,7 @@ def binMatcherAdaptive3(X11,X22,H12,Lmax,thmax,thmin,dxMatch):
     return H21comp,(cost0,cost)
     
 
-Npf=1000
+Npf=2000
 
 
 
@@ -1000,8 +1012,8 @@ def measModel(xx):
 
 Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
     
-sampligfunc = getCTinitialSamples
-# sampligfunc= getCTinitialSamples_origin
+# sampligfunc = getCTinitialSamples
+sampligfunc= getCTinitialSamples_origin
 
 xstatepf, wpf, Q =sampligfunc(Npf)
 # xstatepf, wpf, Q =getUMinitialSamples(Npf)
@@ -1019,7 +1031,7 @@ robotpf=pf.Particles(X=xstatepf,wts=wpf)
 # axpf.set_title("initial pf points")
 # plt.show() 
  
-dmax=D["dmax"]
+dmax=D["Localize"]["dmax"]
 # sig=1
 
 #
@@ -1176,7 +1188,7 @@ for k in range(1,len(dataset)):
     
     #
     idxpf=0
-    doBinMatch=1
+    doBinMatch=0
     if doBinMatch:
         st=time.time()
         ret=pclloc.computeLikelihood(robotpf.X,X1v_down)

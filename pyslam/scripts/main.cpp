@@ -50,6 +50,7 @@ PYBIND11_MODULE(slam, m) {
         py::class_<Localize>(m, "Localize")
         .def(py::init<const std::string &>())
         .def("setMapX", &Localize::setMapX)
+        .def("setOptions", &Localize::setOptions)
         .def("computeLikelihood", &Localize::computeLikelihood);
 
 #ifdef VERSION_INFO
