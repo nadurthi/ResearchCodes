@@ -33,16 +33,23 @@ struct BinMatchSol {
         Eigen::Matrix3f H;
         int cost0;
         int cost;
+        int lvl;
+        int mxLVL;
 };
 
+std::ostream& operator<<(std::ostream& os, const SolBox& sb);
+
+std::ostream& operator<<(std::ostream& os, const BBox& sb);
+
+std::ostream& operator << (std::ostream& os, const std::vector<SolBox>& v);
 
 BBox SolBox2BBox(const SolBox& solbox);
 
-std::vector<SolBox> quadSplitSolBox(SolBox solbox);
+std::vector<SolBox> quadSplitSolBox(const SolBox& solbox);
 
-bool SolBoxesIntersect(SolBox sb1,SolBox sb2);
+bool SolBoxesIntersect(const SolBox& sb1,const SolBox& sb2);
 
-bool SolBoxesIntersect(BBox bb1,SolBox sb2);
+bool SolBoxesIntersect(const BBox& bb1,const SolBox& sb2);
 
 
 class BinMatch {
@@ -54,6 +61,8 @@ void computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg);
 std::vector<BinMatchSol>
 getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<const Eigen :: Matrix3f>& H12);
 
+Matrix2frow t0;
+Eigen::Matrix3f H12mn;
 std::vector<int> levels;
 std::vector<MatrixXXi> HLevels;
 std::vector<Matrix2frow> dxlevels;
@@ -66,4 +75,6 @@ float thfineres;
 json options;
 Matrix2frow mn_orig;
 int mxLVL;
+
+std::vector<SolBox> qvinit;
 };

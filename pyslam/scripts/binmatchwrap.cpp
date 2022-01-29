@@ -26,7 +26,21 @@ PYBIND11_MODULE(binmatch, m) {
         py::class_<BinMatchSol>(m, "BinMatchSol")
         .def_readwrite("H", &BinMatchSol::H)
         .def_readwrite("cost0", &BinMatchSol::cost0)
+        .def_readwrite("lvl", &BinMatchSol::lvl)
+        .def_readwrite("mxLVL", &BinMatchSol::mxLVL)
         .def_readwrite("cost", &BinMatchSol::cost);
+
+
+        py::class_<SolBox>(m, "SolBox")
+        .def_readwrite("lb", &SolBox::lb)
+        .def_readwrite("dx", &SolBox::dx)
+        .def_readwrite("cost", &SolBox::cost)
+        .def_readwrite("lvl", &SolBox::lvl)
+        .def_readwrite("th", &SolBox::th)
+        .def_readwrite("flg", &SolBox::flg);
+
+
+
 
         m.def("UpsampleMax", &UpsampleMax,R"pbdoc(
         Add two numbers Some other explanation about the add function.)pbdoc");
@@ -45,7 +59,11 @@ PYBIND11_MODULE(binmatch, m) {
         .def_readwrite("mxLVL", &BinMatch::mxLVL)
         .def_readwrite("mn_orig", &BinMatch::mn_orig)
         .def_readwrite("levels", &BinMatch::levels)
+        .def_readwrite("t0", &BinMatch::t0)
+        .def_readwrite("H12mn", &BinMatch::H12mn)
+        .def_readwrite("Xth", &BinMatch::Xth)
         .def_readwrite("HLevels", &BinMatch::HLevels)
+        .def_readwrite("qvinit", &BinMatch::qvinit)
         .def_readwrite("dxlevels", &BinMatch::dxlevels);
 
 

@@ -16,9 +16,9 @@ UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n){
         for(int j=0; j<H.rows(); ++j) {
                 for(int k=0; k<H.cols(); ++k) {
                         int lbx=std::max(2*j,0);
-                        int ubx=std::min(2*j+n,int(Hup.rows()));
+                        int ubx=std::min(2*j+n+1,int(Hup.rows()));
                         int lby=std::max(2*k,0);
-                        int uby=std::min(2*k+n,int(Hup.cols()));
+                        int uby=std::min(2*k+n+1,int(Hup.cols()));
                         // printmsg("lbx",lbx);
                         // printmsg("ubx",ubx);
                         // printmsg("lby",lby);
@@ -97,7 +97,7 @@ SolBox2BBox(const SolBox& solbox){
 }
 
 std::vector<SolBox>
-quadSplitSolBox(SolBox solbox){
+quadSplitSolBox(const SolBox& solbox){
         std::vector<SolBox> v;
         SolBox b1,b2,b3,b4;
         b1 = solbox;
@@ -116,8 +116,8 @@ quadSplitSolBox(SolBox solbox){
         b2.flg=false;
         v.push_back(b2);
 
-        b2.lb = solbox.lb; //+(Matrix2frow({1,0}).array()*solbox.dx.array())/2;
-        b2.lb(1)=b2.lb(1)+solbox.dx(1)/2;
+        b3.lb = solbox.lb; //+(Matrix2frow({1,0}).array()*solbox.dx.array())/2;
+        b3.lb(1)=b3.lb(1)+solbox.dx(1)/2;
         b3.dx=solbox.dx/2;
         b3.flg=false;
         v.push_back(b3);
@@ -131,28 +131,49 @@ quadSplitSolBox(SolBox solbox){
 }
 
 bool
-SolBoxesIntersect(BBox bb1,SolBox sb2){
+SolBoxesIntersect(const BBox& bb1,const SolBox& sb2){
 
         auto bb2=SolBox2BBox(sb2);
 
         auto x_left = std::max(bb1.x1, bb2.x1);
-        auto y_top = std::max(bb1.y1, bb2.y1);
+        auto y_bottom = std::max(bb1.y1, bb2.y1);
         auto x_right = std::min(bb1.x2, bb2.x2);
-        auto y_bottom = std::min(bb1.y2, bb2.y2);
+        auto y_top = std::min(bb1.y2, bb2.y2);
 
-        if ( (x_right < x_left) || (y_bottom < y_top))
+        if ( (x_right < x_left) || (y_top < y_bottom))
                 return false;
         else
                 return true;
 }
 
 bool
-SolBoxesIntersect(SolBox sb1,SolBox sb2){
+SolBoxesIntersect(const SolBox& sb1,const SolBox& sb2){
         auto bb1=SolBox2BBox(sb1);
         return SolBoxesIntersect(bb1,sb2);
 }
 
+std::ostream& operator<<(std::ostream& os, const SolBox& sb)
+{
+        os << "lb = " << sb.lb <<  ", dx = " << sb.dx << " ,cost = " << sb.cost << ", lvl = " << sb.lvl << ", th = "<< sb.th << std::endl;
+        return os;
+}
 
+std::ostream& operator<<(std::ostream& os, const BBox& sb)
+{
+        os << "(x1,y1) = (" << sb.x1 <<  "," << sb.y1 << ") , (x2,y2) = (" << sb.x1 <<  "," << sb.y1 <<")" << std::endl;
+        return os;
+}
+
+std::ostream& operator << (std::ostream& os, const std::vector<SolBox>& v)
+{
+        os << "[";
+        for (auto sb : v)
+        {
+                os << sb << std::endl;
+        }
+        os << "]";
+        return os;
+}
 
 
 BinMatch::BinMatch(std::string opt){
@@ -241,11 +262,11 @@ void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){
 
 std::vector<BinMatchSol>
 BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<const Eigen::Matrix3f>& H12){
-        Eigen::Matrix3f H12mn = H12;
+        H12mn = H12;
         // H12mn.block(0,2,2,0)=H12mn.block(0,2,2,0)-mn_orig.matrix().transpose();
         H12mn(0,2)=H12mn(0,2)-mn_orig(0);
         H12mn(1,2)=H12mn(1,2)-mn_orig(1);
-        Matrix2frow t0;
+
         t0(0)= H12mn(0,2);
         t0(1)= H12mn(1,2);
         // Matrix2frow L0=t0-Lmax;
@@ -262,12 +283,12 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         solbox_init.flg=false; //
 
 
-        int lvl=0;
-        auto dx=dxlevels[lvl];
-        auto H=HLevels[lvl];
+        // int lvl=0;
+        // auto dx=dxlevels[lvl];
+        // auto H=HLevels[lvl];
 
         std::vector<SolBox> qv;
-        for(float th=-thmax; th<=thmax+thfineres; th=th+thfineres) {
+        for(float th=-thmax; th<thmax; th=th+thfineres) {
 
                 Eigen::Matrix2f R ({{std::cos(th), -std::sin(th)},{std::sin(th), std::cos(th)}});
                 MatrixX2f XX1 = (R*(Xsrc.transpose())).transpose();
@@ -277,6 +298,10 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                 SolBox sb = solbox_init;
                 sb.th = th;
                 qv.push_back(sb);
+                // std::cout <<"sb = " << sb<<std::endl;
+                // auto qsv = quadSplitSolBox(sb);
+                // std::cout << qsv<<std::endl;
+
         }
 
 
@@ -286,6 +311,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         bb1.y1=t0(1)-Lmax(1);
         bb1.x2=t0(0)+Lmax(0);
         bb1.y2=t0(1)+Lmax(1);
+        std::cout << "bb1.x1,bb1.y1,bb1.x2,bb1.y2 = " << bb1.x1 << " " << bb1.y1 << " " << bb1.x2 << " " << bb1.y2 << std::endl;
 
         auto cmp = [](SolBox left, SolBox right) {
                            return (left.cost) < (right.cost);
@@ -320,13 +346,14 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
 
 
 
-        #pragma omp parallel for num_threads(6)
+        #pragma omp parallel for num_threads(8)
         for(std::size_t i=0; i<qv.size(); ++i) {
                 qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                 qv[i].flg=true;
         }
 
-
+        qvinit=qv;
+        std::make_heap(qvinit.begin(), qvinit.end(),cmp);
 
         std::priority_queue<SolBox, std::deque<SolBox>, decltype(cmp)> q(cmp);
         for(std::size_t i=0; i<qv.size(); ++i) {
@@ -342,9 +369,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         qvMxLvL.reserve(200);
         qv.reserve(100);
         while(1) {
-                // pull all the solution boxes with same cost
-                // bool flg=false;
-                // auto cst = q.top().cost;
+
                 qv.clear();
                 qvMxLvL.clear();
                 for(std::size_t i=0; i<200; ++i) {
@@ -420,7 +445,8 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                         bms.H=H12comp;
                         bms.cost0=cost0;
                         bms.cost=sb.cost;
-
+                        bms.lvl = sb.lvl;
+                        bms.mxLVL = mxLVL;
                         finalsols.push_back(bms);
                 }
                 else
