@@ -177,15 +177,15 @@ std::ostream& operator << (std::ostream& os, const std::vector<SolBox>& v)
 
 
 BinMatch::BinMatch(std::string opt){
-
+        setOptions(std::string opt)
+}
+void setOptions(std::string opt){
         options=json::parse(opt);
-        Lmax=Matrix2frow(options["Lmax"][0],options["Lmax"][1]);
-        dxMatch=Matrix2frow(options["dxMatch"][0],options["dxMatch"][1]);
-        dxBase=Matrix2frow(options["dxBase"][0],options["dxBase"][1]);
-        thmax=options["thmax"];
-        thfineres=options["thfineres"];
-
-
+        Lmax=Matrix2frow(options["BinMatch"]["Lmax"][0],options["BinMatch"]["Lmax"][1]);
+        dxMatch=Matrix2frow(options["BinMatch"]["dxMatch"][0],options["BinMatch"]["dxMatch"][1]);
+        dxBase=Matrix2frow(options["BinMatch"]["dxBase"][0],options["BinMatch"]["dxBase"][1]);
+        thmax=options["BinMatch"]["thmax"];
+        thfineres=options["BinMatch"]["thfineres"];
 }
 
 void BinMatch::computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg){

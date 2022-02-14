@@ -43,7 +43,9 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/features/don.h>
 #include <pcl/filters/crop_box.h>
-
+#include <pcl/common/common.h>
+#include <pcl/common/transforms.h>
+// #include <kdtree.h>
 // #include <pcl/registration/gicp.h>
 #include <pcl/registration/mygicp.h>
 #include <pcl/registration/ndt.h>
@@ -75,12 +77,16 @@ using MatrixXfrow = Eigen::Matrix<float, 1, Eigen::Dynamic>;
 using MatrixXXi = Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic>;
 using MatrixXXf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
 using MatrixX2f = Eigen::Matrix<float, Eigen::Dynamic, 2>;
+using MatrixX3f = Eigen::Matrix<float, Eigen::Dynamic, 3>;
 using MatrixX2i = Eigen::Matrix<int, Eigen::Dynamic, 2>;
 using MatrixX2d = Eigen::Matrix<double, Eigen::Dynamic, 2>;
+
+using MatrixXXuint16 = Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic>
 
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Vector6f = Eigen::Matrix<float, 6, 1>;
 using Vector4f = Eigen::Matrix<float, 4, 1>;
+using VectorXf = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
 using ArrayXbcol = Eigen::Array<bool, Eigen::Dynamic, 1>;
 using Array2frow = Eigen::Array<float, 1, 2>;

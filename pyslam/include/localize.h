@@ -12,24 +12,17 @@ namespace py = pybind11;
 
 void pose2Hmat(const Vector6d& x,Eigen::Matrix4f& H);
 
-class Localize {
-public:
 
-Localize(std::string opt);
-void setOptions(std::string opt);
-void setMapX(const Eigen::Ref<const Eigen::MatrixXf> &MapX);
 // void setMapX( pcl::PointCloud<pcl::PointXYZ> MapX);
 
-std::vector<std::pair<std::string,Eigen::MatrixXf> >
-computeLikelihood(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,const Eigen::Ref<const Eigen::MatrixXf> &Xmeas);
+VectorXf
+computeLikelihood(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,const Eigen::Ref<const Eigen::MatrixXf> &Xposes,pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl);
 
-float getNNsqrddist2Map(pcl::PointXYZ searchPoint,float dmax);
+VectorXf
+computeLikelihood(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapoctree,const Eigen::Ref<const Eigen::MatrixXf> &Xposes,pcl::PointCloud<pcl::PointXYZ>::Ptr Xmeaspcl);
 
-pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree;
-pcl::PointCloud<pcl::PointXYZ>::Ptr mapX;
-json options;
-pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+VectorXf
+computeLikelihood_lookup(const Eigen::Ref<const MatrixXXuint16> &Xdist,const Eigen::Ref<const Eigen::MatrixXf> &Xposes,pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl);
 
-
-
-};
+float getNNsqrddist2Map(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapoctree,const pcl::PointXYZ & searchPoint,float dmax);
+float getNNsqrddist2Map(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,const pcl::PointXYZ & searchPoint,float dmax);
