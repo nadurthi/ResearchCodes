@@ -3,12 +3,13 @@
 #include <pybind11/pybind11.h>
 #include "pybind11_json.h"
 
-
+#define STRINGIFY(x) #x
+#define MACRO_STRINGIFY(x) STRINGIFY(x)
 
 //using namespace std::chrono_literals;
 namespace py = pybind11;
 
-PYBIND11_MODULE(kittilocalize, m) {
+PYBIND11_MODULE(kittilocal, m) {
         m.doc() = R"pbdoc(
         Pybind11 example plugin
         -----------------------
@@ -21,6 +22,15 @@ PYBIND11_MODULE(kittilocalize, m) {
            add
            subtract
     )pbdoc";
+
+        m.def("pose2Hmat", &pose2Hmat, R"pbdoc(
+              ICP in PCL
+          )pbdoc");
+        m.def("Hmat2pose", &Hmat2pose, R"pbdoc(
+                ICP in PCL
+            )pbdoc");
+
+
         py::class_<BinMatchSol>(m, "BinMatchSol")
         .def_readwrite("H", &BinMatchSol::H)
         .def_readwrite("cost0", &BinMatchSol::cost0)
@@ -30,21 +40,20 @@ PYBIND11_MODULE(kittilocalize, m) {
 
         py::class_<BMatchAndCorrH>(m, "BMatchAndCorrH")
         .def_readwrite("sols", &BMatchAndCorrH::sols)
-        .def_readwrite("gHk_corr", &BMatchAndCorrH::gHk_corr);
+        .def_readwrite("gHkcorr", &BMatchAndCorrH::gHkcorr);
 
         py::class_<MapLocalizer>(m, "MapLocalizer")
-        .def(py::init<std::string optstr>())
+        .def(py::init<const std::string &>())
         .def("setOptions", &MapLocalizer::setOptions)
         .def("resetH", &MapLocalizer::resetH)
         .def("addMeas", &MapLocalizer::addMeas)
         .def("addMap", &MapLocalizer::addMap)
         .def("addMap2D", &MapLocalizer::addMap2D)
-        .def("setHlevels", &MapLocalizer::setHlevels)
         .def("setgHk", &MapLocalizer::setgHk)
         .def("setLookUpDist", &MapLocalizer::setLookUpDist)
         .def("setRegisteredSeqH", &MapLocalizer::setRegisteredSeqH)
         .def("setRelStates", &MapLocalizer::setRelStates)
-        .def("setgHk", &MapLocalizer::setgHk)
+        .def("setSeq_gHk", &MapLocalizer::setSeq_gHk)
 
         .def("getmeas_eigen", &MapLocalizer::getmeas_eigen)
         .def("MapPcllimits", &MapLocalizer::MapPcllimits)
@@ -59,9 +68,8 @@ PYBIND11_MODULE(kittilocalize, m) {
         .def("getSeq_gHk", &MapLocalizer::getSeq_gHk)
         .def("getsetSeq_gHk", &MapLocalizer::getsetSeq_gHk)
         .def("getalignSeqMeas_eigen", &MapLocalizer::getalignSeqMeas_eigen)
-
-        .def("BMatchseq", &MapLocalizer::BMatchseq)
-        .def("gicp_correction", &MapLocalizer::gicp_correction);
+        .def("getalignSeqMeas_noroad_eigen", &MapLocalizer::getalignSeqMeas_noroad_eigen)
+        .def("BMatchseq", &MapLocalizer::BMatchseq);
 
 
 #ifdef VERSION_INFO

@@ -2,6 +2,6 @@
 #include "base.h"
 
 void eigen2pcl(const Eigen::Ref<const Eigen::MatrixXf> &X,pcl::PointCloud<pcl::PointXYZ>::Ptr C,bool append=false);
-void pcl2eigen(pcl::PointCloud<pcl::PointXYZ>::ConstPtr C,Eigen::MatrixXf &X);
+void pcl2eigen(pcl::PointCloud<pcl::PointXYZ>::Ptr C,Eigen::Ref< Eigen :: MatrixXf>X);
 
-void pcl_filter_cloud(pcl::PointCloud<pcl::PointXYZ>::ConstPtr inputcld,pcl::PointCloud<pcl::PointXYZ>::Ptr outputcld,std:vector<float> res);
+void pcl_filter_cloud(pcl::PointCloud<pcl::PointXYZ>::Ptr inputcld,pcl::PointCloud<pcl::PointXYZ>::Ptr outputcld,std::vector<float> res);

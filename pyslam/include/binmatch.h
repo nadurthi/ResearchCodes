@@ -4,9 +4,6 @@
 
 void takejson(const nlohmann::json& json);
 
-Matrix3f get3fHmat(Matrix4f H,int fixedaxis=2){
-
-}
 
 MatrixXXi
 UpsampleMax(const Eigen::Ref<const MatrixXXi>& Hup,int n);
@@ -58,8 +55,8 @@ bool SolBoxesIntersect(const BBox& bb1,const SolBox& sb2);
 
 class BinMatch {
 public:
-BinMatch(std::string options_);
-void setOptions(std::string options_);
+BinMatch(const std::string &options_);
+void setOptions(const std::string &options_);
 void computeHlevels(const Eigen::Ref<const MatrixX2f>& Xtarg);
 
 std::vector<BinMatchSol>
@@ -81,4 +78,5 @@ Matrix2frow mn_orig;
 int mxLVL;
 
 std::vector<SolBox> qvinit;
+
 };

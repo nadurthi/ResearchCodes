@@ -23,7 +23,8 @@
 			"file": "pyslam/scripts/kittiLocalize.cpp",
 			"settings":
 			{
-				"buffer_size": 2634,
+				"buffer_size": 2580,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
@@ -31,19 +32,34 @@
 			"file": "pyslam/include/measmapmanagers.h",
 			"settings":
 			{
-				"buffer_size": 2701,
+				"buffer_size": 2696,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"contents": "#include \"measmapmanagers.h\"\n\n\nMapLocalizer::MapLocalizer(std::string opt ):bm(opt), kdtree(false),octree(1.0f){\n        options=json::parse(opt);\n\n        Vel.row(0,0)=0;\n        Vel.row(0,1)=0;\n        Vel.row(0,1)=0;\n\n        AngVel.row(0,0)=0;\n        AngVel.row(0,1)=0;\n        AngVel.row(0,1)=0;\n\n        XseqPos.row(0,0)=0;\n        XseqPos.row(0,1)=0;\n        XseqPos.row(0,1)=0;\n\n        i1Hi_seq.clear();\n\n\n\n        octree=pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>(options[\"Localize\"][\"octree\"][\"resolution\"]);\n\n}\nvoid MapLocalizer::setOptions(std::string opt){\n        options=json::parse(opt);\n        bm.setOptions(opt);\n}\n\nvoid MapLocalizer::resetH(){\n        Vel = MatrixX3f({{0,0,0}});\n        AngVel = MatrixX3f({{0,0,0}});\n        XseqPos= MatrixX3f({{0,0,0}});\n\n        i1Hi_seq.clear();\n        gHs.clear();\n        gHs.push_back(Eigen::Matrix4f::Zero());\n}\n\n//-----------------Setters------------------\nvoid MapLocalizer::addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,float t){\n        pcl::PointCloud<pcl::PointXYZ>::Ptr C1(new pcl::PointCloud<pcl::PointXYZ>(X.rows(),1));\n        eigen2pcl(X,C1,false);\n\n        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>());\n        pcl_filter_cloud(C1,cloud_filtered,options[\"meas\"]['resolution'])\n\n\n        meas.push_back(cloud_filtered);\n        T.push_back(t);\n        ++tk;\n}\nvoid MapLocalizer::addMap(const Eigen::Ref<const Eigen::MatrixXf> &X){\n        map.reset(new pcl::PointCloud<pcl::PointXYZ>(X.rows(),1));\n        eigen2pcl(X,map,false);\n\n        pcl::PointCloud<pcl::PointXYZ>::Ptr map_filtered (new pcl::PointCloud<pcl::PointXYZ>());\n        pcl_filter_cloud(map,map_filtered,options[\"map\"]['resolution'])\n\n\n        map= map_filtered;\n\n        kdtree.setInputCloud (map);\n        std::cout << \"Built KDtree \" << std::endl;\n\n\n        octree.setInputCloud (map);\n        octree.addPointsFromInputCloud ();\n        std::cout << \"Built Octtree \" << std::endl;\n\n\n\n}\nvoid MapLocalizer::addMap2D(const Eigen::Ref<const MatrixX2f> &X){\n        map2D.reset(new pcl::PointCloud<pcl::PointXYZ>(X.rows(),1));\n        int i=0;\n        for(auto& p: *map2D) {\n                p.x = X(i,0);\n                p.y = X(i,1);\n                p.z = 0;\n                ++i;\n        }\n\n        pcl::PointCloud<pcl::PointXYZ>::Ptr map2D_filtered (new pcl::PointCloud<pcl::PointXYZ>());\n        pcl_filter_cloud(map2D,map2D_filtered,options[\"map2D\"]['resolution'])\n\n        map2D=map2D_filtered;\n\n        bm.computeHlevels(X);\n}\n\nvoid MapLocalizer::setHlevels(){\n        bm.computeHlevels(X);\n}\n\nvoid MapLocalizer::setgHk(int tk, Eigen::Matrix3f gHk ){\n\n}\nvoid MapLocalizer::setLookUpDist(){\n        double min_x,min_y,min_z,max_x,max_y,max_z;\n        octree.getBoundingBox(min_x,min_y,min_z,max_x,max_y,max_z);\n        float x_res=options[\"Localize\"][\"x_res\"];\n        float y_res=options[\"Localize\"][\"y_res\"];\n        float z_res=options[\"Localize\"][\"z_res\"];\n\n        float dmax = static_cast<float>( options[\"dmax\"] );\n\n        int nx = (max_x-min_x)/x_res;\n        ArrayXf x_edges(nx),y_edges(ny),z_edges(nz);\n        for (int i=0; i<nx; ++i)\n                x_edges(i)=i*x_res;\n        for (int i=0; i<ny; ++i)\n                y_edges(i)=i*y_res;\n\n        for (int i=0; i<nz; ++i)\n                z_edges(i)=i*z_res;\n\n        for (int i=0; i<nx; ++i) {\n                for (int i=0; i<ny; ++i) {\n                        for (int i=0; i<nz; ++i) {\n                                float dsq = getNNsqrddist2Map(pcl::PointXYZ(x_edges(i),y_edges(j),z_edges(k)),dmax);\n                                float d=std::sqrt(dsq);\n                                Xdist(i,j,k) = static_cast<uint16_t>(1000.0*d);\n                        }\n                }\n        }\n\n\n}\nvoid MeasManager::setRegisteredSeqH(){\n\n        for(std::size_t i=0; i<meas.size()-1; ++i) {\n                auto kk=std::make_pair(i,i+1);\n                if(i1Hi_seq.find(kk)!=i1Hi_seq.end()) {\n                        gicp.setInputSource(meas[i]);\n                        gicp.setInputTarget(meas[i+1]);\n                        pcl::PointCloud<pcl::PointXYZ>::Ptr resultXgicp(new pcl::PointCloud<pcl::PointXYZ>);\n                        gicp.align(*resultXgicp);\n                        auto H_gicp = gicp.getFinalTransformation();\n                        i1Hi_seq[kk]=H_gicp;\n                }\n        }\n\n        computeSeqH();\n\n}\nstd::vector<Eigen::Matrix4f> MapLocalizer::setSeq_gHk(){\n        gHk.clear();\n        gHk.push_back(Eigen::Matrix4f::Zero());\n        for(std::size_t i=1; i<meas.size(); ++i) {\n                if(i<gHk.size())\n                        continue;\n                else\n                        gHk.push_back(i1Hi_seq[std::make_pair(i-1,i)]*gHk[i-1]);\n        }\n        return gHk;\n}\n\n//-------------------Getters------------\nvoid MapLocalizer::getmeas(int k,pcl::PointCloud<pcl::PointXYZ>& meas);\nvoid MapLocalizer::getmeas(int k,MatrixXf& meas);\nvoid MapLocalizer::get2dmeas(int k,pcl::PointCloud<pcl::PointXYZ>& meas2d);\nvoid MapLocalizer::get2dmeas(int k,MatrixX2f& meas2d);\nfloat MapLocalizer::getdt(){\n        int n = T.size();\n        if(n>=2)\n                return T[n-1]-T[n-2];\n        else\n                return 0;\n}\nVector6f MapLocalizer::MapPcllimits(){\n        pcl::PointXYZ min_pt,max_pt;\n        pcl::getMinMax3D (map, min_pt, max_pt);\n        Vector6f lms({min_pt.x,min_pt.y,min_pt.z,max_pt.x,max_pt.y,max_pt.z});\n        return lms;\n}\n\nEigen::MatrixXf MapLocalizer::getmaplocal_eigen(Eigen::Vector3f lb,Eigen::Vector3f ub){\n        pcl::CropBox<pcl::PointXYZ> boxFilter;\n        boxFilter.setMin(Eigen::Vector4f(lb(0), lb(1), lb(2), 1.0));\n        boxFilter.setMax(Eigen::Vector4f(ub(0), ub(1), ub(2), 1.0));\n        boxFilter.setInputCloud(map);\n        pcl::PointCloud<pcl::PointXYZ>::Ptr bodyFiltered;\n        boxFilter.filter(*bodyFiltered);\n\n        Eigen::MatrixXf X;\n        pcl2eigen(bodyFiltered,X);\n        return X;\n}\npcl::PointCloud<pcl::PointXYZ>::ConstPtr\nMapLocalizer::getmaplocal(Eigen::Vector3f lb,Eigen::Vector3f ub){\n        pcl::CropBox<pcl::PointXYZ> boxFilter;\n        boxFilter.setMin(Eigen::Vector4f(lb(0), lb(1), lb(2), 1.0));\n        boxFilter.setMax(Eigen::Vector4f(ub(0), ub(1), ub(2), 1.0));\n        boxFilter.setInputCloud(map);\n        pcl::PointCloud<pcl::PointXYZ>::Ptr bodyFiltered;\n        boxFilter.filter(*bodyFiltered);\n\n        return bodyFiltered;\n}\n\nEigen::MatrixXf MapLocalizer::getmap_eigen(){\n        Eigen::MatrixXf X;\n        pcl2eigen(map,X);\n        return X;\n}\npcl::PointCloud<pcl::PointXYZ>::ConstPtr MapLocalizer::getmap(){\n        return map;\n}\n\nEigen::MatrixXf MapLocalizer::getmap2D_eigen(){\n        Eigen::MatrixXf X;\n        pcl2eigen(map2D,X);\n        return X;\n}\npcl::PointCloud<pcl::PointXYZ>::ConstPtr MapLocalizer::getmap2D_eigen(){\n        return map2D;\n}\n\nvoid MapLocalizer::getvelocities(){\n\n        gHk = getSeq_gHk();\n        for(std::size_t i=0; i<meas.size()-1; ++i) {\n                if(i+1>=Vel.rows()) {\n                        auto kk=std::make_pair(i,i+1);\n                        H = i1Hi_seq[kk];\n                        dt = T[i+1]-T[i];\n                        Vel.row(i+1)=H.block(0,3,0,3)/dt;\n                        AngVel.row(i+1)=H.block(0,3,3,3).eulerAngles(2, 1, 0);\n                        XseqPos.row(i+1)=gHk[i+1];\n                }\n        }\n\n\n}\n\nVectorXf MapLocalizer::getLikelihoods(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk){\n        if(options[\"Likelihood\"][\"method\"]==std::string(\"octree\"))\n                return computeLikelihood(octree,Xposes,meas.at(tk));\n        else if(options[\"Likelihood\"][\"method\"]==std::string(\"lookup\"))\n                return computeLikelihood_lookup(Xdist,Xposes,meas.at(tk));\n\n}\n\n\nstd::vector<Eigen::Matrix4f> MapLocalizer::getSeq_gHk(){\n  return gHk;\n}\nstd::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f gHk){\n  gHkset = getSeq_gHk();\n  gHkset.at(tk)=gHk;\n  for(std::size_t i=1; i<meas.size(); ++i) {\n        if(i<gHk.size())\n                continue;\n        else\n                gHk[i]=i1Hi_seq[std::make_pair(i-1,i)]*gHk[i-1];\n}\n\n\n  return gHk;\n}\n// first align all the measruements\n// then fix the frame at tk as gHk\n// then compute the rel-trans  of the frames to this fixed frmae\n// if just from time 0: tk=0,  gHk=Identity\n// then transform all the measurements with their global frames\nMatrixX3f MapLocalizer::getalignSeqMeas(int t0,int tf,int tk, Eigen::Matrix4f gHk){\n        std::vector<Eigen::Matrix4f> gHk\n        gHk.push_back(Eigen::Matrix4f::Zero());\n        for(std::size_t i=1; i<meas.size(); ++i) {\n                if(i<gHk.size())\n                        continue;\n                else\n                        gHk[i]=i1Hi_seq[std::make_pair(i-1,i)]*gHk[i-1];\n        }\n        return gHk;\n}\n\n\n//-----------------Aligners-------------------------\n\nstd::vector<BinMatchSol>\nMapLocalizer::BMatch(int k,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);\n\nstd::vector<BinMatchSol>\nMapLocalizer::BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);\n\n\n\n// gHk takes k-frame local to gloal inertial frame\nEigen::Matrix4f\nMapLocalizer::gicp_correction(int tk, const Eigen::Ref<const Eigen :: Matrix4f>&gHk_est);\n",
 			"file": "pyslam/src/measmapmanagers.cpp",
-			"file_size": 12424,
-			"file_write_time": 132893374927310000,
 			"settings":
 			{
-				"buffer_size": 9259,
+				"buffer_size": 13260,
 				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "pyslam/src/pcl_helpers.cpp",
+			"settings":
+			{
+				"buffer_size": 915,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "pyslam/src/donseg.cpp",
+			"settings":
+			{
+				"buffer_size": 6418,
 				"line_ending": "Unix"
 			}
 		},
@@ -60,7 +76,7 @@
 			"file": "pyslam/include/localize.h",
 			"settings":
 			{
-				"buffer_size": 965,
+				"buffer_size": 1159,
 				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
@@ -69,7 +85,8 @@
 			"file": "pyslam/src/localize.cpp",
 			"settings":
 			{
-				"buffer_size": 7185,
+				"buffer_size": 7181,
+				"encoding": "UTF-8",
 				"line_ending": "Unix"
 			}
 		},
@@ -78,15 +95,6 @@
 			"settings":
 			{
 				"buffer_size": 370,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "pyslam/src/pcl_helpers.cpp",
-			"settings":
-			{
-				"buffer_size": 915,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -164,6 +172,7 @@
 	],
 	"file_history":
 	[
+		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/pyslam/src/measmapmanagers.cpp",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/pyslam/scripts/binmatchwrap.cpp",
 		"/C/Users/Nagnanamus/Google Drive/repos/SLAM/pyslam/include/kittiLocalize.h",
 		"/C/Users/Nagnanamus/Downloads/ResearchCodes-master/ResearchCodes-master/main_scan_matching_deutchesmeuseum.py",
@@ -298,6 +307,13 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"i1Hi_seq",
+			"setHlevels",
+			"map2D",
+			"getmaplocal",
+			"min_pt",
+			"CropBox",
+			"box",
 			"regis",
 			"MapPcllimits",
 			"KittiLocalizer",
@@ -348,15 +364,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2634,
+						"buffer_size": 2580,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								518,
-								518
+								1249,
+								1249
 							]
 						],
 						"settings":
@@ -366,10 +382,10 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 576.0,
+						"translation.y": 395.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 3,
 					"type": "text"
 				},
 				{
@@ -378,15 +394,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 2701,
+						"buffer_size": 2696,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1185,
-								1185
+								2259,
+								2259
 							]
 						],
 						"settings":
@@ -394,10 +410,10 @@
 							"syntax": "Packages/C++/C++.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 865.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 1,
 					"type": "text"
 				},
 				{
@@ -406,15 +422,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 9259,
+						"buffer_size": 13260,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								8667,
-								8667
+								1377,
+								1385
 							]
 						],
 						"settings":
@@ -424,7 +440,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 4182.0,
+						"translation.y": 206.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,
@@ -432,6 +448,65 @@
 				},
 				{
 					"buffer": 3,
+					"file": "pyslam/src/pcl_helpers.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 915,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								407,
+								479
+							]
+						],
+						"settings":
+						{
+							"open_with_edit": true,
+							"syntax": "Packages/C++/C++.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "pyslam/src/donseg.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6418,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
 					"file": "pyslam/include/pf.h",
 					"semi_transient": false,
 					"settings":
@@ -455,24 +530,24 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 9,
 					"type": "text"
 				},
 				{
-					"buffer": 4,
+					"buffer": 6,
 					"file": "pyslam/include/localize.h",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 965,
+						"buffer_size": 1159,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								543,
-								543
+								409,
+								409
 							]
 						],
 						"settings":
@@ -480,27 +555,27 @@
 							"syntax": "Packages/C++/C++.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 51.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 5,
+					"stack_index": 6,
 					"type": "text"
 				},
 				{
-					"buffer": 5,
+					"buffer": 7,
 					"file": "pyslam/src/localize.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 7185,
+						"buffer_size": 7181,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								7185,
-								7185
+								7109,
+								7124
 							]
 						],
 						"settings":
@@ -510,14 +585,14 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 1872.0,
+						"translation.y": 3456.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 5,
 					"type": "text"
 				},
 				{
-					"buffer": 6,
+					"buffer": 8,
 					"file": "pyslam/include/pcl_helpers.h",
 					"semi_transient": false,
 					"settings":
@@ -529,8 +604,8 @@
 						"selection":
 						[
 							[
-								227,
-								227
+								37,
+								37
 							]
 						],
 						"settings":
@@ -542,40 +617,11 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 10,
+					"stack_index": 7,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
-					"file": "pyslam/src/pcl_helpers.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 915,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								231,
-								144
-							]
-						],
-						"settings":
-						{
-							"open_with_edit": true,
-							"syntax": "Packages/C++/C++.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 8,
-					"type": "text"
-				},
-				{
-					"buffer": 8,
+					"buffer": 9,
 					"file": "pyslam/src/binmatch.cpp",
 					"semi_transient": false,
 					"settings":
@@ -601,11 +647,11 @@
 						"translation.y": 2592.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 9,
+					"stack_index": 11,
 					"type": "text"
 				},
 				{
-					"buffer": 9,
+					"buffer": 10,
 					"file": "pyslam/include/base.h",
 					"semi_transient": false,
 					"settings":
@@ -617,8 +663,8 @@
 						"selection":
 						[
 							[
-								2428,
-								2436
+								2271,
+								2277
 							]
 						],
 						"settings":
@@ -626,14 +672,14 @@
 							"syntax": "Packages/C++/C++.sublime-syntax"
 						},
 						"translation.x": 0.0,
-						"translation.y": 1008.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 6,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
-					"buffer": 10,
+					"buffer": 11,
 					"file": "pyslam/include/binmatch.h",
 					"semi_transient": false,
 					"settings":
@@ -659,7 +705,7 @@
 						"translation.y": 505.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 7,
+					"stack_index": 10,
 					"type": "text"
 				}
 			]

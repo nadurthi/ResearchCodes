@@ -81,7 +81,7 @@ using MatrixX3f = Eigen::Matrix<float, Eigen::Dynamic, 3>;
 using MatrixX2i = Eigen::Matrix<int, Eigen::Dynamic, 2>;
 using MatrixX2d = Eigen::Matrix<double, Eigen::Dynamic, 2>;
 
-using MatrixXXuint16 = Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic>
+using MatrixXXuint16 = Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic>;
 
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Vector6f = Eigen::Matrix<float, 6, 1>;

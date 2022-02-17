@@ -176,10 +176,10 @@ std::ostream& operator << (std::ostream& os, const std::vector<SolBox>& v)
 }
 
 
-BinMatch::BinMatch(std::string opt){
-        setOptions(std::string opt)
+BinMatch::BinMatch(const std::string & opt){
+        setOptions(opt);
 }
-void setOptions(std::string opt){
+void BinMatch::setOptions(const std::string &opt){
         options=json::parse(opt);
         Lmax=Matrix2frow(options["BinMatch"]["Lmax"][0],options["BinMatch"]["Lmax"][1]);
         dxMatch=Matrix2frow(options["BinMatch"]["dxMatch"][0],options["BinMatch"]["dxMatch"][1]);

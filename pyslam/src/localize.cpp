@@ -19,7 +19,20 @@ void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H){
 
 }
 
+void Hmat2pose(const Eigen::Matrix4f& H,Vector6f& x){
 
+
+        Eigen::Matrix3f R=H.block(0,0,3,3);
+        Eigen::Vector3f vv =R.eulerAngles(2,1,0);
+
+        x(0)=H(0,3);
+        x(1)=H(1,3);
+        x(2)=H(2,3);
+        x(3)=vv(0);
+        x(4)=vv(1);
+        x(5)=vv(2);
+
+}
 
 
 
@@ -35,11 +48,12 @@ void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H){
 //         std::cout << "Built KDtree " << std::endl;
 // }
 
-float getNNsqrddist2Map(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapoctree,const pcl::PointXYZ & searchPoint,float dmax){
+float getNNsqrddist2Map(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoctree,const pcl::PointXYZ & searchPoint,float dmax){
         float dmaxsq = std::pow(dmax,2);
         int pointIdxRadiusSearch;
         float pointRadiusSquaredDistance;
-        mapoctree.approxNearestSearch(searchPoint,pointIdxRadiusSearch,pointRadiusSquaredDistance);
+        mapoctree->approxNearestSearch(searchPoint,pointIdxRadiusSearch,pointRadiusSquaredDistance);
+        float d;
         if (pointRadiusSquaredDistance<=dmaxsq)
                 d = pointRadiusSquaredDistance;
         else
@@ -47,12 +61,12 @@ float getNNsqrddist2Map(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapo
 
         return d;
 }
-float getNNsqrddist2Map(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,const pcl::PointXYZ & searchPoint,float dmax){
+float getNNsqrddist2Map(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,const pcl::PointXYZ & searchPoint,float dmax){
         std::vector<int> pointIdxRadiusSearch;
         std::vector<float> pointRadiusSquaredDistance;
         float dmaxsq = std::pow(dmax,2);
-
-        if ( mapkdtree.radiusSearch (searchPoint, dmax, pointIdxRadiusSearch, pointRadiusSquaredDistance,1) > 0 )
+        float d;
+        if ( mapkdtree->radiusSearch (searchPoint, dmax, pointIdxRadiusSearch, pointRadiusSquaredDistance,1) > 0 )
                 d=pointRadiusSquaredDistance[0];
         else
                 d=dmaxsq;
@@ -73,7 +87,7 @@ float getNNsqrddist2Map(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,const pcl::P
 
  **/
 VectorXf
-computeLikelihood(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,
+computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
@@ -119,13 +133,15 @@ computeLikelihood(const pcl::KdTree<pcl::PointXYZ>& mapkdtree,
 
         }
 
-        VectorXf likelihoods_eig(likelihoods.data());
+        VectorXf likelihoods_eig;
+        for (std::size_t i=0; i<likelihoods.size(); ++i)
+                likelihoods_eig(i)=likelihoods[i];
 
         return likelihoods_eig;
 }
 
 VectorXf
-computeLikelihood(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapoctree,
+computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoctree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
@@ -172,13 +188,15 @@ computeLikelihood(const pcl::octree::OctreePointCloud<pcl::PointXYZ>& mapoctree,
         }
 
 
-        VectorXf likelihoods_eig(likelihoods.data());
+        VectorXf likelihoods_eig;
+        for (std::size_t i=0; i<likelihoods.size(); ++i)
+                likelihoods_eig(i)=likelihoods[i];
 
         return likelihoods_eig;
 }
 
 VectorXf
-computeLikelihood_lookup(const Eigen::Ref<const MatrixXXuint16> &Xdist,
+computeLikelihood_lookup(const std::vector<MatrixXXuint16> &Xdist, const std::vector<float>& res,
                          const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                          pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
@@ -216,10 +234,10 @@ computeLikelihood_lookup(const Eigen::Ref<const MatrixXXuint16> &Xdist,
                 for(std::size_t i=0; i<Xmeaspcl->size(); ++i) {
                         Eigen::Vector3f xm({Xmeaspcl->points[i].x,Xmeaspcl->points[i].y,Xmeaspcl->points[i].z});
                         Eigen::Vector3f xt=R*xm+t;
-                        p=int(xt(0)/x_res);
-                        q=int(xt(1)/y_res);
-                        r=int(xt(2)/z_res);
-                        float d = static_cast<float>(Xdist(p,q,r))/1000;
+                        int p=int(xt(0)/res[0]);
+                        int q=int(xt(1)/res[1]);
+                        int r=int(xt(2)/res[2]);
+                        float d = static_cast<float>(Xdist[r](p,q))/1000;
                         s[i] = std::pow(d,2);
                 }
 
@@ -228,7 +246,9 @@ computeLikelihood_lookup(const Eigen::Ref<const MatrixXXuint16> &Xdist,
         }
 
 
-        VectorXf likelihoods_eig(likelihoods.data());
+        VectorXf likelihoods_eig;
+        for (std::size_t i=0; i<likelihoods.size(); ++i)
+                likelihoods_eig(i)=likelihoods[i];
 
         return likelihoods_eig;
 }

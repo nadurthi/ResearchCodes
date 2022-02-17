@@ -47,11 +47,6 @@ PYBIND11_MODULE(slam, m) {
         .def("computeDon", &Don::computeDon)
         .def("filter", &Don::filter);
 
-        py::class_<Localize>(m, "Localize")
-        .def(py::init<const std::string &>())
-        .def("setMapX", &Localize::setMapX)
-        .def("setOptions", &Localize::setOptions)
-        .def("computeLikelihood", &Localize::computeLikelihood);
 
 #ifdef VERSION_INFO
         m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);

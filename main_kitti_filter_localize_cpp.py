@@ -60,6 +60,8 @@ import pickle
 from joblib import dump, load
 from importlib import reload 
 from pyslam import  slam
+from pyslam import kittilocal
+
 import json
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
     spl0 = UnivariateSpline(tvec, qvec[:,0], k=k,s=s)
@@ -255,7 +257,7 @@ plt.show()
 D={}
 
 
-
+D["Localize"]={}
 D["Localize"]["sig0"]=0.5
 D["Localize"]["dmax"]=10
 D["Localize"]["likelihoodsearchmethod"]="octree" # lookup
@@ -266,17 +268,20 @@ D["Localize"]["lookup"]={"resolution":[0.1,0.1,0.1]}
 
 
 #
+D["MapManager"]={"map":{},"map2D":{}}
 D["MapManager"]["map"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 D["MapManager"]["map2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 D["MapManager"]["map2D"]["removeRoad"]=False
 
 #
+D["MeasMenaager"]={"meas":{},"meas2D":{}}
 D["MeasMenaager"]["meas"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 D["MeasMenaager"]["meas2D"]["removeRoad"]=False
 D["MeasMenaager"]["meas2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 
 
 #
+D["BinMatch"]={}
 D['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
 D['BinMatch']["dxBase"]=list(np.array([30,30],dtype=np.float64))
 D['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
@@ -284,6 +289,8 @@ D['BinMatch']["thmax"]=170*np.pi/180
 D['BinMatch']["thfineres"]=2.5*np.pi/180
 
 #
+D["mapfit"]={"downsample":{},"gicp":{}}
+D["mapfit"]["downsample"]={"resolution":[0.1,0.1,0.1]}
 D["mapfit"]["gicp"]["setMaxCorrespondenceDistance"]=20
 D["mapfit"]["gicp"]["setMaximumIterations"]=50.0
 D["mapfit"]["gicp"]["setMaximumOptimizerIterations"]=20.0
@@ -291,6 +298,16 @@ D["mapfit"]["gicp"]["setRANSACIterations"]=0
 D["mapfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
 D["mapfit"]["gicp"]["setTransformationEpsilon"]=1e-9
 D["mapfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
+
+#
+D["seqfit"]={"downsample":{},"gicp":{}}
+D["seqfit"]["gicp"]["setMaxCorrespondenceDistance"]=20
+D["seqfit"]["gicp"]["setMaximumIterations"]=50.0
+D["seqfit"]["gicp"]["setMaximumOptimizerIterations"]=20.0
+D["seqfit"]["gicp"]["setRANSACIterations"]=0
+D["seqfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+D["seqfit"]["gicp"]["setTransformationEpsilon"]=1e-9
+D["seqfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
 
 #%% PF 
 
@@ -302,9 +319,10 @@ pcd3Droadremove=o3d.io.read_point_cloud("kitti-pcd-seq-roadremove-%s.pcd"%sequen
 Xmap =np.asarray(pcd3D.points)
 Xmap2D=np.asarray(pcd3Droadremove.points)
 
-KL=slam.KittiLocalization(opts,Xmap[:,:3],Xmap2D[:,:2])
-
-
+KL=kittilocal.MapLocalizer(json.dumps(D))
+KL.addMap(Xmap)
+KL.addMap2D(Xmap2D[:,:2])
+KL.setLookUpDist()
 
 minx,miny,minz,maxx,maxy,maxz=KL.MapPcllimits()
 
@@ -632,7 +650,11 @@ if makeMatPlotLibdebugPlot:
     figpf = plt.figure()    
     axpf = figpf.add_subplot(111,projection='3d')
 
-t=0
+
+X1v = dataset.get_velo(0)
+X1v=X1v[:,:3]
+KL.addMeas(X1v,dataset.times[0])
+
 
 for k in range(1,len(dataset)):
     print(k)
@@ -653,9 +675,23 @@ for k in range(1,len(dataset)):
     X1gv=Hgt[0:3,0:3].dot(X1v.T).T+Hgt[0:3,3]
     
     dt=dataset.times[k]-dataset.times[k-1]
-    t=t+dt
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(X1v[:,:3])
+    downpcd = pcd.voxel_down_sample(voxel_size=0.05)
+    downpcd.estimate_normals(
+        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=1, max_nn=30))
+    X1vnorm = np.asarray(downpcd.normals)
+    idd=np.abs(X1vnorm[:,2])<0.5
+    X1v_roadrem=np.asarray(downpcd.points)
+    X1v_roadrem=X1v_roadrem[idd] 
+    X1gv_roadrem=Hgt[0:3,0:3].dot(X1v_roadrem.T).T+Hgt[0:3,3]
+
     
-    KL.addMeas(X1v,t);
+    KL.addMeas(X1v,X1v_roadrem,dataset.times[k])
+    KL.setRegisteredSeqH()
+    KL.setRelStates()
+    
     
     # propagate
     st=time.time()
@@ -670,31 +706,34 @@ for k in range(1,len(dataset)):
     
     LiK=[]
     
-    
+    # getalignSeqMeas problem here
     idxpf=0
     doBinMatch=0
     if doBinMatch:
- 
-        for idxpf in [0]:
-            
-            Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
-            phiidx = robotpf.X[idxpf][3]
-            Rzphiidx,_=gicp.Rz(phiidx)
-            
-            H12est=np.identity(3)
-            H12est[0:2,0:2]=Rzphiidx[0:2,0:2]
-            H12est[0:2,2]=tidx[:2]
-            
-            sols=KL.BMatch(k,H12est)
+        Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
+        # phiidx = robotpf.X[idxpf][3]
+        # Rzphiidx,_=gicp.Rz(phiidx)
+        
+        # H12est=np.identity(3)
+        # H12est[0:2,0:2]=Rzphiidx[0:2,0:2]
+        # H12est[0:2,2]=tidx[:2]
+        
+        Hpose = np.identity(4)
+        Hpose[0:3,0:3]=Ridx
+        Hpose[0:3,3]=tidx
+        solret=KL.BMatchseq(k,k,k,Hpose,True)
+        R=solret.gHkcorr[0:3,0:3]
+        t=solret.gHkcorr[0:3,3]
+        if (solret.sols[0].cost>solret.sols[0].cost0):
+            robotpf.X[idxpf][:6]=Rt2pose(R,t)
+        
             
             
 
     
     
     st=time.time()
-    likelihoods=KL.computeLikelihood(robotpf.X)
-    likelihoods=np.array(likelihoods)
-
+    likelihoods=KL.getLikelihoods(robotpf.X,k)
     likelihoods=np.exp(-likelihoods)
     likelihoods[likelihoods<1e-20]=1e-20
     robotpf.wts=likelihoods*robotpf.wts

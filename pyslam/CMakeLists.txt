@@ -23,6 +23,7 @@ set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(SCRIPT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
 file(GLOB SRC_FILES ${SOURCE_DIR}/*.cpp)
 
+
 #---------------------------------------------------------------------------------------
 # essential libraries and variables
 #---------------------------------------------------------------------------------------
@@ -57,11 +58,11 @@ target_precompile_headers(binmatch PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/
 target_include_directories(binmatch PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
 target_link_libraries(binmatch PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen)
 
-add_executable(kittilocal "${SCRIPT_DIR}/kittiLocalize.cpp" ${SRC_FILES} )
+pybind11_add_module(kittilocal "${SCRIPT_DIR}/kittiLocalize.cpp" ${SRC_FILES} )
 target_compile_definitions(kittilocal PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} )
 target_precompile_headers(kittilocal PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/base.h")
-target_include_directories(kittilocal PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} pybind11::headers)
-target_link_libraries(kittilocal PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX pybind11::module  Eigen3::Eigen pybind11::embed)
+target_include_directories(kittilocal PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
+target_link_libraries(kittilocal PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen)
 
 
 #target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} ${PCL_DEFINITIONS})

@@ -24,12 +24,12 @@ class GLU(nn.module):
 #think about it as ELU
 class GRN(nn.module):
     def __init__(self,model_state_in_dim,model_state_out_dim,model_context_state_in_dim,
-                 model_context_state_out_dim,dropout_prob=0.2):
+                 dropout_prob=0.2):
         self.super().__init__()
         self.model_state_in_dim = model_state_in_dim
         self.model_state_out_dim = model_state_out_dim
         self.model_context_state_in_dim=model_context_state_in_dim
-        self.model_context_state_out_dim=model_context_state_out_dim
+    
         
         self.dropout_prob=dropout_prob
         
@@ -37,7 +37,7 @@ class GRN(nn.module):
         self.layernorm = nn.LayerNorm()
         self.elu = nn.CELU()
         self.L2 = nn.Linear(model_state_in_dim, model_state_out_dim)
-        self.L3 = nn.Linear(model_context_state_in_dim, model_context_state_out_dim, bias=False)
+        self.L3 = nn.Linear(model_context_state_in_dim, model_state_out_dim, bias=False)
         
         self.L1 = nn.Linear(model_state_out_dim, model_state_out_dim)
         self.drop_layer = nn.Dropout(p=dropout_prob)
@@ -58,30 +58,29 @@ class GRN(nn.module):
 # takes elements in of size model_state_dim. 
 # total elements are mX
 class VSN(nn.module):
-    def __init__(self,model_state_in_dim,model_state_out_dim,model_context_state_in_dim,
-                 model_context_state_out_dim,mX):
+    def __init__(self,model_state_in_dim,model_state_out_dim,model_context_state_in_dim,mX):
         self.super().__init__()
         self.model_state_in_dim = model_state_in_dim
         self.model_state_out_dim = model_state_out_dim
         self.model_context_state_in_dim=model_context_state_in_dim
-        self.model_context_state_out_dim=model_context_state_out_dim
         self.mX=mX
         
         self.inputGRNS = nn.ModuleList([GRN(model_state_out_dim,model_state_out_dim,dropout_prob=0.2) for i in range(mX)])
-        self.concatinputGRN=GRN(mX*model_state_in_dim,model_state_out_dim,dropout_prob=0.2)
+        self.concatinputGRN=GRN(mX*model_state_in_dim,mX,model_context_state_in_dim,dropout_prob=0.2)
         self.softmax = nn.Softmax()
     
     def forward(self,X,c):
         Y=torch.zeros_like(X)
         N=X.shape[0]
-        # xdim == mX,model_state_dim
+        # Xdim == N,mX,model_state_dim
         for i in range(self.mX):
             Y[:,i,:]=self.inputGRNS[i](X[:,i,:])
         
+        #  concatenated should be [modeldim,modeldim,......,modeldim] mX times
         Xflat = torch.reshape(X, (X.shape[0], -1))
         s=self.concatinputGRN(Xflat,c)
         v=self.softmax(s)
         
-        for b in range(N):
-            torch.sum(X[b,i,:]*v[n,i,:])
+        V=v.unsqueeze(0).repeat(N,1,1)
+        return torch.sum(X*V,1)   
         
