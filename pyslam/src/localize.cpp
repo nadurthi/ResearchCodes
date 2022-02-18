@@ -196,7 +196,7 @@ computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoct
 }
 
 VectorXf
-computeLikelihood_lookup(const std::vector<MatrixXXuint16> &Xdist, const std::vector<float>& res,
+computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,
                          const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                          pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
@@ -234,10 +234,10 @@ computeLikelihood_lookup(const std::vector<MatrixXXuint16> &Xdist, const std::ve
                 for(std::size_t i=0; i<Xmeaspcl->size(); ++i) {
                         Eigen::Vector3f xm({Xmeaspcl->points[i].x,Xmeaspcl->points[i].y,Xmeaspcl->points[i].z});
                         Eigen::Vector3f xt=R*xm+t;
-                        int p=int(xt(0)/res[0]);
-                        int q=int(xt(1)/res[1]);
-                        int r=int(xt(2)/res[2]);
-                        float d = static_cast<float>(Xdist[r](p,q))/1000;
+                        uint16_t p=(xt(0)-Xdist_min[0])/res[0];
+                        uint16_t q=(xt(1)-Xdist_min[1])/res[1];
+                        uint16_t r=(xt(2)-Xdist_min[2])/res[2];
+                        float d = getitemXdist(Xdist,p,q,r,dmax);
                         s[i] = std::pow(d,2);
                 }
 

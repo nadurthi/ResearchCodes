@@ -10,6 +10,8 @@ struct BMatchAndCorrH {
         Eigen :: Matrix4f gHkcorr;
 };
 
+
+
 class MapLocalizer {
 public:
 MapLocalizer(std::string opt );
@@ -24,7 +26,7 @@ void addMap(const Eigen::Ref<const Eigen::MatrixXf> &X);
 void addMap2D(const Eigen::Ref<const Eigen::MatrixXf> &X);
 
 void setgHk(int tk, Eigen::Matrix4f gHk );
-void setLookUpDist();
+void setLookUpDist(std::string filename);
 void setRegisteredSeqH();
 std::vector<Eigen::Matrix4f> setSeq_gHk();
 void setRelStates();
@@ -66,8 +68,8 @@ std::vector<Eigen::Matrix4f> getsetSeq_gHk(int t0,int tf,int tk, Eigen::Matrix4f
 pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas_noroad(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 
-MatrixX3f getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
-MatrixX3f getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+Eigen :: MatrixXf getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+Eigen :: MatrixXf getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 //-----------------Aligners-------------------------
 
 
@@ -99,8 +101,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr map2D;
 pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;
 pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr kdtree;
 
-std::vector<MatrixXXuint16> Xdist;
-
+xdisttype Xdist;
+std::vector<float> Xdist_min;
 
 BinMatch bm;
 };

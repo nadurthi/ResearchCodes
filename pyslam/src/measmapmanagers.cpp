@@ -1,6 +1,8 @@
 #include "measmapmanagers.h"
 
 
+
+
 MapLocalizer::MapLocalizer(std::string opt ) : bm(opt){
         options=json::parse(opt);
         kdtree.reset(new pcl::KdTreeFLANN<pcl::PointXYZ>(false));
@@ -129,7 +131,13 @@ void MapLocalizer::addMap2D(const Eigen::Ref<const Eigen::MatrixXf> &X){
         Eigen::MatrixXf X1;
         pcl2eigen(map2D,X1);
 
-        bm.computeHlevels(X1(Eigen::all,Eigen::seq(0,1)));
+        std::cout<<"addMap2D-------" << std::endl;
+        std::cout<<"X = "<< X.rows() << std::endl;
+        std::cout<<"map2D = "<< map2D->size() << std::endl;
+        std::cout<<"map2D_filtered = "<< map2D_filtered->size() << std::endl;
+        MatrixX2f X2 =X1(Eigen::all,Eigen::seq(0,1));
+        bm.computeHlevels(X2);
+        std::cout<<"completed bin compute levels" << std::endl;
 }
 
 
@@ -138,9 +146,19 @@ void MapLocalizer::addMap2D(const Eigen::Ref<const Eigen::MatrixXf> &X){
 void MapLocalizer::setgHk(int tk, Eigen::Matrix4f gHs ){
         gHk[tk] = gHs;
 }
-void MapLocalizer::setLookUpDist(){
-        double min_x,min_y,min_z,max_x,max_y,max_z;
-        octree->getBoundingBox(min_x,min_y,min_z,max_x,max_y,max_z);
+void MapLocalizer::setLookUpDist(std::string filename){
+        boost::filesystem::path p1(filename);
+
+
+        float min_x,min_y,min_z,max_x,max_y,max_z;
+        // octree->getBoundingBox(min_x,min_y,min_z,max_x,max_y,max_z);
+        auto mnmx = MapPcllimits();
+        min_x=mnmx(0); min_y=mnmx(1); min_z=mnmx(2); max_x=mnmx(3); max_y=mnmx(4); max_z=mnmx(5);
+
+        Xdist_min.push_back(min_x);
+        Xdist_min.push_back(min_y);
+        Xdist_min.push_back(min_z);
+
         float x_res=options["Localize"]["lookup"]["resolution"][0];
         float y_res=options["Localize"]["lookup"]["resolution"][1];
         float z_res=options["Localize"]["lookup"]["resolution"][2];
@@ -151,31 +169,115 @@ void MapLocalizer::setLookUpDist(){
         int ny = (max_y-min_y)/y_res;
         int nz = (max_z-min_z)/z_res;
 
+        std::cout<<"nx = " << nx <<std::endl;
+        std::cout<<"ny = " << ny <<std::endl;
+        std::cout<<"nz = " << nz <<std::endl;
+
+        std::cout<<"x_res = " << x_res <<std::endl;
+        std::cout<<"y_res = " << y_res <<std::endl;
+        std::cout<<"z_res = " << z_res <<std::endl;
+
+        std::cout<<"min_x,max_x = " << min_x <<", "<< max_x <<std::endl;
+        std::cout<<"min_y,max_y = " << min_y <<", "<< max_y <<std::endl;
+        std::cout<<"min_z,max_z = " << min_z <<", "<< max_z <<std::endl;
+
+        std::cout<<"Xdist_min = "<<Xdist_min[0]<<" "<<Xdist_min[1]<<" "<<Xdist_min[2]<<" "<<std::endl;
+
         Eigen::ArrayXf x_edges(nx),y_edges(ny),z_edges(nz);
         for (int i=0; i<nx; ++i)
-                x_edges(i)=i*x_res;
+                x_edges(i)=min_x+i*x_res;
 
         for (int i=0; i<ny; ++i)
-                y_edges(i)=i*y_res;
+                y_edges(i)=min_y+i*y_res;
 
         for (int i=0; i<nz; ++i) {
-                z_edges(i)=i*z_res;
-                Xdist.push_back(MatrixXXuint16::Zero(nx,ny));
+                z_edges(i)=min_z+i*z_res;
         }
 
-        for (int i=0; i<nx; ++i) {
-                for (int j=0; j<ny; ++j) {
-                        for (int k=0; k<nz; ++k) {
-                                pcl::PointXYZ pt(x_edges(i),y_edges(j),z_edges(k));
-                                float dsq = getNNsqrddist2Map(octree,pt,dmax);
-                                float d=std::sqrt(dsq);
-                                if (1000*d<=65534)
-                                        Xdist[k](i,j) = static_cast<uint16_t>(1000.0*d);
-                                else
-                                        Xdist[k](i,j) = 65534;
+        Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic> Xidx;
+        Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> Xd;
+
+
+        if ( boost::filesystem::exists( "idx_"+filename ) )
+        {
+                std::cout<<"loading setLookUpDist" << std::endl;
+
+                Eigen::read_binary(("idx_"+filename).c_str(), Xidx);
+                Eigen::read_binary(("value_"+filename).c_str(), Xd);
+                std::cout<<"read setLookUpDist" << std::endl;
+                uint32_t N=Xidx.rows();
+
+
+                for (uint32_t cnt=0; cnt<N; ++cnt) {
+                        uint16_t i=Xidx(cnt,0);
+                        uint16_t j=Xidx(cnt,1);
+                        uint16_t k=Xidx(cnt,2);
+                        Xdist[i][j][k] = Xd(cnt);
+                }
+
+                int cnt =1000;
+                uint16_t i=Xidx(cnt,0);
+                uint16_t j=Xidx(cnt,1);
+                uint16_t k=Xidx(cnt,2);
+                pcl::PointXYZ pt(x_edges(i),y_edges(j),z_edges(k));
+                float dsq = getNNsqrddist2Map(octree,pt,dmax);
+                float d=std::sqrt(dsq);
+                std::cout<< "(dsaved,dcomp) = " << Xdist[i][j][k] <<", " << d << std::endl;
+        }
+        else{
+                std::cout<<"creating and saving setLookUpDist" << std::endl;
+                std::atomic<int> acnt{0};
+                #pragma omp parallel for num_threads(6)
+                for (uint16_t i=0; i<nx; ++i) {
+                        // std::cout << "(i,nx),(j,ny) = " << i << " " << nx <<", "<< j << " " << ny << std::endl;
+                        std::cout << "(i,nx), = " << i << " " << nx << std::endl;
+                        for (uint16_t j=0; j<ny; ++j) {
+                                std::vector<float> v;
+                                v.resize(nz);
+
+                                for (uint16_t k=0; k<nz; ++k) {
+                                        pcl::PointXYZ pt(x_edges(i),y_edges(j),z_edges(k));
+                                        float dsq = getNNsqrddist2Map(octree,pt,dmax);
+                                        float d=std::sqrt(dsq);
+                                        v[k]=d;
+                                }
+
+                                for(uint16_t k=0; k<nz; ++k) {
+                                        if (v[k]<dmax) {
+                                                Xdist[i][j][k] = v[k];
+                                                acnt++;
+                                        }
+                                }
                         }
                 }
+
+                int cnt;
+                cnt = acnt;
+
+                Xidx=Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic>::Zero(cnt,3);
+                Xd=Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>::Zero(cnt,1);
+
+                cnt=0;
+                for (auto& e1 : Xdist)
+                {
+                        for (auto& e2 : e1.second) {
+                                for (auto& e3 : e2.second) {
+                                        Xidx(cnt,0)= e1.first;
+                                        Xidx(cnt,1)= e2.first;
+                                        Xidx(cnt,2)= e3.first;
+                                        Xd(cnt,0) = e3.second;
+                                        cnt++;
+                                }
+                        }
+                }
+
+                Eigen::write_binary(("idx_"+filename).c_str(), Xidx);
+                Eigen::write_binary(("value_"+filename).c_str(), Xd);
+
+                // phmap::BinaryOutputArchive ar_out("dump1.bin");
+                // Xdist.phmap_dump(ar_out);
         }
+        std::cout<<"completed setLookUpDist" << std::endl;
 
 
 }
@@ -318,7 +420,7 @@ Eigen::VectorXf MapLocalizer::getLikelihoods(const Eigen::Ref<const Eigen::Matri
                 return computeLikelihood(octree,Xposes,meas.at(tk),options["Localize"]["dmax"],options["Localize"]["sig0"]);
 
         else if(options["Localize"]["likelihoodsearchmethod"]==std::string("lookup")) {
-                return computeLikelihood_lookup(Xdist,options["Localize"]["lookup"]["resolution"],
+                return computeLikelihood_lookup(Xdist,options["Localize"]["lookup"]["resolution"],Xdist_min,
                                                 Xposes,meas.at(tk),options["Localize"]["dmax"],options["Localize"]["sig0"]);
         }
 
@@ -388,18 +490,18 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas_noroad(int t0,
         return outputcld;
 }
 
-MatrixX3f MapLocalizer::getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim){
+Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim){
 
         auto outputcld = getalignSeqMeas(t0,tf,tk,gHk,res,dim);
 
-        MatrixX3f X;
+        Eigen :: MatrixXf X;
         pcl2eigen(outputcld,X);
         return X;
 }
-MatrixX3f MapLocalizer::getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim){
+Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim){
         auto outputcld = getalignSeqMeas_noroad(t0,tf,tk,gHk,res,dim);
 
-        MatrixX3f X;
+        Eigen :: MatrixXf X;
         pcl2eigen(outputcld,X);
         return X;
 
@@ -412,7 +514,7 @@ MapLocalizer::BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Mat
         std::vector<float> res({bm.dxMatch(0),bm.dxMatch(1),1});
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl= getalignSeqMeas_noroad(t0,tf,tk, gHk,res,2);
-        MatrixX3f Xsrc;
+        Eigen::MatrixXf Xsrc;
         pcl2eigen(Xsrcpcl,Xsrc);
         MatrixX2f Xsrc2D= Xsrc(Eigen::all,Eigen::seq(0,1));
 

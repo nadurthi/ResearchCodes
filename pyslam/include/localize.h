@@ -25,7 +25,7 @@ computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoct
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0);
 VectorXf
-computeLikelihood_lookup(const std::vector<MatrixXXuint16> &Xdist, const std::vector<float>& res,
+computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,
                          const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                          pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0);
 

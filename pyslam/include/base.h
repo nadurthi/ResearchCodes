@@ -26,6 +26,8 @@
 #include <array>
 #include <numeric>
 #include <cstddef>
+#include <atomic>
+
 
 //eigen`
 #include <Eigen/Core>
@@ -63,7 +65,16 @@
 //misc
 #include <nlohmann/json.hpp>
 #include <omp.h>
+#include <parallel_hashmap/phmap.h>
+#include <parallel_hashmap/btree.h>
+#include "parallel_hashmap/phmap_dump.h"
 
+
+//Boost
+#include <boost/filesystem.hpp>
+
+using phmap::flat_hash_map;
+using phmap::btree_map;
 
 namespace py = pybind11;
 
@@ -101,6 +112,14 @@ using ArrayX2i = Eigen::Array<int, Eigen::Dynamic, 2>;
 
 using json = nlohmann::json;
 
+// using xdisttype = std::map<uint16_t,std::map<uint16_t,std::map<uint16_t,float> > >;
+using xdisttype = flat_hash_map<uint16_t,flat_hash_map<uint16_t,flat_hash_map<uint16_t,float> > >;
+// using xdisttype = btree_map<uint16_t,btree_map<uint16_t,btree_map<uint16_t,float> > >;
+
+
+
+float getitemXdist(const xdisttype& x,uint16_t p,uint16_t q,uint16_t r,float dmax);
+
 json
 parseOptions(std::string opt);
 
@@ -111,4 +130,30 @@ readOptionsFile(std::string file);
 template <class myType>
 void printmsg(std::string var, myType b) {
  std::cout<< var <<" = " << b << std::endl;
+}
+
+
+
+
+
+namespace Eigen{
+template<class Matrix>
+void write_binary(const char* filename, const Matrix& matrix){
+    std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
+    typename Matrix::Index rows=matrix.rows(), cols=matrix.cols();
+    out.write((char*) (&rows), sizeof(typename Matrix::Index));
+    out.write((char*) (&cols), sizeof(typename Matrix::Index));
+    out.write((char*) matrix.data(), rows*cols*sizeof(typename Matrix::Scalar) );
+    out.close();
+}
+template<class Matrix>
+void read_binary(const char* filename, Matrix& matrix){
+    std::ifstream in(filename, std::ios::in | std::ios::binary);
+    typename Matrix::Index rows=0, cols=0;
+    in.read((char*) (&rows),sizeof(typename Matrix::Index));
+    in.read((char*) (&cols),sizeof(typename Matrix::Index));
+    matrix.resize(rows, cols);
+    in.read( (char *) matrix.data() , rows*cols*sizeof(typename Matrix::Scalar) );
+    in.close();
+}
 }
