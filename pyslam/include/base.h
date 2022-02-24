@@ -2,6 +2,9 @@
 //basic
 #include <iostream>
 #include <fstream>
+#include <chrono>
+#include <ctime>
+
 
 //pybind
 #include <pybind11/pybind11.h>
@@ -27,7 +30,9 @@
 #include <numeric>
 #include <cstddef>
 #include <atomic>
-
+#include <numeric>
+#include <future>
+#include <mutex>
 
 //eigen`
 #include <Eigen/Core>
@@ -75,6 +80,9 @@
 
 using phmap::flat_hash_map;
 using phmap::btree_map;
+using phmap::parallel_flat_hash_map;
+
+using namespace std::chrono_literals;
 
 namespace py = pybind11;
 
@@ -113,9 +121,9 @@ using ArrayX2i = Eigen::Array<int, Eigen::Dynamic, 2>;
 using json = nlohmann::json;
 
 // using xdisttype = std::map<uint16_t,std::map<uint16_t,std::map<uint16_t,float> > >;
-using xdisttype = flat_hash_map<uint16_t,flat_hash_map<uint16_t,flat_hash_map<uint16_t,float> > >;
+// using xdisttype = flat_hash_map<uint16_t,flat_hash_map<uint16_t,flat_hash_map<uint16_t,float> > >;
 // using xdisttype = btree_map<uint16_t,btree_map<uint16_t,btree_map<uint16_t,float> > >;
-
+using xdisttype = phmap::parallel_flat_hash_map<uint16_t,phmap::parallel_flat_hash_map<uint16_t,phmap::parallel_flat_hash_map<uint16_t,float> > >;
 
 
 float getitemXdist(const xdisttype& x,uint16_t p,uint16_t q,uint16_t r,float dmax);

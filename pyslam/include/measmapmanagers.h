@@ -8,14 +8,32 @@
 struct BMatchAndCorrH {
         std::vector<BinMatchSol> sols;
         Eigen :: Matrix4f gHkcorr;
+        bool isDone;
 };
 
+struct BMatchAndCorrH_async {
+        BMatchAndCorrH bmHsol;
+        int tk;
+        int t0;
+        int tf;
+        bool do_gicp;
+        Eigen :: Matrix4f gHkest_initial;
+        Eigen :: Matrix4f gHkest_final;
+
+
+        // std::chrono::time_point<std::chrono::system_clock> st;
+        // std::chrono::time_point<std::chrono::system_clock> et;
+        float time_taken;
+        bool isDone;
+
+};
 
 
 class MapLocalizer {
 public:
 MapLocalizer(std::string opt );
 void setOptions(std::string optstr);
+void setBMOptions(std::string opt);
 void resetH();
 
 //-----------------Setters------------------
@@ -30,6 +48,7 @@ void setLookUpDist(std::string filename);
 void setRegisteredSeqH();
 std::vector<Eigen::Matrix4f> setSeq_gHk();
 void setRelStates();
+void computeHlevels();
 
 //-------------------Getters------------
 Eigen::MatrixXf getmeas_eigen(int k);
@@ -50,20 +69,22 @@ Eigen::MatrixXf getmaplocal_eigen(Eigen::Vector3f lb,Eigen::Vector3f ub);
 Eigen::MatrixXf getmap_eigen();
 pcl::PointCloud<pcl::PointXYZ>::ConstPtr getmap();
 
-
+Eigen::MatrixXf getmap2D_noroad_res_eigen(std :: vector<float> res,int dim);
 Eigen::MatrixXf getmap2D_eigen();
 
 pcl::PointCloud<pcl::PointXYZ>::ConstPtr getmap2D();
 
-MatrixX3f getvelocities();
-MatrixX3f getpositions();
-MatrixX3f getangularvelocities();
+std::vector<Eigen::Vector3f> getvelocities();
+std::vector<Eigen::Vector3f> getpositions();
+std::vector<Eigen::Vector3f> getangularvelocities();
 
-Eigen::VectorXf getLikelihoods(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
+Eigen::VectorXf getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
+Eigen::VectorXf getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
 
 std::vector<Eigen::Matrix4f> getSeq_gHk();
+std::vector<Eigen::Matrix4f> geti1Hi_seq();
 
-std::vector<Eigen::Matrix4f> getsetSeq_gHk(int t0,int tf,int tk, Eigen::Matrix4f gHk);
+std::vector<Eigen::Matrix4f> getsetSeq_gHk(int tk, Eigen::Matrix4f gHk);
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas_noroad(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
@@ -71,8 +92,14 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas_noroad(int t0,int tf,int tk,
 Eigen :: MatrixXf getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 Eigen :: MatrixXf getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 //-----------------Aligners-------------------------
+void
+BMatchseq_async(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
 
+BMatchAndCorrH_async
+getBMatchseq_async();
 
+BMatchAndCorrH_async
+BMatchseq_async_caller(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
 
 BMatchAndCorrH
 BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);
@@ -89,7 +116,7 @@ gicp_correction(pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl, const Eigen::Ref<co
 int tk;
 std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> meas,meas_noroad;
 std::vector<float> T;
-MatrixX3f XseqPos,Vel,AngVel;
+std::vector<Eigen::Vector3f> XseqPos,Vel,AngVel;
 std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> > i1Hi_seq;
 json options;
 pcl::GeneralizedIterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> gicp,gicpseq;
@@ -102,7 +129,8 @@ pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr octree;
 pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr kdtree;
 
 xdisttype Xdist;
-std::vector<float> Xdist_min;
+std::vector<float> Xdist_min,Xdist_max;
 
 BinMatch bm;
+std::future<BMatchAndCorrH_async> bmHsols_async_future;
 };

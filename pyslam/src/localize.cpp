@@ -1,8 +1,8 @@
 #include "localize.h"
 #include <omp.h>
 
-void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H){
-        H=Eigen::Matrix4f::Identity();
+Eigen::Matrix4f pose2Hmat(const Vector6f& x){
+        Eigen::Matrix4f H=Eigen::Matrix4f::Identity();
 
         Eigen::Matrix3f R;
         R = Eigen::AngleAxisf(static_cast<float>(x[3]), Eigen::Vector3f::UnitZ()) *
@@ -17,10 +17,12 @@ void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H){
         H(1,3) = x(1);
         H(2,3) = x(2);
 
+        return H;
+
 }
 
-void Hmat2pose(const Eigen::Matrix4f& H,Vector6f& x){
-
+Vector6f Hmat2pose(const Eigen::Matrix4f& H){
+        Vector6f x;
 
         Eigen::Matrix3f R=H.block(0,0,3,3);
         Eigen::Vector3f vv =R.eulerAngles(2,1,0);
@@ -32,9 +34,27 @@ void Hmat2pose(const Eigen::Matrix4f& H,Vector6f& x){
         x(4)=vv(1);
         x(5)=vv(2);
 
+        return x;
 }
 
+Vector6f Hmat2pose_v2(const Eigen::Matrix4f& H){
+        Vector6f x;
 
+        Eigen::Matrix3f R=H.block(0,0,3,3);
+        Eigen::Vector3f vv =R.eulerAngles(2,1,0);
+        float yaw = std::atan2(R(1,0),R(0,0));
+        float pitch = -std::asin(R(2,0));
+        float roll = std::atan2(R(2,1),R(2,2));
+
+        x(0)=H(0,3);
+        x(1)=H(1,3);
+        x(2)=H(2,3);
+        x(3)=yaw;
+        x(4)=pitch;
+        x(5)=roll;
+
+        return x;
+}
 
 // void Localize::setMapX( pcl::PointCloud<pcl::PointXYZ> MapX){
 //         mapX.reset(MapX);
@@ -86,7 +106,7 @@ float getNNsqrddist2Map(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,const pcl::Poi
    zi is about x
 
  **/
-VectorXf
+Eigen::VectorXf
 computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
@@ -113,8 +133,8 @@ computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
 
                 Vector6f xx = Xposes.row(j).head(6);
 
-                Eigen::Matrix4f H;
-                pose2Hmat(xx,H);
+                Eigen::Matrix4f H = pose2Hmat(xx);
+
                 Eigen::Matrix3f R=H.topLeftCorner<3, 3>().matrix();
                 Eigen::Vector3f t= Eigen::Vector3f::Zero();
                 t(0)=H(0,3);
@@ -133,20 +153,20 @@ computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
 
         }
 
-        VectorXf likelihoods_eig;
+        VectorXf likelihoods_eig=VectorXf::Zero(likelihoods.size());
         for (std::size_t i=0; i<likelihoods.size(); ++i)
                 likelihoods_eig(i)=likelihoods[i];
 
         return likelihoods_eig;
 }
 
-VectorXf
+Eigen::VectorXf
 computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoctree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
 
-
+        // std::cout << "got Xposes size = " << Xposes.rows() << std::endl;
 
 
         float sig2 = std::pow(sig0*std::sqrt(Xmeaspcl->size()),2);
@@ -167,8 +187,8 @@ computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoct
 
                 Vector6f xx = Xposes.row(j).head(6);
 
-                Eigen::Matrix4f H;
-                pose2Hmat(xx,H);
+                Eigen::Matrix4f H = pose2Hmat(xx);
+
                 Eigen::Matrix3f R=H.topLeftCorner<3, 3>().matrix();
                 Eigen::Vector3f t= Eigen::Vector3f::Zero();
                 t(0)=H(0,3);
@@ -188,15 +208,15 @@ computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoct
         }
 
 
-        VectorXf likelihoods_eig;
+        VectorXf likelihoods_eig=VectorXf::Zero(likelihoods.size());
         for (std::size_t i=0; i<likelihoods.size(); ++i)
                 likelihoods_eig(i)=likelihoods[i];
 
         return likelihoods_eig;
 }
 
-VectorXf
-computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,
+Eigen::VectorXf
+computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,const std::vector<float>& Xdist_max,
                          const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                          pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0){
 
@@ -221,8 +241,8 @@ computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,c
 
                 Vector6f xx = Xposes.row(j).head(6);
 
-                Eigen::Matrix4f H;
-                pose2Hmat(xx,H);
+                Eigen::Matrix4f H = pose2Hmat(xx);
+
                 Eigen::Matrix3f R=H.topLeftCorner<3, 3>().matrix();
                 Eigen::Vector3f t= Eigen::Vector3f::Zero();
                 t(0)=H(0,3);
@@ -234,11 +254,20 @@ computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,c
                 for(std::size_t i=0; i<Xmeaspcl->size(); ++i) {
                         Eigen::Vector3f xm({Xmeaspcl->points[i].x,Xmeaspcl->points[i].y,Xmeaspcl->points[i].z});
                         Eigen::Vector3f xt=R*xm+t;
-                        uint16_t p=(xt(0)-Xdist_min[0])/res[0];
-                        uint16_t q=(xt(1)-Xdist_min[1])/res[1];
-                        uint16_t r=(xt(2)-Xdist_min[2])/res[2];
-                        float d = getitemXdist(Xdist,p,q,r,dmax);
-                        s[i] = std::pow(d,2);
+                        if (xt(0)<Xdist_min[0] || xt(1)<Xdist_min[1] || xt(2)<Xdist_min[2]) {
+                                s[i] = 10*std::pow(dmax,2);
+                        }
+                        else if(xt(0)>Xdist_max[0] || xt(1)>Xdist_max[1] || xt(2)>Xdist_max[2]) {
+                                s[i] = 10*std::pow(dmax,2);
+                        }
+                        else{
+                                uint16_t p=(xt(0)-Xdist_min[0])/res[0];
+                                uint16_t q=(xt(1)-Xdist_min[1])/res[1];
+                                uint16_t r=(xt(2)-Xdist_min[2])/res[2];
+
+                                float d = getitemXdist(Xdist,p,q,r,dmax);
+                                s[i] = std::pow(d,2);
+                        }
                 }
 
                 likelihoods[j]=std::accumulate(s.begin(), s.end(), 0)/sig2;
@@ -246,7 +275,7 @@ computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,c
         }
 
 
-        VectorXf likelihoods_eig;
+        VectorXf likelihoods_eig=VectorXf::Zero(likelihoods.size());
         for (std::size_t i=0; i<likelihoods.size(); ++i)
                 likelihoods_eig(i)=likelihoods[i];
 

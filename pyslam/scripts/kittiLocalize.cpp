@@ -38,13 +38,65 @@ PYBIND11_MODULE(kittilocal, m) {
         .def_readwrite("mxLVL", &BinMatchSol::mxLVL)
         .def_readwrite("cost", &BinMatchSol::cost);
 
+
+        py::class_<SolBox>(m, "SolBox")
+        .def_readwrite("lb", &SolBox::lb)
+        .def_readwrite("dx", &SolBox::dx)
+        .def_readwrite("cost", &SolBox::cost)
+        .def_readwrite("lvl", &SolBox::lvl)
+        .def_readwrite("th", &SolBox::th)
+        .def_readwrite("flg", &SolBox::flg);
+
+
+
+
+        m.def("UpsampleMax", &UpsampleMax,R"pbdoc(
+            Add two numbers Some other explanation about the add function.)pbdoc");
+        m.def("computeHitogram2D", &computeHitogram2D,R"pbdoc(
+            Add two numbers Some other explanation about the add function.)pbdoc");
+        m.def("getPointCost", &getPointCost,R"pbdoc(
+            Add two numbers Some other explanation about the add function.)pbdoc");
+
+        m.def("takejson", &takejson,R"pbdoc(JSON direct reader)pbdoc");
+
+
+        py::class_<BinMatch>(m, "BinMatch")
+        .def(py::init<const std::string &>())
+        .def("computeHlevels", &BinMatch::computeHlevels)
+        .def("getmatch", &BinMatch::getmatch)
+        .def_readwrite("mxLVL", &BinMatch::mxLVL)
+        .def_readwrite("mn_orig", &BinMatch::mn_orig)
+        .def_readwrite("levels", &BinMatch::levels)
+        .def_readwrite("t0", &BinMatch::t0)
+        .def_readwrite("H12mn", &BinMatch::H12mn)
+        .def_readwrite("Xth", &BinMatch::Xth)
+        .def_readwrite("HLevels", &BinMatch::HLevels)
+        .def_readwrite("qvinit", &BinMatch::qvinit)
+        .def_readwrite("dxlevels", &BinMatch::dxlevels);
+
+
+        py::class_<BMatchAndCorrH_async>(m, "BMatchAndCorrH_async")
+        .def_readwrite("bmHsol", &BMatchAndCorrH_async::bmHsol)
+        .def_readwrite("tk", &BMatchAndCorrH_async::tk)
+        .def_readwrite("t0", &BMatchAndCorrH_async::t0)
+        .def_readwrite("tf", &BMatchAndCorrH_async::tf)
+        .def_readwrite("do_gicp", &BMatchAndCorrH_async::do_gicp)
+        .def_readwrite("gHkest_initial", &BMatchAndCorrH_async::gHkest_initial)
+        .def_readwrite("gHkest_final", &BMatchAndCorrH_async::gHkest_final)
+        .def_readwrite("time_taken", &BMatchAndCorrH_async::time_taken)
+        .def_readwrite("isDone", &BMatchAndCorrH_async::isDone);
+
+
         py::class_<BMatchAndCorrH>(m, "BMatchAndCorrH")
         .def_readwrite("sols", &BMatchAndCorrH::sols)
-        .def_readwrite("gHkcorr", &BMatchAndCorrH::gHkcorr);
+        .def_readwrite("gHkcorr", &BMatchAndCorrH::gHkcorr)
+        .def_readwrite("isDone", &BMatchAndCorrH::isDone);
 
         py::class_<MapLocalizer>(m, "MapLocalizer")
         .def(py::init<const std::string &>())
         .def("setOptions", &MapLocalizer::setOptions)
+        .def("setBMOptions", &MapLocalizer::setBMOptions)
+
         .def("resetH", &MapLocalizer::resetH)
         .def("addMeas", &MapLocalizer::addMeas)
         .def("addMap", &MapLocalizer::addMap)
@@ -54,6 +106,7 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("setRegisteredSeqH", &MapLocalizer::setRegisteredSeqH)
         .def("setRelStates", &MapLocalizer::setRelStates)
         .def("setSeq_gHk", &MapLocalizer::setSeq_gHk)
+        .def("computeHlevels", &MapLocalizer::computeHlevels)
 
         .def("getmeas_eigen", &MapLocalizer::getmeas_eigen)
         .def("MapPcllimits", &MapLocalizer::MapPcllimits)
@@ -64,12 +117,20 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("getvelocities", &MapLocalizer::getvelocities)
         .def("getpositions", &MapLocalizer::getpositions)
         .def("getangularvelocities", &MapLocalizer::getangularvelocities)
-        .def("getLikelihoods", &MapLocalizer::getLikelihoods)
+        .def("getLikelihoods_octree", &MapLocalizer::getLikelihoods_octree)
+        .def("getLikelihoods_lookup", &MapLocalizer::getLikelihoods_lookup)
         .def("getSeq_gHk", &MapLocalizer::getSeq_gHk)
+        .def("geti1Hi_seq", &MapLocalizer::geti1Hi_seq)
+        .def("getmap2D_noroad_res_eigen", &MapLocalizer::getmap2D_noroad_res_eigen)
+
         .def("getsetSeq_gHk", &MapLocalizer::getsetSeq_gHk)
         .def("getalignSeqMeas_eigen", &MapLocalizer::getalignSeqMeas_eigen)
         .def("getalignSeqMeas_noroad_eigen", &MapLocalizer::getalignSeqMeas_noroad_eigen)
-        .def("BMatchseq", &MapLocalizer::BMatchseq);
+        .def("BMatchseq", &MapLocalizer::BMatchseq)
+
+        .def("BMatchseq_async", &MapLocalizer::BMatchseq_async)
+        .def("getBMatchseq_async", &MapLocalizer::getBMatchseq_async)
+        .def("BMatchseq_async_caller", &MapLocalizer::BMatchseq_async_caller);
 
 
 #ifdef VERSION_INFO

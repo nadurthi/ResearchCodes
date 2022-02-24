@@ -148,7 +148,7 @@ class SimManager:
 
                 
         fpath = os.path.join(patherpath,fname+figformat)
-        fig.savefig(fpath,format='png',bbox_inches='tight',dpi=600)
+        fig.savefig(fpath,format='png',bbox_inches='tight',dpi=800)
         
         if data is not None:
             dpath = os.path.join(datapatherpath,fname+'.pkl')

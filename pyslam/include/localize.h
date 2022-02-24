@@ -10,22 +10,24 @@ namespace py = pybind11;
 
 
 
-void pose2Hmat(const Vector6f& x,Eigen::Matrix4f& H);
-void Hmat2pose(const Eigen::Matrix4f& H,Vector6f& x);
+Eigen::Matrix4f pose2Hmat(const Vector6f& x);
+Vector6f Hmat2pose(const Eigen::Matrix4f& H);
+
+Vector6f Hmat2pose_v2(const Eigen::Matrix4f& H);
 
 // void setMapX( pcl::PointCloud<pcl::PointXYZ> MapX);
 
-VectorXf
+Eigen::VectorXf
 computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0);
 
-VectorXf
+Eigen::VectorXf
 computeLikelihood(pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>::Ptr mapoctree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                   pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0);
-VectorXf
-computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,
+Eigen::VectorXf
+computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,const std::vector<float>& Xdist_min,const std::vector<float>& Xdist_max,
                          const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
                          pcl::PointCloud<pcl::PointXYZ >::ConstPtr Xmeaspcl,float dmax,float sig0);
 
