@@ -255,10 +255,10 @@ computeLikelihood_lookup(const xdisttype &Xdist, const std::vector<float>& res,c
                         Eigen::Vector3f xm({Xmeaspcl->points[i].x,Xmeaspcl->points[i].y,Xmeaspcl->points[i].z});
                         Eigen::Vector3f xt=R*xm+t;
                         if (xt(0)<Xdist_min[0] || xt(1)<Xdist_min[1] || xt(2)<Xdist_min[2]) {
-                                s[i] = 10*std::pow(dmax,2);
+                                s[i] = std::pow(dmax,2);
                         }
                         else if(xt(0)>Xdist_max[0] || xt(1)>Xdist_max[1] || xt(2)>Xdist_max[2]) {
-                                s[i] = 10*std::pow(dmax,2);
+                                s[i] = std::pow(dmax,2);
                         }
                         else{
                                 uint16_t p=(xt(0)-Xdist_min[0])/res[0];

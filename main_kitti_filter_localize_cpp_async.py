@@ -295,6 +295,15 @@ D["seqfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
 D["seqfit"]["gicp"]["setTransformationEpsilon"]=1e-9
 D["seqfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
 
+
+D["plotting"]={}
+D["plotting"]["map_color"]=[211,211,211]
+D["plotting"]["map_pointsize"]=2
+D["plotting"]["traj_color"]=[0,0,211]
+D["plotting"]["traj_pointsize"]=2
+D["plotting"]["pf_color"]=[211,0,0]
+D["plotting"]["pf_pointsize"]=2
+D["plotting"]["pf_arrowlen"]=5
 #%% PF 
 
 
@@ -637,13 +646,11 @@ robotpf=pf.Particles(X=xstatepf,wts=wpf)
 
 class plot3dPF:
     def __init__(self,Xtpath,Xmap2Dflat,saveplot=True):
-        self.figpf = plt.figure(figsize=(20, 20))    
-        self.axpf = self.figpf.add_subplot(111,projection='3d')
+        
         self.Xtpath=Xtpath.copy()
         self.time_taken=[]
         
-        self.figpf2D = plt.figure(figsize=(20, 20))    
-        self.axpf2D = self.figpf2D.add_subplot(111)
+
         
         # self.figpf2Dzoom = plt.figure(figsize=(20, 20))    
         # self.axpf2Dzoom = self.figpf2Dzoom.add_subplot(111)
@@ -661,7 +668,7 @@ class plot3dPF:
         # self.vis = o3d.visualization.Visualizer()
         # self.vis.create_window()
 
-    def plotOpen3D(self,k,X,X1gv):
+    def plotOpen3D(self,k,X,X1gv,sleep=0.5):
         pcdPF = o3d.geometry.PointCloud()
         pcdPF.points = o3d.utility.Vector3dVector(X[:,:3])
         pcdPF.paint_uniform_color([1,0,0]) #black
@@ -713,11 +720,15 @@ class plot3dPF:
         # self.vis.update_geometry([pcdbox,pcdPF,pfline_set])
         # self.vis.update_renderer()
         
-    def plot3D(self,k,X,m,P):
+    def plot3D(self,k,X,m,P,sleep=0.5):
         st=time.time()
-        self.axpf.cla()
-        self.axpf.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],self.Xtpath[:k,2],'b')
-        self.axpf.plot(X[:,0],X[:,1],X[:,2],'r.')
+
+            
+        figpf = plt.figure(figsize=(20, 20))    
+        axpf = figpf.add_subplot(111,projection='3d')
+        
+        axpf.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],self.Xtpath[:k,2],'b')
+        axpf.plot(X[:,0],X[:,1],X[:,2],'r.')
 
         for i in range(X.shape[0]):
             # R,t = pose2Rt(robotpf.X[i][:6])
@@ -728,14 +739,14 @@ class plot3dPF:
             drn = R.dot([1,0,0])
             t2=t+5*drn
             G=np.vstack([t,t2])
-            self.axpf.plot(G[:,0],G[:,1],G[:,2],'r')
+            axpf.plot(G[:,0],G[:,1],G[:,2],'r')
             
 
             
-        self.axpf.set_title("time step = %d"%k)
-        self.axpf.set_xlabel('x')
-        self.axpf.set_ylabel('y')
-        self.axpf.set_zlabel('z')
+        axpf.set_title("time step = %d"%k)
+        axpf.set_xlabel('x')
+        axpf.set_ylabel('y')
+        axpf.set_zlabel('z')
 
         
         et=time.time()
@@ -743,16 +754,20 @@ class plot3dPF:
         self.time_taken.append(et-st)
         
         plt.show(block=False)
-        plt.pause(0.1)
-        self.figpf.show()
-        simmanger.savefigure(self.figpf, ['3Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P])
+        plt.pause(sleep)
+        if self.saveplot:
+            figpf.show()
+            simmanger.savefigure(figpf, ['3Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P])
 
         
-    def plot2D(self,k,X,m,P,X1vroadrem,HHs):
+    def plot2D(self,k,X,m,P,X1vroadrem,HHs,sleep=0.5):
+        
+            
+        figpf2D = plt.figure(figsize=(20, 20))    
+        axpf2D = figpf2D.add_subplot(111)
 
-
-        self.axpf2D.cla()
-        self.axpf2D.plot(self.Xmap2Dflat[:,0],self.Xmap2Dflat[:,1],'k.')
+        axpf2D.cla()
+        axpf2D.plot(self.Xmap2Dflat[:,0],self.Xmap2Dflat[:,1],'k.')
         # if self.xtpath2Dhandle is not None:
         #     K=self.xtpath2Dhandle.pop(0)
         #     K.remove()
@@ -772,11 +787,11 @@ class plot3dPF:
         #     K.remove()
         
         
-        self.xtpath2Dhandle=self.axpf2D.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],'b')
-        self.pf2Dhandle=self.axpf2D.plot(X[:,0],X[:,1],'r.')
+        axpf2D.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],'b')
+        axpf2D.plot(X[:,0],X[:,1],'r.')
         
         XX=utpltgmshp.getCovEllipsePoints2D(m[0:2],P[0:2,0:2],nsig=1,N=100)
-        self.ellipse2Dhandle=self.axpf2D.plot(XX[:,0],XX[:,1],'r--')
+        axpf2D.plot(XX[:,0],XX[:,1],'r--')
         
         for i in range(X.shape[0]):
             # R,t = pose2Rt(robotpf.X[i][:6])
@@ -789,32 +804,33 @@ class plot3dPF:
             G=np.vstack([t,t2])
  
             
-            self.arrow2Dhandle.append( self.axpf2D.plot(G[:,0],G[:,1],'r'))
+            axpf2D.plot(G[:,0],G[:,1],'r')
             
         if HHs is not None:
-            idxpf,Hpose,gHkcorr=HHs
+            # idxpf,kcompleted,Hpose,gHkcorr=HHs
+            idxpf,tk,kk,gHkest_initial,gHkcorr_atk = HHs
             
             pcd2ddown = o3d.geometry.PointCloud()
-            X1vroadrem2Dflatcorr=gHkcorr[0:3,0:3].dot(X1vroadrem.T).T+gHkcorr[0:3,3]
+            X1vroadrem2Dflatcorr=gHkcorr_atk[0:3,0:3].dot(X1vroadrem.T).T+gHkcorr_atk[0:3,3]
             X1vroadrem2Dflatcorr[:,2]=0
             pcd2ddown.points = o3d.utility.Vector3dVector(X1vroadrem2Dflatcorr[:,:3])
             pcd2ddown = pcd2ddown.voxel_down_sample(voxel_size=2)
             
             X1vroadrem2Dflatcorr = np.asarray(pcd2ddown.points)
             X1vroadrem2Dflatcorr=X1vroadrem2Dflatcorr[:,:2]
-            self.binmatch2Dhandle=self.axpf2D.plot(X1vroadrem2Dflatcorr[:,0],X1vroadrem2Dflatcorr[:,1],'g.')
+            axpf2D.plot(X1vroadrem2Dflatcorr[:,0],X1vroadrem2Dflatcorr[:,1],'g.')
             
-        self.axpf2D.set_title("time step = %d"%k)
-        self.axpf2D.set_xlabel('x')
-        self.axpf2D.set_ylabel('y')
-        self.axpf2D.axis('equal')
+        axpf2D.set_title("time step = %d"%k)
+        axpf2D.set_xlabel('x')
+        axpf2D.set_ylabel('y')
+        axpf2D.axis('equal')
 
         plt.show(block=False)
-        plt.pause(0.1)
+        plt.pause(sleep)
         if self.saveplot:
             
-            self.figpf2D.show()
-            simmanger.savefigure(self.figpf2D, ['2Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
+            figpf2D.show()
+            simmanger.savefigure(figpf2D, ['2Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
             
             xlim =[Xtpath[k,0]+np.min(X1vroadrem[:,0])-25,Xtpath[k,0]+np.max(X1vroadrem[:,0])+25]
             ylim =[Xtpath[k,1]+np.min(X1vroadrem[:,1])-25,Xtpath[k,1]+np.max(X1vroadrem[:,1])+25]
@@ -823,17 +839,17 @@ class plot3dPF:
             ylim =[Xtpath[k,1]-75,Xtpath[k,1]+75]
             
             
-            self.axpf2D.set_xlim(xlim)
-            self.axpf2D.set_ylim(ylim)
+            axpf2D.set_xlim(xlim)
+            axpf2D.set_ylim(ylim)
             # self.axpf2D.axis('equal')
             plt.show(block=False)
             plt.pause(0.1)
-            self.figpf2D.show()
-            simmanger.savefigure(self.figpf2D, ['2Dmap','snapshot_closeup'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
+            figpf2D.show()
+            simmanger.savefigure(figpf2D, ['2Dmap','snapshot_closeup'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
     
 
 
-kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=False)
+kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=True)
 
 doneLocalize=0
 
@@ -847,8 +863,15 @@ XPFhistory=[(robotpf.X.copy(),robotpf.wts.copy())]
 simmanger.data['resampled?']=[]
 simmanger.data['BinMatch_idxpf']=[]
 simmanger.data['BinMatchedH']={}
+isBMworking=False
 
+HHs=None
+kittisimplotter.plot2D(0,robotpf.X,m,P,X1v_roadrem,HHs,sleep=0.1)
+
+    
+    
 for k in range(1,len(dataset)):
+    plt.close("all")
     print(k)
     st=time.time()
     # if outQ.empty():
@@ -860,18 +883,26 @@ for k in range(1,len(dataset)):
     et=time.time()
     print("get data time = ",et-st)
     
+    # if k%25==0:
+    #     KL.cleanUp(k-20)
+    
+    
+    
+    
+
     # propagate
     st=time.time()
     # robotpf.X=dynmodelUM3D(robotpf.X,dt)
     robotpf.X=dynmodelCT3D(robotpf.X,dt)
     
-    # start computation of relative states
-    KL.setRelStates_async()
+    
     
     et=time.time()
     print("dyn model time = ",et-st)
     robotpf.X=robotpf.X+2*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
     
+
+
     ### BIN MATCH
     idxpf=np.random.choice(list(range(Npf)),1,p=robotpf.wts)
     idxpf=idxpf[0]
@@ -883,7 +914,8 @@ for k in range(1,len(dataset)):
     else:
         gg=10
     simmanger.data['doBinMatch']=doBinMatch=1
-    if doBinMatch==1 and k%gg==0:
+    
+    if doBinMatch==1 and isBMworking==False:
         print("---doneLocalize ------ = ",doneLocalize)
         simmanger.data['BinMatch_idxpf'].append((k,idxpf))
         # Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
@@ -893,19 +925,48 @@ for k in range(1,len(dataset)):
         tf=k
         tk=k
         
-        st=time.time()
-        solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
-        et=time.time()
-        print("Bin match and gicp time = ",et-st)
+        # st=time.time()
+        # solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
+        # et=time.time()
+        # print("Bin match and gicp time = ",et-st)
         
+        KL.BMatchseq_async(t0,tf,tk,Hpose,True)
+        isBMworking=True
+        # et=time.time()
+        # print("Bin match asyc set time = ",et-st)
+    
+
+    # start computation of relative states
+    KL.setRelStates_async()
+    
+    solQ=KL.getBMatchseq_async()
+    if solQ.isDone==True:
+        isBMworking=False
+        solret=solQ.bmHsol
         if (solret.sols[0].cost>solret.sols[0].cost0):
             # idxpfmin = np.argmin(robotpf.wts)
             # robotpf.X[idxpfmin]=robotpf.X[idxpf].copy()
-            robotpf.X[idxpf][:6] = kittilocal.Hmat2pose(solret.gHkcorr)
+            xpose_tk=robotpf.X[idxpf].copy()
+            
+       
+            gHk=KL.getSeq_gHk()
+            
+            gHtk=gHk[solQ.tk]
+            gHk=gHk[-1]
+            
+            tkHg=nplinalg.inv(gHtk)
+            kHtk=gHk.dot(tkHg)
+            gHkcorr_atk = kHtk.dot(solret.gHkcorr)
+            
+            xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
+            
+            # robotpf.X[idxpf][:6] = kittilocal.Hmat2pose(solret.gHkcorr)
             Velmeas=KL.getvelocities()
             AngVelmeas=KL.getangularvelocities()
-            robotpf.X[idxpf][6]=nplinalg.norm(Velmeas[-1])
-            robotpf.X[idxpf][7:10]=AngVelmeas[-1]
+            xpose_tk[6]=nplinalg.norm(Velmeas[-1])
+            xpose_tk[7:10]=AngVelmeas[-1]
+            
+            robotpf.X[idxpf]=xpose_tk.copy()
             # likelihoods=KL.getLikelihoods_lookup(np.array([robotpf.X[idxpf]]),k)
             
             # likelihoods_exp=np.exp(-likelihoods)
@@ -916,7 +977,7 @@ for k in range(1,len(dataset)):
             # robotpf.wts[idxpf]=likelihoods_exp[0]*robotpf.wts[idxpf]
             # robotpf.renormlizeWts()
 
-            simmanger.data['BinMatchedH'][k]=(idxpf,Hpose,solret.gHkcorr)    
+            simmanger.data['BinMatchedH'][k]=(idxpf,solQ.tk,k,solQ.gHkest_initial,gHkcorr_atk)    
             
         # if doneLocalize==0:
             # robotpf.resetWts()
@@ -962,7 +1023,7 @@ for k in range(1,len(dataset)):
     else:
         simmanger.data['fracH']=fracH=1
         
-    if Neff/Npf<simmanger.data['Neff/Npf']:
+    if Neff/Npf<simmanger.data['Neff/Npf'] and k in simmanger.data['BinMatchedH']:
         print("resampled at k = ",k)
         robotpf.bootstrapResample(fracH=1)
         simmanger.data['resampled?'][-1]=(k,True)
@@ -988,7 +1049,6 @@ for k in range(1,len(dataset)):
     
     XPFmP_history.append((m,P))
     
-    
     if (k%1==0):
         # kittisimplotter.plot3D(k,robotpf.X,m,P)
         
@@ -996,9 +1056,11 @@ for k in range(1,len(dataset)):
             HHs=simmanger.data['BinMatchedH'][k]
         else:
             HHs=None
-        kittisimplotter.plot2D(k,robotpf.X,m,P,X1v_roadrem,HHs)
+        kittisimplotter.plot2D(k,robotpf.X,m,P,X1v_roadrem,HHs,sleep=0.1)
         
         # kittisimplotter.plotOpen3D(k,robotpf.X,X1gv)
+        
+    
         
 
     # plt.show()

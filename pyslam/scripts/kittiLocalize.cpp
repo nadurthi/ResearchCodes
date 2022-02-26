@@ -96,7 +96,8 @@ PYBIND11_MODULE(kittilocal, m) {
         .def(py::init<const std::string &>())
         .def("setOptions", &MapLocalizer::setOptions)
         .def("setBMOptions", &MapLocalizer::setBMOptions)
-
+        .def("cleanUp", &MapLocalizer::cleanUp)
+        .def("plotsim",&MapLocalizer::plotsim)
         .def("resetH", &MapLocalizer::resetH)
         .def("addMeas", &MapLocalizer::addMeas)
         .def("addMap", &MapLocalizer::addMap)
@@ -104,7 +105,10 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("setgHk", &MapLocalizer::setgHk)
         .def("setLookUpDist", &MapLocalizer::setLookUpDist)
         .def("setRegisteredSeqH", &MapLocalizer::setRegisteredSeqH)
+        .def("setRegisteredSeqH_async", &MapLocalizer::setRegisteredSeqH)
+
         .def("setRelStates", &MapLocalizer::setRelStates)
+        .def("setRelStates_async", &MapLocalizer::setRelStates)
         .def("setSeq_gHk", &MapLocalizer::setSeq_gHk)
         .def("computeHlevels", &MapLocalizer::computeHlevels)
 
@@ -130,7 +134,9 @@ PYBIND11_MODULE(kittilocal, m) {
 
         .def("BMatchseq_async", &MapLocalizer::BMatchseq_async)
         .def("getBMatchseq_async", &MapLocalizer::getBMatchseq_async)
-        .def("BMatchseq_async_caller", &MapLocalizer::BMatchseq_async_caller);
+        .def("BMatchseq_async_caller", &MapLocalizer::BMatchseq_async_caller)
+        .def("gettimers", &MapLocalizer::gettimers);
+
 
 
 #ifdef VERSION_INFO

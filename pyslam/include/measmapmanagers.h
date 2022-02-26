@@ -4,6 +4,8 @@
 #include "pcl_helpers.h"
 #include "binmatch.h"
 #include "localize.h"
+#include "pcl_visual.h"
+
 
 struct BMatchAndCorrH {
         std::vector<BinMatchSol> sols;
@@ -35,9 +37,13 @@ MapLocalizer(std::string opt );
 void setOptions(std::string optstr);
 void setBMOptions(std::string opt);
 void resetH();
+void cleanUp(int k);
+
+void plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose);
 
 //-----------------Setters------------------
 void addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,const Eigen::Ref<const Eigen::MatrixXf> &Xnoroad,float t);
+
 
 
 void addMap(const Eigen::Ref<const Eigen::MatrixXf> &X);
@@ -46,8 +52,10 @@ void addMap2D(const Eigen::Ref<const Eigen::MatrixXf> &X);
 void setgHk(int tk, Eigen::Matrix4f gHk );
 void setLookUpDist(std::string filename);
 void setRegisteredSeqH();
+void setRegisteredSeqH_async();
 std::vector<Eigen::Matrix4f> setSeq_gHk();
 void setRelStates();
+void setRelStates_async();
 void computeHlevels();
 
 //-------------------Getters------------
@@ -110,6 +118,8 @@ Eigen :: Matrix4f
 gicp_correction(pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl, const Eigen::Ref<const Eigen :: Matrix4f>&gHk_est);
 
 
+timerdict
+gettimers();
 
 //--------------------------
 
@@ -133,4 +143,8 @@ std::vector<float> Xdist_min,Xdist_max;
 
 BinMatch bm;
 std::future<BMatchAndCorrH_async> bmHsols_async_future;
+
+KittiPlot plotter;
+
+timerdictptr timerptr;
 };

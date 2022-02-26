@@ -105,6 +105,7 @@ using MatrixXXuint16 = Eigen::Matrix<uint16_t, Eigen::Dynamic, Eigen::Dynamic>;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Vector6f = Eigen::Matrix<float, 6, 1>;
 using Vector4f = Eigen::Matrix<float, 4, 1>;
+using Vector3f = Eigen::Matrix<float, 3, 1>;
 using VectorXf = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
 using ArrayXbcol = Eigen::Array<bool, Eigen::Dynamic, 1>;
@@ -120,6 +121,8 @@ using ArrayX2i = Eigen::Array<int, Eigen::Dynamic, 2>;
 
 using json = nlohmann::json;
 
+using timerdict = std::map<std::string,std::vector<float>>;
+using timerdictptr = std::shared_ptr<timerdict>;
 // using xdisttype = std::map<uint16_t,std::map<uint16_t,std::map<uint16_t,float> > >;
 // using xdisttype = flat_hash_map<uint16_t,flat_hash_map<uint16_t,flat_hash_map<uint16_t,float> > >;
 // using xdisttype = btree_map<uint16_t,btree_map<uint16_t,btree_map<uint16_t,float> > >;
@@ -165,3 +168,14 @@ void read_binary(const char* filename, Matrix& matrix){
     in.close();
 }
 }
+
+
+
+struct Timer{
+Timer(const std::string &k,timerdictptr &tptr );
+~Timer();
+
+std::chrono::time_point<std::chrono::high_resolution_clock> t1,t2;
+timerdictptr Tptr;
+std::string key;
+};

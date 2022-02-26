@@ -346,7 +346,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
 
 
 
-        #pragma omp parallel for num_threads(8)
+        #pragma omp parallel for num_threads(5)
         for(std::size_t i=0; i<qv.size(); ++i) {
                 qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                 qv[i].flg=true;
@@ -390,7 +390,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                         }
                         q.pop();
                 }
-                #pragma omp parallel for num_threads(6)
+                #pragma omp parallel for num_threads(5)
                 for(std::size_t i=0; i<qv.size(); ++i) {
                         qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                         qv[i].flg=true;
