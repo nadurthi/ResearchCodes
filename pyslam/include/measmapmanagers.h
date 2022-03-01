@@ -6,6 +6,16 @@
 #include "localize.h"
 #include "pcl_visual.h"
 
+struct structmeas {
+// dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem
+        float dt;
+        float tk;
+        Eigen :: MatrixXf X1v;
+        Eigen :: MatrixXf X1gv;
+        Eigen :: MatrixXf X1v_roadrem;
+        Eigen :: MatrixXf X1gv_roadrem;
+
+};
 
 struct BMatchAndCorrH {
         std::vector<BinMatchSol> sols;
@@ -38,10 +48,18 @@ void setOptions(std::string optstr);
 void setBMOptions(std::string opt);
 void resetH();
 void cleanUp(int k);
+void setquitsim();
 
 void plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose);
+void removeRoad(pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl,pcl::PointCloud<pcl::PointXYZ>::Ptr& Xpcl_noroad);
+void autoReadMeas(std::string folder);
+void autoReadMeas_async(std::string folder);
+
+std::vector<Eigen::MatrixXf> getMeasQ_eigen(bool popit);
 
 //-----------------Setters------------------
+structmeas addMeas_fromQ(Eigen::Matrix4f H,float t);
+
 void addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,const Eigen::Ref<const Eigen::MatrixXf> &Xnoroad,float t);
 
 
@@ -145,6 +163,9 @@ BinMatch bm;
 std::future<BMatchAndCorrH_async> bmHsols_async_future;
 
 KittiPlot plotter;
+std::queue<pcl::PointCloud<pcl::PointXYZ>::Ptr> measQ,measnoroadQ;
 
 timerdictptr timerptr;
+
+bool quitsim;
 };

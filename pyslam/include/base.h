@@ -4,7 +4,8 @@
 #include <fstream>
 #include <chrono>
 #include <ctime>
-
+#include <sstream>
+#include <iomanip>
 
 //pybind
 #include <pybind11/pybind11.h>
@@ -33,6 +34,8 @@
 #include <numeric>
 #include <future>
 #include <mutex>
+#include <queue>
+
 
 //eigen`
 #include <Eigen/Core>
@@ -52,6 +55,7 @@
 #include <pcl/filters/crop_box.h>
 #include <pcl/common/common.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/extract_indices.h>
 // #include <kdtree.h>
 // #include <pcl/registration/gicp.h>
 #include <pcl/registration/mygicp.h>

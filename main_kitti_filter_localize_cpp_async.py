@@ -253,14 +253,17 @@ D["Localize"]["lookup"]={"resolution":[0.25,0.25,0.25]}
 
 
 #
-D["MapManager"]={"map":{},"map2D":{}}
+D["MapManager"]={"map":{},"map2D":{},"mapnormals":{}}
+
 D["MapManager"]["map"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
+D["MapManager"]["mapnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
 D["MapManager"]["map2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 D["MapManager"]["map2D"]["removeRoad"]=False
 
 #
 D["MeasMenaager"]={"meas":{},"meas2D":{},"meas_Likelihood":{}}
 D["MeasMenaager"]["meas"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
+D["MeasMenaager"]["measnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
 D["MeasMenaager"]["meas_Likelihood"]["downsample"]={"enable":True,"resolution":[0.3,0.3,0.3]}
 D["MeasMenaager"]["meas2D"]["removeRoad"]=False
 D["MeasMenaager"]["meas2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
@@ -304,6 +307,33 @@ D["plotting"]["traj_pointsize"]=2
 D["plotting"]["pf_color"]=[211,0,0]
 D["plotting"]["pf_pointsize"]=2
 D["plotting"]["pf_arrowlen"]=5
+
+
+KL=kittilocal.MapLocalizer(json.dumps(D))
+#  /media/na0043/misc/DATA/KITTI/odometry/dataset/sequences/00/velodyne
+velofolder = os.path.join(basedir,"sequences",sequence,"velodyne")
+KL.autoReadMeas_async(velofolder)
+
+# X=KL.getMeasQ_eigen(False)
+# X1v = dataset.get_velo(0)
+
+# pcdX1v = o3d.geometry.PointCloud()
+# pcdX1v.points = o3d.utility.Vector3dVector(X1v[:,:3])
+# pcdX1v.paint_uniform_color([1,0,0]) #green
+
+# pcdX0 = o3d.geometry.PointCloud()
+# pcdX0.points = o3d.utility.Vector3dVector(X[0])
+# pcdX0.paint_uniform_color([0,0,1]) #green
+
+# o3d.visualization.draw_geometries([pcdX1v,pcdX0])
+
+
+
+# pcdX1 = o3d.geometry.PointCloud()
+# pcdX1.points = o3d.utility.Vector3dVector(X[1])
+# pcdX1.paint_uniform_color([0,1,0]) #green
+
+# o3d.visualization.draw_geometries([pcdX0,pcdX1])
 #%% PF 
 
 
@@ -326,7 +356,6 @@ Xmap2Dflat=np.asarray(pcd2ddown.points)
 
 #%%
 
-KL=kittilocal.MapLocalizer(json.dumps(D))
 KL.addMap(Xmap)
 KL.addMap2D(Xmap2D[:,:2])
 KL.setLookUpDist("kitti-pcd-lookupdist-seq-%s.bin"%sequence)
@@ -853,8 +882,13 @@ kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=True)
 
 doneLocalize=0
 
-dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=getmeas(0)
-KL.addMeas(X1v,X1v_roadrem,tk)
+Hgt=dataset.calib.T_cam0_velo
+Hgt=np.dot(nplinalg.inv(Hgt),dataset.poses[0].dot(Hgt))
+sm=KL.addMeas_fromQ(Hgt,dataset.times[0])
+
+
+# dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=getmeas(0)
+# KL.addMeas(X1v,X1v_roadrem,tk)
 
 
 m,P=robotpf.getEst()
@@ -866,7 +900,7 @@ simmanger.data['BinMatchedH']={}
 isBMworking=False
 
 HHs=None
-kittisimplotter.plot2D(0,robotpf.X,m,P,X1v_roadrem,HHs,sleep=0.1)
+kittisimplotter.plot2D(0,robotpf.X,m,P,sm.X1v_roadrem,HHs,sleep=0.1)
 
     
     

@@ -83,6 +83,9 @@ plottraj(pcl::visualization::PCLVisualizer::Ptr viewer,
 
 KittiPlot::KittiPlot(std::string opt){
         options=json::parse(opt);
+
+}
+void KittiPlot::createviewer(){
         viewer.reset(new pcl::visualization::PCLVisualizer ("3D Viewer") );
         viewer->setBackgroundColor (0, 0, 0);
         viewer->addCoordinateSystem (1.0);

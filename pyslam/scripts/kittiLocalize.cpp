@@ -47,6 +47,13 @@ PYBIND11_MODULE(kittilocal, m) {
         .def_readwrite("th", &SolBox::th)
         .def_readwrite("flg", &SolBox::flg);
 
+        py::class_<structmeas>(m, "structmeas")
+        .def_readwrite("dt", &structmeas::dt)
+        .def_readwrite("tk", &structmeas::tk)
+        .def_readwrite("X1v", &structmeas::X1v)
+        .def_readwrite("X1gv", &structmeas::X1gv)
+        .def_readwrite("X1v_roadrem", &structmeas::X1v_roadrem)
+        .def_readwrite("X1gv_roadrem", &structmeas::X1gv_roadrem);
 
 
 
@@ -97,8 +104,15 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("setOptions", &MapLocalizer::setOptions)
         .def("setBMOptions", &MapLocalizer::setBMOptions)
         .def("cleanUp", &MapLocalizer::cleanUp)
+        .def("autoReadMeas", &MapLocalizer::autoReadMeas)
+        .def("autoReadMeas_async", &MapLocalizer::autoReadMeas_async)
+
+        .def("getMeasQ_eigen", &MapLocalizer::getMeasQ_eigen)
+        .def("setquitsim", &MapLocalizer::setquitsim)
+
         .def("plotsim",&MapLocalizer::plotsim)
         .def("resetH", &MapLocalizer::resetH)
+        .def("addMeas_fromQ", &MapLocalizer::addMeas_fromQ)
         .def("addMeas", &MapLocalizer::addMeas)
         .def("addMap", &MapLocalizer::addMap)
         .def("addMap2D", &MapLocalizer::addMap2D)

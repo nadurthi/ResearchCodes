@@ -17,6 +17,7 @@ Vector6f Hmat2pose_v2(const Eigen::Matrix4f& H);
 
 // void setMapX( pcl::PointCloud<pcl::PointXYZ> MapX);
 
+
 Eigen::VectorXf
 computeLikelihood(pcl::KdTree<pcl::PointXYZ>::Ptr mapkdtree,
                   const Eigen::Ref<const Eigen::MatrixXf> &Xposes,
