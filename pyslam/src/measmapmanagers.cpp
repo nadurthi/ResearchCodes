@@ -3,7 +3,7 @@
 
 
 
-MapLocalizer::MapLocalizer(std::string opt ) : bm(opt),plotter(opt){
+MapLocalizer::MapLocalizer(std::string opt ) : bm(opt),plotter(opt),quitsim(false){
         options=json::parse(opt);
 
         resetH();
@@ -18,6 +18,9 @@ MapLocalizer::MapLocalizer(std::string opt ) : bm(opt),plotter(opt){
         timerptr=std::make_shared<timerdict>();
 }
 
+void MapLocalizer::setquitsim(){
+        quitsim=true;
+}
 
 void MapLocalizer::plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose){
         plotter.clear();
@@ -41,17 +44,129 @@ void MapLocalizer::plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose){
         plotter.update();
 }
 
-void autoReadMeas(std::string folder){
-        int k;
-        while(1) {
-                if (measQ.size(10)<6) {
+void MapLocalizer::autoReadMeas_async(std::string folder){
+        // auto autoReadMeas_future = std::async(std::launch::async, &MapLocalizer::autoReadMeas,this,folder);
+        std::thread autoReadMeas_thread(&MapLocalizer::autoReadMeas,this,folder);
+        autoReadMeas_thread.detach();
+}
+
+void MapLocalizer::removeRoad(pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl,pcl::PointCloud<pcl::PointXYZ>::Ptr& Xpcl_noroad){
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_filtered(new pcl::PointCloud<pcl::PointXYZ>());
+        pcl_filter_cloud(Xpcl,Xpcl_filtered,options["MeasMenaager"]["measnormals"]["resolution"]);
+
+        pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::PointNormal> ne;
+        ne.setInputCloud (Xpcl_filtered);
+        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
+        ne.setSearchMethod (tree); //kdtree
+        int knn = options["MeasMenaager"]["measnormals"]["knn"];
+        ne.setKSearch(knn);
+        /**
+         * NOTE: setting viewpoint is very important, so that we can ensure
+         * normals are all pointed in the same direction!
+         */
+        ne.setViewPoint (std::numeric_limits<float>::max (), std::numeric_limits<float>::max (), std::numeric_limits<float>::max ());
+        // ne.setViewPoint (0, 0, 0);
+        // calculate normals with the small scale
+        float r = options["MeasMenaager"]["measnormals"]["radius"];
+        // ne.setRadiusSearch (r);
+        pcl::PointCloud<pcl::PointNormal>::Ptr cloud_normals(new pcl::PointCloud<pcl::PointNormal>);
+        ne.compute (*cloud_normals);
+
+        float min_norm_z_thresh = options["MeasMenaager"]["measnormals"]["min_norm_z_thresh"];
+        pcl::PointIndicesPtr indices = pcl::PointIndicesPtr(new pcl::PointIndices);
+        for (auto i = 0; i < cloud_normals->size(); ++i)
+        {
+                const auto& normal = cloud_normals->points[i].getNormalVector3fMap();
+                if (std::abs(normal[2]) >= min_norm_z_thresh)
+                {
+                        indices->indices.push_back(i);
+                }
+        }
+
+        // Xpcl_noroad.reset(new pcl::PointCloud<pcl::PointXYZ>());
+
+        pcl::ExtractIndices<pcl::PointXYZ> filter;
+        filter.setInputCloud (Xpcl_filtered);
+        filter.setNegative (true);
+        filter.setIndices (indices);
+        filter.filter (*Xpcl_noroad);
+
+
+}
+
+void MapLocalizer::autoReadMeas(std::string folder){
+        boost::filesystem::path p1(folder);
+
+        int k=0;
+        while(1 && quitsim==false) {
+                if (measQ.size()<10) {
+                        std::stringstream ss;
+                        ss << std::setw(6) << std::setfill('0') << k << ".bin";
+                        std::string s = ss.str();
+                        boost::filesystem::path f(s);
+                        boost::filesystem::path pp = p1 / f;
+                        if (!boost::filesystem::exists( pp)) {
+                                std::cout << "******** File: \" " << pp.string() <<  " \" does not exist ******" << std::endl;
+                                break;
+                        }
+                        std::cout << "Reading File: \" " << pp.string() <<  " \"" << std::endl;
+
                         Eigen::MatrixXf X;
-                        std::ifstream in(filename, std::ios::in | std::ios::binary);
-                        in.read( (char *) X.data(), rows*cols*sizeof(typename Matrix::Scalar) );
+                        int cols,rows;
+                        cols=4;
+
+                        std::ifstream in(pp.string(), std::ios::in | std::ios::binary);
+                        in.seekg (0, in.end);
+                        int length = in.tellg();
+                        in.seekg (0, in.beg);
+
+                        // std::cout << "file size: " << length << std::endl;
+                        X.resize(4,length/16);
+                        in.read( (char *) X.data(), (length/4)*sizeof(typename Eigen::MatrixXf::Scalar) );
                         in.close();
 
-                        measQ.push(X);
+                        // std::cout<< "reading done at timestep "<<k<<std::endl;
+                        // std::cout<< "X.shape = "<<X.rows() << " " << X.cols()<<std::endl;
+
+                        Eigen::MatrixXf XT=X.transpose();
+                        // Eigen::Map<Eigen::MatrixXf> M2(X.data(), length/4,4);
+                        // Eigen::MatrixXf X2 = M2;
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl(new pcl::PointCloud<pcl::PointXYZ>(XT.rows(),1));
+                        eigen2pcl(XT,Xpcl,false);
+
+                        pcl::PointIndicesPtr indices = pcl::PointIndicesPtr(new pcl::PointIndices);
+                        for (auto i = 0; i < Xpcl->size(); ++i)
+                        {
+                                const auto& pt = Xpcl->points[i].getVector3fMap();
+                                if ((pt[0]>-200) && (pt[0]<200) && (pt[1]>-200) && (pt[1]<200) && (pt[2]>-100) && (pt[2]<100))
+                                {
+                                        indices->indices.push_back(i);
+                                }
+                        }
+
+                        // Xpcl_noroad.reset(new pcl::PointCloud<pcl::PointXYZ>());
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_flr(new pcl::PointCloud<pcl::PointXYZ>());
+                        pcl::ExtractIndices<pcl::PointXYZ> filter;
+                        filter.setInputCloud (Xpcl);
+                        // filter.setNegative (true);
+                        filter.setIndices (indices);
+                        filter.filter (*Xpcl_flr);
+
+
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_noroad(new pcl::PointCloud<pcl::PointXYZ>());
+                        removeRoad(Xpcl_flr,Xpcl_noroad);
+
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_filtered(new pcl::PointCloud<pcl::PointXYZ>());
+                        pcl_filter_cloud(Xpcl_flr,Xpcl_filtered,options["MeasMenaager"]["meas"]["downsample"]["resolution"]);
+
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_noroad_filtered(new pcl::PointCloud<pcl::PointXYZ>());
+                        pcl_filter_cloud(Xpcl_noroad,Xpcl_noroad_filtered,options["MeasMenaager"]["meas2D"]["downsample"]["resolution"]);
+
+
+                        measQ.push(Xpcl_filtered);
+                        measnoroadQ.push(Xpcl_noroad_filtered);
                         ++k;
+                        // std::cout<< "added meas at timestep "<<k<<std::endl;
                 }
                 else{
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -59,15 +174,22 @@ void autoReadMeas(std::string folder){
         }
 }
 
-Eigen::MatrixXf  getMeas(){
-        Eigen::MatrixXf X;
+std::vector<Eigen::MatrixXf> MapLocalizer::getMeasQ_eigen(bool popit){
+        Eigen::MatrixXf X,Xnr;
+        std::vector<Eigen::MatrixXf> res;
         if (!measQ.empty()) {
-                X = measQ.front();
-                measQ.pop();
-                return X;
+                pcl2eigen(measQ.front(),X);
+                pcl2eigen(measnoroadQ.front(),Xnr);
+                if(popit) {
+                        measQ.pop();
+                        measnoroadQ.pop();
+                }
+                res.push_back(X);
+                res.push_back(Xnr);
+                return res;
         }
         else{
-                return X
+                return res;
         }
 }
 
@@ -148,6 +270,40 @@ void MapLocalizer::resetH(){
 }
 
 //-----------------Setters------------------
+structmeas MapLocalizer::addMeas_fromQ(Eigen::Matrix4f H,float t){
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl=measQ.front();
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr=measnoroadQ.front();
+
+        measQ.pop();
+        measnoroadQ.pop();
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_t (new pcl::PointCloud<pcl::PointXYZ> ());
+        pcl::transformPointCloud (*Xpcl, *Xpcl_t, H);
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr_t (new pcl::PointCloud<pcl::PointXYZ> ());
+        pcl::transformPointCloud (*Xpcl_nr, *Xpcl_nr_t, H);
+
+        meas.push_back(Xpcl);
+        meas_noroad.push_back(Xpcl_nr);
+
+
+        T.push_back(t);
+
+        structmeas sm;
+        sm.dt=getdt();
+        sm.tk=tk;
+
+        pcl2eigen(Xpcl,sm.X1v);
+        pcl2eigen(Xpcl_t,sm.X1gv);
+        pcl2eigen(Xpcl_nr,sm.X1v_roadrem);
+        pcl2eigen(Xpcl_nr_t,sm.X1gv_roadrem);
+        ++tk;
+
+        return sm;
+        // dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem
+
+}
+
 void MapLocalizer::addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,const Eigen::Ref<const Eigen::MatrixXf> &Xnoroad,float t){
         Timer TT("addMeas",timerptr);
 
@@ -393,7 +549,7 @@ void MapLocalizer::setLookUpDist(std::string filename){
 
 }
 void MapLocalizer::setRegisteredSeqH_async(){
-         seqregister_future = std::async(std::launch::async, &MapLocalizer::setRegisteredSeqH,this);
+        seqregister_future = std::async(std::launch::async, &MapLocalizer::setRegisteredSeqH,this);
 
 }
 void MapLocalizer::setRegisteredSeqH(){
