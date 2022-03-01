@@ -35,7 +35,7 @@
 #include <future>
 #include <mutex>
 #include <queue>
-
+#include <mutex>          // std::mutex
 
 //eigen`
 #include <Eigen/Core>

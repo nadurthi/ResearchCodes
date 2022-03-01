@@ -878,7 +878,7 @@ class plot3dPF:
     
 
 
-kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=True)
+kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=False)
 
 doneLocalize=0
 
@@ -911,11 +911,22 @@ for k in range(1,len(dataset)):
     # if outQ.empty():
     #     break
     # dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=outQ.get()
-    dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=getmeas(k)
-    KL.addMeas(X1v,X1v_roadrem,tk)
-    KL.setRegisteredSeqH_async()
+    # dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=getmeas(k)
+    
+    # KL.addMeas(X1v,X1v_roadrem,tk)
+    
+    st=time.time()
+    Hgt=dataset.calib.T_cam0_velo
+    Hgt=np.dot(nplinalg.inv(Hgt),dataset.poses[k].dot(Hgt))
+    sm=KL.addMeas_fromQ(Hgt,dataset.times[k])
+    dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem = sm.dt,sm.tk,sm.X1v,sm.X1gv,sm.X1v_roadrem,sm.X1gv_roadrem
     et=time.time()
     print("get data time = ",et-st)
+
+    st=time.time()
+    KL.setRegisteredSeqH_async()
+    et=time.time()
+    print("setRegisteredSeqH_async time = ",et-st)
     
     # if k%25==0:
     #     KL.cleanUp(k-20)
@@ -1090,8 +1101,10 @@ for k in range(1,len(dataset)):
             HHs=simmanger.data['BinMatchedH'][k]
         else:
             HHs=None
+        st=time.time()
         kittisimplotter.plot2D(k,robotpf.X,m,P,X1v_roadrem,HHs,sleep=0.1)
-        
+        et=time.time()
+        print("plot time = ",et-st)
         # kittisimplotter.plotOpen3D(k,robotpf.X,X1gv)
         
     

@@ -162,9 +162,11 @@ void MapLocalizer::autoReadMeas(std::string folder){
                         pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_noroad_filtered(new pcl::PointCloud<pcl::PointXYZ>());
                         pcl_filter_cloud(Xpcl_noroad,Xpcl_noroad_filtered,options["MeasMenaager"]["meas2D"]["downsample"]["resolution"]);
 
-
+                        measQmtx.lock();
                         measQ.push(Xpcl_filtered);
                         measnoroadQ.push(Xpcl_noroad_filtered);
+                        measQmtx.unlock();
+
                         ++k;
                         // std::cout<< "added meas at timestep "<<k<<std::endl;
                 }
@@ -271,32 +273,49 @@ void MapLocalizer::resetH(){
 
 //-----------------Setters------------------
 structmeas MapLocalizer::addMeas_fromQ(Eigen::Matrix4f H,float t){
-        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl=measQ.front();
-        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr=measnoroadQ.front();
-
-        measQ.pop();
-        measnoroadQ.pop();
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_t (new pcl::PointCloud<pcl::PointXYZ> ());
-        pcl::transformPointCloud (*Xpcl, *Xpcl_t, H);
-
-        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr_t (new pcl::PointCloud<pcl::PointXYZ> ());
-        pcl::transformPointCloud (*Xpcl_nr, *Xpcl_nr_t, H);
-
-        meas.push_back(Xpcl);
-        meas_noroad.push_back(Xpcl_nr);
-
-
+        Timer TT("addMeas_fromQ",timerptr);
         T.push_back(t);
 
         structmeas sm;
         sm.dt=getdt();
         sm.tk=tk;
 
+        measQmtx.lock();
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl=measQ.front();
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr=measnoroadQ.front();
+        measQ.pop();
+        measnoroadQ.pop();
+        measQmtx.unlock();
+
         pcl2eigen(Xpcl,sm.X1v);
-        pcl2eigen(Xpcl_t,sm.X1gv);
         pcl2eigen(Xpcl_nr,sm.X1v_roadrem);
-        pcl2eigen(Xpcl_nr_t,sm.X1gv_roadrem);
+
+
+
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_t (new pcl::PointCloud<pcl::PointXYZ> ());
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr_t (new pcl::PointCloud<pcl::PointXYZ> ());
+        if(H.isApprox(Eigen::Matrix4f::Zero())) {
+                Xpcl_t=Xpcl;
+                Xpcl_nr_t=Xpcl_nr;
+                sm.X1gv=sm.X1v;
+                sm.X1gv_roadrem=sm.X1v_roadrem;
+        }
+        else{
+                pcl::transformPointCloud (*Xpcl, *Xpcl_t, H);
+                pcl::transformPointCloud (*Xpcl_nr, *Xpcl_nr_t, H);
+
+                pcl2eigen(Xpcl_t,sm.X1gv);
+                pcl2eigen(Xpcl_nr_t,sm.X1gv_roadrem);
+
+
+        }
+        meas.push_back(Xpcl);
+        meas_noroad.push_back(Xpcl_nr);
+
+
+
+
+
         ++tk;
 
         return sm;
@@ -550,6 +569,8 @@ void MapLocalizer::setLookUpDist(std::string filename){
 }
 void MapLocalizer::setRegisteredSeqH_async(){
         seqregister_future = std::async(std::launch::async, &MapLocalizer::setRegisteredSeqH,this);
+        // std::thread setRegisteredSeqH_thread(&MapLocalizer::setRegisteredSeqH,this);
+        // setRegisteredSeqH_thread.detach();
 
 }
 void MapLocalizer::setRegisteredSeqH(){
@@ -778,7 +799,8 @@ std::vector<Eigen::Matrix4f> MapLocalizer::geti1Hi_seq(){
 
         std::vector<Eigen::Matrix4f> Ht;
         for(std::size_t i=0; i<meas.size()-1; ++i) {
-                Ht.push_back( i1Hi_seq[i][i+1] );
+                if(i1Hi_seq.find(i)!=i1Hi_seq.end())
+                        Ht.push_back( i1Hi_seq[i][i+1] );
         }
 
 

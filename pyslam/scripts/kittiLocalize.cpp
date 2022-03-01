@@ -119,7 +119,7 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("setgHk", &MapLocalizer::setgHk)
         .def("setLookUpDist", &MapLocalizer::setLookUpDist)
         .def("setRegisteredSeqH", &MapLocalizer::setRegisteredSeqH)
-        .def("setRegisteredSeqH_async", &MapLocalizer::setRegisteredSeqH)
+        .def("setRegisteredSeqH_async", &MapLocalizer::setRegisteredSeqH_async)
 
         .def("setRelStates", &MapLocalizer::setRelStates)
         .def("setRelStates_async", &MapLocalizer::setRelStates)

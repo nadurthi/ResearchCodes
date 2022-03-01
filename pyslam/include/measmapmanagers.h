@@ -170,4 +170,6 @@ std::queue<pcl::PointCloud<pcl::PointXYZ>::Ptr> measQ,measnoroadQ;
 timerdictptr timerptr;
 
 bool quitsim;
+
+std::mutex measQmtx;
 };
