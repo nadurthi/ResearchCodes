@@ -42,7 +42,8 @@ find_package(nlohmann_json)
 #-------------------------------------------------------------------------------------------
 add_subdirectory(pybind11)
 add_definitions(${PCL_DEFINITIONS})
-
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
 
 
 
@@ -64,6 +65,11 @@ target_precompile_headers(kittilocal PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/includ
 target_include_directories(kittilocal PRIVATE ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
 target_link_libraries(kittilocal PRIVATE ${PCL_LIBRARIES} ${Boost_LIBRARIES}  nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen)
 
+add_executable (pclvisualizer "${SCRIPT_DIR}/pclvisualizer.cpp")
+target_link_libraries (pclvisualizer ${PCL_LIBRARIES})
+
+add_executable (pclviewer "${SCRIPT_DIR}/pclviewer.cpp")
+target_link_libraries (pclviewer ${PCL_LIBRARIES})
 
 #target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE VERSION_INFO=${EXAMPLE_VERSION_INFO} ${PCL_DEFINITIONS})
 #target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${HEADER_BASE} ${Boost_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS})
@@ -84,6 +90,19 @@ set_target_properties(slam
 #)
 
 set_target_properties(kittilocal
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+set_target_properties(pclvisualizer
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+set_target_properties(pclviewer
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

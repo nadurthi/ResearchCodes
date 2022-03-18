@@ -138,7 +138,7 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("getLikelihoods_octree", &MapLocalizer::getLikelihoods_octree)
         .def("getLikelihoods_lookup", &MapLocalizer::getLikelihoods_lookup)
         .def("getSeq_gHk", &MapLocalizer::getSeq_gHk)
-        .def("geti1Hi_seq", &MapLocalizer::geti1Hi_seq)
+        .def("geti1Hi_seq_vec", &MapLocalizer::geti1Hi_seq_vec)
         .def("getmap2D_noroad_res_eigen", &MapLocalizer::getmap2D_noroad_res_eigen)
 
         .def("getsetSeq_gHk", &MapLocalizer::getsetSeq_gHk)

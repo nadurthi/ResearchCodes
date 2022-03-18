@@ -108,7 +108,9 @@ Eigen::VectorXf getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &X
 Eigen::VectorXf getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
 
 std::vector<Eigen::Matrix4f> getSeq_gHk();
-std::vector<Eigen::Matrix4f> geti1Hi_seq();
+std::vector<Eigen::Matrix4f> geti1Hi_seq_vec();
+std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> > geti1Hi_seq();
+
 
 std::vector<Eigen::Matrix4f> getsetSeq_gHk(int tk, Eigen::Matrix4f gHk);
 
@@ -172,4 +174,7 @@ timerdictptr timerptr;
 bool quitsim;
 
 std::mutex measQmtx;
+std::mutex gHkmtx;
+std::mutex relStatemtx;
+std::mutex i1Himtx;
 };

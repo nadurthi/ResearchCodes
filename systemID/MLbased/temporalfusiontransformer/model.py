@@ -83,4 +83,8 @@ class VSN(nn.module):
         
         V=v.unsqueeze(0).repeat(N,1,1)
         return torch.sum(X*V,1)   
-        
+
+
+class TFT(nn.module):
+    def __init__(self,static_dim,)
+      

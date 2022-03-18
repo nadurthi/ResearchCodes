@@ -424,7 +424,10 @@ void MapLocalizer::computeHlevels(){
 
 
 void MapLocalizer::setgHk(int tk, Eigen::Matrix4f gHs ){
+        gHkmtx.lock();
         gHk[tk] = gHs;
+        gHkmtx.unlock();
+
 }
 void MapLocalizer::setLookUpDist(std::string filename){
         Timer TT("setLookUpDist",timerptr);
@@ -576,8 +579,9 @@ void MapLocalizer::setRegisteredSeqH_async(){
 void MapLocalizer::setRegisteredSeqH(){
         Timer TT("setRegisteredSeqH",timerptr);
 
-
-        for(std::size_t i=0; i<meas.size()-1; ++i) {
+        int n =meas.size();
+        i1Himtx.lock();
+        for(std::size_t i=0; i<n-1; ++i) {
                 if(i1Hi_seq.find(i)==i1Hi_seq.end()) {
 
                         gicpseq.setInputSource(meas[i+1]);
@@ -589,6 +593,7 @@ void MapLocalizer::setRegisteredSeqH(){
 
                 }
         }
+        i1Himtx.unlock();
         //std::cout << " done registering serq meas "<<std::endl;
         setSeq_gHk();
 
@@ -596,14 +601,18 @@ void MapLocalizer::setRegisteredSeqH(){
 std::vector<Eigen::Matrix4f> MapLocalizer::setSeq_gHk(){
         Timer TT("setSeq_gHk",timerptr);
 
-        gHk.clear();
-        gHk.push_back(Eigen::Matrix4f::Identity());
-        for(std::size_t i=1; i<meas.size(); ++i) {
-                if(i1Hi_seq.find(i-1)!=i1Hi_seq.end())
-                        gHk.push_back(gHk[i-1]*i1Hi_seq[i-1][i]);
+        // gHk.clear();
+        // gHk.push_back(Eigen::Matrix4f::Identity());
+        gHkmtx.lock();
+        int n1 = gHk.size();
+        for(std::size_t i=n1; i<meas.size(); ++i) {
+                auto itp=i1Hi_seq.find(i-1);
+                if(itp!=i1Hi_seq.end())
+                        gHk.push_back(gHk[i-1]*itp->second[i]);
                 else
                         break;
         }
+        gHkmtx.unlock();
         //std::cout << " done gloabl gHk "<<std::endl;
         return gHk;
 }
@@ -618,15 +627,16 @@ void MapLocalizer::setRelStates(){
 
         gHk = getSeq_gHk();
 
-        Vel.clear();
-        AngVel.clear();
-        XseqPos.clear();
-
-        Vel.push_back(Eigen::Vector3f::Zero());
-        AngVel.push_back(Eigen::Vector3f::Zero());
-        XseqPos.push_back(Eigen::Vector3f::Zero());
-
-        for(std::size_t i=1; i<gHk.size(); ++i) {
+        // Vel.clear();
+        // AngVel.clear();
+        // XseqPos.clear();
+        //
+        // Vel.push_back(Eigen::Vector3f::Zero());
+        // AngVel.push_back(Eigen::Vector3f::Zero());
+        // XseqPos.push_back(Eigen::Vector3f::Zero());
+        relStatemtx.lock();
+        int n=XseqPos.size();
+        for(std::size_t i=n; i<gHk.size(); ++i) {
                 // if(gHk.find(i)==gHk.end())
                 //         break;
                 Eigen::Vector3f pm1 = gHk[i-1].col(3).head(3);
@@ -646,7 +656,7 @@ void MapLocalizer::setRelStates(){
 
 
         }
-
+        relStatemtx.unlock();
 
 }
 //-------------------Getters------------
@@ -750,15 +760,26 @@ pcl::PointCloud<pcl::PointXYZ>::ConstPtr MapLocalizer::getmap2D(){
         return map2D;
 }
 std::vector<Eigen::Vector3f> MapLocalizer::getvelocities(){
-        return Vel;
+        relStatemtx.lock();
+        std::vector<Eigen::Vector3f> V = Vel;
+        relStatemtx.unlock();
+        return V;
 }
 
 std::vector<Eigen::Vector3f> MapLocalizer::getpositions(){
-        return XseqPos;
+        relStatemtx.lock();
+        std::vector<Eigen::Vector3f> P = XseqPos;
+        relStatemtx.unlock();
+        return P;
 }
 std::vector<Eigen::Vector3f> MapLocalizer::getangularvelocities(){
-        return AngVel;
+        relStatemtx.lock();
+        std::vector<Eigen::Vector3f> A = AngVel;
+        relStatemtx.unlock();
+        return A;
 }
+
+
 
 Eigen::VectorXf MapLocalizer::getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk){
         Timer TT("getLikelihoods_octree",timerptr);
@@ -791,27 +812,40 @@ Eigen::VectorXf MapLocalizer::getLikelihoods_lookup(const Eigen::Ref<const Eigen
 
 
 std::vector<Eigen::Matrix4f> MapLocalizer::getSeq_gHk(){
-        return gHk;
+        gHkmtx.lock();
+        std::vector<Eigen::Matrix4f> G=gHk;
+        gHkmtx.unlock();
+        return G;
+
 }
 
-std::vector<Eigen::Matrix4f> MapLocalizer::geti1Hi_seq(){
-        Timer TT("geti1Hi_seq",timerptr);
+std::vector<Eigen::Matrix4f> MapLocalizer::geti1Hi_seq_vec(){
+        Timer TT("geti1Hi_seq_vec",timerptr);
 
         std::vector<Eigen::Matrix4f> Ht;
+        i1Himtx.lock();
         for(std::size_t i=0; i<meas.size()-1; ++i) {
                 if(i1Hi_seq.find(i)!=i1Hi_seq.end())
                         Ht.push_back( i1Hi_seq[i][i+1] );
         }
+        i1Himtx.unlock();
 
+        return Ht;
+}
+std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> >  MapLocalizer::geti1Hi_seq(){
+        i1Himtx.lock();
+        std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> > Ht = i1Hi_seq;
+        i1Himtx.unlock();
 
         return Ht;
 }
 
-
 std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f gHkatk){
         Timer TT("getsetSeq_gHk",timerptr);
 
+        setRegisteredSeqH();
         auto gHkset = getSeq_gHk();
+        auto i1Hi_seqset = geti1Hi_seq();
         // for (auto const &pair: i1Hi_seq) {
         //         for (auto const &pair2: pair.second) {
         //                 std::cout << "{" << pair.first << "--> " << pair2.first << "}\n";
@@ -826,14 +860,14 @@ std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f
         // std::cout << " at(tk) done" << std::endl;
         if(tk<gHkset.size()-1) {
                 for(std::size_t k=tk+1; k<gHkset.size(); ++k) {
-                        gHkset[k]=gHkset[k-1]*i1Hi_seq[k-1][k];
+                        gHkset[k]=gHkset[k-1]*i1Hi_seqset[k-1][k];
                         // std::cout<< ">>gHkset k = "<< k << " / " << meas.size() <<std::endl;
                 }
         }
         // std::cout<< "gHkset 2 size = "<< gHkset.size()<<std::endl;
         if(tk>0) {
                 for(int k=tk-1; k>=0; --k) {
-                        auto H = i1Hi_seq[k][k+1].inverse();
+                        auto H = i1Hi_seqset[k][k+1].inverse();
                         gHkset[k]=gHkset[k+1]*H;
                         // std::cout<< "gHkset k = "<< k << " / " << meas.size() <<std::endl;
                 }
@@ -920,6 +954,7 @@ Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_noroad_eigen(int t0,int tf,int t
 void
 MapLocalizer::BMatchseq_async(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
 // BMatchAndCorrH
+
         if (bmHsols_async_future.valid()==false) {
                 bmHsols_async_future = std::async(std::launch::async, &MapLocalizer::BMatchseq_async_caller,this,t0,tf,tk,gHkest,gicp);
         }

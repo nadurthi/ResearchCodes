@@ -264,7 +264,7 @@ D["MapManager"]["map2D"]["removeRoad"]=False
 D["MeasMenaager"]={"meas":{},"meas2D":{},"meas_Likelihood":{}}
 D["MeasMenaager"]["meas"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
 D["MeasMenaager"]["measnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
-D["MeasMenaager"]["meas_Likelihood"]["downsample"]={"enable":True,"resolution":[0.3,0.3,0.3]}
+D["MeasMenaager"]["meas_Likelihood"]["downsample"]={"enable":True,"resolution":[1,1,1]}
 D["MeasMenaager"]["meas2D"]["removeRoad"]=False
 D["MeasMenaager"]["meas2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
 
@@ -281,8 +281,8 @@ D['BinMatch']["thfineres"]=2.5*np.pi/180
 D["mapfit"]={"downsample":{},"gicp":{}}
 D["mapfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
 D["mapfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
-D["mapfit"]["gicp"]["setMaximumIterations"]=5.0
-D["mapfit"]["gicp"]["setMaximumOptimizerIterations"]=5.0
+D["mapfit"]["gicp"]["setMaximumIterations"]=5
+D["mapfit"]["gicp"]["setMaximumOptimizerIterations"]=10
 D["mapfit"]["gicp"]["setRANSACIterations"]=0
 D["mapfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
 D["mapfit"]["gicp"]["setTransformationEpsilon"]=1e-6
@@ -290,9 +290,10 @@ D["mapfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
 
 #
 D["seqfit"]={"downsample":{},"gicp":{}}
+D["seqfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
 D["seqfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
-D["seqfit"]["gicp"]["setMaximumIterations"]=30.0
-D["seqfit"]["gicp"]["setMaximumOptimizerIterations"]=30.0
+D["seqfit"]["gicp"]["setMaximumIterations"]=5.0
+D["seqfit"]["gicp"]["setMaximumOptimizerIterations"]=10.0
 D["seqfit"]["gicp"]["setRANSACIterations"]=0
 D["seqfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
 D["seqfit"]["gicp"]["setTransformationEpsilon"]=1e-9
@@ -928,6 +929,7 @@ for k in range(1,len(dataset)):
     et=time.time()
     print("setRegisteredSeqH_async time = ",et-st)
     
+    
     # if k%25==0:
     #     KL.cleanUp(k-20)
     
@@ -960,6 +962,8 @@ for k in range(1,len(dataset)):
         gg=10
     simmanger.data['doBinMatch']=doBinMatch=1
     
+    KL.setRelStates_async()
+    
     if doBinMatch==1 and isBMworking==False:
         print("---doneLocalize ------ = ",doneLocalize)
         simmanger.data['BinMatch_idxpf'].append((k,idxpf))
@@ -970,13 +974,14 @@ for k in range(1,len(dataset)):
         tf=k
         tk=k
         
-        # st=time.time()
-        # solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
-        # et=time.time()
-        # print("Bin match and gicp time = ",et-st)
+        st=time.time()
+        solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
+        et=time.time()
+        print("Bin match and gicp time = ",et-st)
         
         KL.BMatchseq_async(t0,tf,tk,Hpose,True)
         isBMworking=True
+        time.sleep(0.1)
         # et=time.time()
         # print("Bin match asyc set time = ",et-st)
     
@@ -985,6 +990,7 @@ for k in range(1,len(dataset)):
     KL.setRelStates_async()
     
     solQ=KL.getBMatchseq_async()
+
     if solQ.isDone==True:
         isBMworking=False
         solret=solQ.bmHsol
@@ -1005,27 +1011,16 @@ for k in range(1,len(dataset)):
             
             xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
             
-            # robotpf.X[idxpf][:6] = kittilocal.Hmat2pose(solret.gHkcorr)
+
             Velmeas=KL.getvelocities()
             AngVelmeas=KL.getangularvelocities()
             xpose_tk[6]=nplinalg.norm(Velmeas[-1])
             xpose_tk[7:10]=AngVelmeas[-1]
             
             robotpf.X[idxpf]=xpose_tk.copy()
-            # likelihoods=KL.getLikelihoods_lookup(np.array([robotpf.X[idxpf]]),k)
-            
-            # likelihoods_exp=np.exp(-likelihoods)
-            # likelihoods_exp[likelihoods_exp<1e-70]=1e-70
-            
-            # lostflg = np.all(likelihoods_exp==1e-70)
-            
-            # robotpf.wts[idxpf]=likelihoods_exp[0]*robotpf.wts[idxpf]
-            # robotpf.renormlizeWts()
 
             simmanger.data['BinMatchedH'][k]=(idxpf,solQ.tk,k,solQ.gHkest_initial,gHkcorr_atk)    
             
-        # if doneLocalize==0:
-            # robotpf.resetWts()
            
             
 
@@ -1067,8 +1062,13 @@ for k in range(1,len(dataset)):
         simmanger.data['fracH']=fracH=0.75
     else:
         simmanger.data['fracH']=fracH=1
-        
-    if Neff/Npf<simmanger.data['Neff/Npf'] and k in simmanger.data['BinMatchedH']:
+    
+    if Neff/Npf<simmanger.data['Neff/Npf'] and simmanger.data['doBinMatch'] ==0:
+        print("resampled at k = ",k)
+        robotpf.bootstrapResample(fracH=1)
+        simmanger.data['resampled?'][-1]=(k,True)
+    
+    elif Neff/Npf<simmanger.data['Neff/Npf'] and (k in simmanger.data['BinMatchedH']):
         print("resampled at k = ",k)
         robotpf.bootstrapResample(fracH=1)
         simmanger.data['resampled?'][-1]=(k,True)
@@ -1094,7 +1094,7 @@ for k in range(1,len(dataset)):
     
     XPFmP_history.append((m,P))
     
-    if (k%1==0):
+    if (k%20==0):
         # kittisimplotter.plot3D(k,robotpf.X,m,P)
         
         if k in simmanger.data['BinMatchedH'].keys():
@@ -1106,7 +1106,7 @@ for k in range(1,len(dataset)):
         et=time.time()
         print("plot time = ",et-st)
         # kittisimplotter.plotOpen3D(k,robotpf.X,X1gv)
-        
+        plt.pause(1.5)
     
         
 
@@ -1116,6 +1116,7 @@ for k in range(1,len(dataset)):
     # if k>=400:
     #     break
 
+timers=KL.gettimers()
 
 Velmeas=KL.getvelocities()
 AngVelmeas=KL.getangularvelocities()
@@ -1162,7 +1163,7 @@ simmanger.finalize()
 
 simmanger.save(metalog, mainfile=runfilename, vehiclestates=vehiclestates,
                options=D, Npf=Npf,XPFhistory=XPFhistory,
-               XPFmP_history=XPFmP_history)
+               XPFmP_history=XPFmP_history,timers=timers)
 
 #%%
 
