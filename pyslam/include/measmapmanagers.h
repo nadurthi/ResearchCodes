@@ -19,7 +19,7 @@ struct structmeas {
 
 struct BMatchAndCorrH {
         std::vector<BinMatchSol> sols;
-        Eigen :: Matrix4f gHkcorr;
+        std::vector<Eigen :: Matrix4f> gHkcorr;
         bool isDone;
 };
 
@@ -45,6 +45,7 @@ class MapLocalizer {
 public:
 MapLocalizer(std::string opt );
 void setOptions(std::string optstr);
+void setOptions_noreset(std::string opt);
 void setBMOptions(std::string opt);
 void resetH();
 void cleanUp(int k);

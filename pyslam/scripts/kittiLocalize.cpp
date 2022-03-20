@@ -102,6 +102,8 @@ PYBIND11_MODULE(kittilocal, m) {
         py::class_<MapLocalizer>(m, "MapLocalizer")
         .def(py::init<const std::string &>())
         .def("setOptions", &MapLocalizer::setOptions)
+        .def("setOptions_noreset", &MapLocalizer::setOptions_noreset)
+
         .def("setBMOptions", &MapLocalizer::setBMOptions)
         .def("cleanUp", &MapLocalizer::cleanUp)
         .def("autoReadMeas", &MapLocalizer::autoReadMeas)

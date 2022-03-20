@@ -14,6 +14,7 @@ from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import Axes3D
 from threading import Thread
 import os
+import copy
 from utils.plotting import geometryshapes as utpltgmshp   
 import pandas as pd
 from utils import simmanager as uqsimmanager
@@ -243,7 +244,7 @@ D={}
 
 
 D["Localize"]={}
-D["Localize"]["sig0"]=0.25
+D["Localize"]["sig0"]=0.45
 D["Localize"]["dmax"]=10
 D["Localize"]["likelihoodsearchmethod"]="octree" # lookup
 D["Localize"]["octree"]={"resolution":0.1,
@@ -878,7 +879,7 @@ class plot3dPF:
             simmanger.savefigure(figpf2D, ['2Dmap','snapshot_closeup'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
     
 
-
+plt.close("all")
 kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=False)
 
 doneLocalize=0
@@ -895,26 +896,32 @@ sm=KL.addMeas_fromQ(Hgt,dataset.times[0])
 m,P=robotpf.getEst()
 XPFmP_history=[(m,P)]
 XPFhistory=[(robotpf.X.copy(),robotpf.wts.copy())]
-simmanger.data['resampled?']=[]
+simmanger.data['resampled?']={}
 simmanger.data['BinMatch_idxpf']=[]
 simmanger.data['BinMatchedH']={}
 isBMworking=False
 
+simmanger.data['doneLocalize']={}
+simmanger.data['lost']={}
+simmanger.data['reinitialized?']={}
+
 HHs=None
 kittisimplotter.plot2D(0,robotpf.X,m,P,sm.X1v_roadrem,HHs,sleep=0.1)
 
+simmanger.data['vehicle_status']={}
+vehicle_status = simmanger.data['vehicle_status'][0] = "Localization"
     
-    
+
+fps=time.time()
+simmanger.data['fps']=[]
+
 for k in range(1,len(dataset)):
-    plt.close("all")
+    simmanger.data['fps'].append( time.time()-fps  )
+    fps=time.time()
+    
     print(k)
     st=time.time()
-    # if outQ.empty():
-    #     break
-    # dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=outQ.get()
-    # dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem=getmeas(k)
-    
-    # KL.addMeas(X1v,X1v_roadrem,tk)
+
     
     st=time.time()
     Hgt=dataset.calib.T_cam0_velo
@@ -928,38 +935,45 @@ for k in range(1,len(dataset)):
     KL.setRegisteredSeqH_async()
     et=time.time()
     print("setRegisteredSeqH_async time = ",et-st)
-    
-    
-    # if k%25==0:
-    #     KL.cleanUp(k-20)
-    
-    
+
     
     
 
     # propagate
     st=time.time()
-    # robotpf.X=dynmodelUM3D(robotpf.X,dt)
     robotpf.X=dynmodelCT3D(robotpf.X,dt)
     
     
     
     et=time.time()
     print("dyn model time = ",et-st)
-    robotpf.X=robotpf.X+2*np.random.multivariate_normal(np.zeros(dim), Q, Npf)
+    robotpf.X=robotpf.X+1.5*np.random.multivariate_normal(np.zeros(dim), Q, robotpf.X.shape[0])
     
 
 
     ### BIN MATCH
-    idxpf=np.random.choice(list(range(Npf)),1,p=robotpf.wts)
-    idxpf=idxpf[0]
+    if vehicle_status=="Localization":
+        idxpf=np.argmin(robotpf.wts)
+        DD=copy.deepcopy(D)
+        DD['BinMatch']["dxMatch"]=list(np.array([3,3],dtype=np.float64))
+        DD['BinMatch']["dxBase"]=list(np.array([30,30],dtype=np.float64))
+        DD['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
+        KL.setOptions_noreset(json.dumps(DD))
+        
+    if vehicle_status=="Tracking":
+        idxpf=np.argmax(robotpf.wts)
+        DD=copy.deepcopy(D)
+        DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+        DD['BinMatch']["dxBase"]=list(np.array([25,25],dtype=np.float64))
+        DD['BinMatch']["Lmax"]=list(np.array([50,50],dtype=np.float64))
+        KL.setOptions_noreset(json.dumps(DD))
+        
+    # idxpf=np.random.choice(list(range(Npf)),1,p=robotpf.wts)
+    # idxpf=idxpf[0]
     
     # idxpf=np.argmin(robotpf.wts)
     
-    if doneLocalize==0:
-        gg=1
-    else:
-        gg=10
+
     simmanger.data['doBinMatch']=doBinMatch=1
     
     KL.setRelStates_async()
@@ -969,19 +983,19 @@ for k in range(1,len(dataset)):
         simmanger.data['BinMatch_idxpf'].append((k,idxpf))
         # Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
         Hpose = kittilocal.pose2Hmat(robotpf.X[idxpf][:6])
-        
+        xpose_k = robotpf.X[idxpf].copy()
         t0=k  #max([0,k-5])
         tf=k
         tk=k
         
-        st=time.time()
-        solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
-        et=time.time()
-        print("Bin match and gicp time = ",et-st)
+        # st=time.time()
+        # solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
+        # et=time.time()
+        # print("Bin match and gicp time = ",et-st)
         
         KL.BMatchseq_async(t0,tf,tk,Hpose,True)
         isBMworking=True
-        time.sleep(0.1)
+        time.sleep(0.2)
         # et=time.time()
         # print("Bin match asyc set time = ",et-st)
     
@@ -997,35 +1011,48 @@ for k in range(1,len(dataset)):
         if (solret.sols[0].cost>solret.sols[0].cost0):
             # idxpfmin = np.argmin(robotpf.wts)
             # robotpf.X[idxpfmin]=robotpf.X[idxpf].copy()
-            xpose_tk=robotpf.X[idxpf].copy()
-            
-       
-            gHk=KL.getSeq_gHk()
-            
-            gHtk=gHk[solQ.tk]
-            gHk=gHk[-1]
-            
-            tkHg=nplinalg.inv(gHtk)
-            kHtk=gHk.dot(tkHg)
-            gHkcorr_atk = kHtk.dot(solret.gHkcorr)
-            
-            xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
-            
-
+            # xpose_tk=robotpf.X[idxpf].copy()
+            time.sleep(0.2)
+            gHkseq=KL.getSeq_gHk()
             Velmeas=KL.getvelocities()
             AngVelmeas=KL.getangularvelocities()
-            xpose_tk[6]=nplinalg.norm(Velmeas[-1])
-            xpose_tk[7:10]=AngVelmeas[-1]
-            
-            robotpf.X[idxpf]=xpose_tk.copy()
-
-            simmanger.data['BinMatchedH'][k]=(idxpf,solQ.tk,k,solQ.gHkest_initial,gHkcorr_atk)    
+            for si in range(len(solret.gHkcorr)):
+                xpose_tk=xpose_k.copy()
+                
+                gHtk=gHkseq[solQ.tk].copy()
+                gHk=gHkseq[-1].copy()
+                
+                tkHg=nplinalg.inv(gHtk)
+                kHtk=gHk.dot(tkHg)
+                gHkcorr_atk = kHtk.dot(solret.gHkcorr[si])
+                
+                xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
+                
+    
+                
+                xpose_tk[6]=nplinalg.norm(Velmeas[-1])
+                xpose_tk[7:10]=AngVelmeas[-1]
+                
+                robotpf.X =np.vstack([robotpf.X,xpose_tk.copy()])
+                robotpf.wts = np.hstack([robotpf.wts,1])
+                
+                if si==0:
+                    simmanger.data['BinMatchedH'][k]=(idxpf,solQ.tk,k,solQ.gHkest_initial,gHkcorr_atk)    
             
            
-            
+            robotpf.wts[:]=1
+            robotpf.wts=robotpf.wts/np.sum(robotpf.wts)            
 
     # measurement update
     
+    if vehicle_status == "Localization":
+        DD=copy.deepcopy(D)
+        DD["Localize"]["sig0"]=1
+        KL.setOptions_noreset(json.dumps(DD))
+    
+    if vehicle_status == "Tracking":
+        KL.setOptions_noreset(json.dumps(D))
+        
     st=time.time()
     # likelihoods_octree=KL.getLikelihoods_octree(robotpf.X,k)
     # likelihoods=KL.getLikelihoods_octree(robotpf.X,k)
@@ -1044,49 +1071,57 @@ for k in range(1,len(dataset)):
     
     # lost target
     if np.all(np.isnan(robotpf.wts)):
-        doneLocalize=0
+        simmanger.data['doneLocalize'][k]=doneLocalize=0
         xstatepf, wpf, Q =sampligfunc(Npf)
         robotpf.X=xstatepf
         robotpf.wts=wpf
+        
+        simmanger.data['lost'][k]=1
+        simmanger.data['reinitialized?'][k]=1
 
-
+        vehicle_status = simmanger.data['vehicle_status'][k] = "Localization"
     
-    
-    # 
-            
+    if np.any(np.isnan(robotpf.wts)):
+        robotpf.wts[np.isnan(robotpf.wts)]=0
+        robotpf.renormlizeWts()
+        
     ### boostratp  resample 
-    simmanger.data['resampled?'].append((k,False))
+    
     Neff=robotpf.getNeff()
-    simmanger.data['Neff/Npf']=0.7
-    if doneLocalize==0:
-        simmanger.data['fracH']=fracH=0.75
-    else:
-        simmanger.data['fracH']=fracH=1
     
-    if Neff/Npf<simmanger.data['Neff/Npf'] and simmanger.data['doBinMatch'] ==0:
-        print("resampled at k = ",k)
-        robotpf.bootstrapResample(fracH=1)
-        simmanger.data['resampled?'][-1]=(k,True)
-    
-    elif Neff/Npf<simmanger.data['Neff/Npf'] and (k in simmanger.data['BinMatchedH']):
-        print("resampled at k = ",k)
-        robotpf.bootstrapResample(fracH=1)
-        simmanger.data['resampled?'][-1]=(k,True)
-    
+    if vehicle_status=="Localization":
+        simmanger.data['Neff/Npf']=0.1
+        if Neff/Npf<simmanger.data['Neff/Npf']:
+            print("resampled at k = ",k)
+            robotpf.bootstrapResample(Npf=Npf,fraclowH=0.1,replace=False)
+            simmanger.data['resampled?'][k]=1
+
+    if vehicle_status=="Tracking":
+        simmanger.data['Neff/Npf']=0.75
+        if Neff/Npf<simmanger.data['Neff/Npf']:
+            print("resampled at k = ",k)
+            robotpf.bootstrapResample_vanilla(Npf=Npf)
+            simmanger.data['resampled?'][k]=1
+
+
     m,P=robotpf.getEst()
     u,v=nplinalg.eig(P)
 
     pos_std=np.sqrt(u[:3])
     if max(pos_std)<10:
-        doneLocalize=1
+        simmanger.data['doneLocalize'][k]=doneLocalize=1
+        vehicle_status = simmanger.data['vehicle_status'][k] = "Tracking"
     
         
     # lost target
     if min(pos_std)>200:
-        doneLocalize=0
+        simmanger.data['doneLocalize'][k]=doneLocalize=0
+        vehicle_status = simmanger.data['vehicle_status'][k] = "Localization"
         
-        
-        
+    
+    
+
+
     ### saving and plotting  resample 
     XPFhistory.append((robotpf.X.copy(),robotpf.wts.copy()))
     
@@ -1094,7 +1129,8 @@ for k in range(1,len(dataset)):
     
     XPFmP_history.append((m,P))
     
-    if (k%20==0):
+    if (k%25==0 or k==len(dataset)-1):
+        plt.close("all")
         # kittisimplotter.plot3D(k,robotpf.X,m,P)
         
         if k in simmanger.data['BinMatchedH'].keys():
@@ -1106,7 +1142,7 @@ for k in range(1,len(dataset)):
         et=time.time()
         print("plot time = ",et-st)
         # kittisimplotter.plotOpen3D(k,robotpf.X,X1gv)
-        plt.pause(1.5)
+        plt.pause(1.0)
     
         
 

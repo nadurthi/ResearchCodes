@@ -52,8 +52,8 @@ Timer::~Timer(){
         //           << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "[ms]"
         //           << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << "[µs]" << std::endl;
 
-
-        (*Tptr)[key].push_back( static_cast<float>(sec)+static_cast<float>(msec)/1000 );
+        // static_cast<float>(sec)+
+        (*Tptr)[key].push_back( static_cast<float>(msec)/1000 );
 
         // typedef std::chrono::high_resolution_clock Time;
         // typedef std::chrono::milliseconds ms;

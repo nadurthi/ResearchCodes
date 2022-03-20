@@ -205,6 +205,10 @@ void MapLocalizer::cleanUp(int k){
 void MapLocalizer::setBMOptions(std::string opt){
         bm.setOptions(opt);
 }
+void MapLocalizer::setOptions_noreset(std::string opt){
+        bm.setOptions(opt);
+        options=json::parse(opt);
+}
 void MapLocalizer::setOptions(std::string opt){
         options=json::parse(opt);
         bm.setOptions(opt);
@@ -1044,30 +1048,35 @@ MapLocalizer::BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Mat
         solret.sols =bm.getmatch(Xsrc2D,H12);
         //std::cout << "Dones sols of bm match = " <<std::endl;
         //std::cout << "solret.sols[0].H = " << solret.sols[0].H << std::endl;
-        Eigen::Matrix4f Hbm=Eigen::Matrix4f::Identity();
-        Hbm.block(0,0,2,2)=solret.sols[0].H.block(0,0,2,2);
-        Hbm(0,3)=solret.sols[0].H(0,2);
-        Hbm(1,3)=solret.sols[0].H(1,2);
-        Vector6f xposeBM=Hmat2pose_v2(Hbm);
-        //std::cout << "xposeBM = " << xposeBM << std::endl;
-        // Eigen::Matrix3f R =Eigen::Matrix3f::Identity();
-        // R.block(0,0,2,2)=solret.sols[0].H.block(0,0,2,2);
-        // Eigen::Vector3f vv2;
-        // vv2 = R.eulerAngles(2, 1, 0);
-        xpose(3)=xposeBM(3);
-        xpose(0)=xposeBM(0);
-        xpose(1)=xposeBM(1);
-        //std::cout << "xpose = " << xpose << std::endl;
+        for(int si=0; si<solret.sols.size(); ++si) {
+                Eigen::Matrix4f Hbm=Eigen::Matrix4f::Identity();
+                Hbm.block(0,0,2,2)=solret.sols[si].H.block(0,0,2,2);
+                Hbm(0,3)=solret.sols[si].H(0,2);
+                Hbm(1,3)=solret.sols[si].H(1,2);
+                Vector6f xposeBM=Hmat2pose_v2(Hbm);
+                //std::cout << "xposeBM = " << xposeBM << std::endl;
+                // Eigen::Matrix3f R =Eigen::Matrix3f::Identity();
+                // R.block(0,0,2,2)=solret.sols[0].H.block(0,0,2,2);
+                // Eigen::Vector3f vv2;
+                // vv2 = R.eulerAngles(2, 1, 0);
+                xpose(3)=xposeBM(3);
+                xpose(0)=xposeBM(0);
+                xpose(1)=xposeBM(1);
+                //std::cout << "xpose = " << xpose << std::endl;
+                auto gHkcorr=pose2Hmat(xpose);
 
-        solret.gHkcorr=pose2Hmat(xpose);
+                if(gicp==true) {
+                        std::vector<float> res = options["mapfit"]["downsample"]["resolution"];
+                        Eigen :: Matrix4f HI = Eigen :: Matrix4f::Identity();
+                        pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl= getalignSeqMeas(t0,tf,tk, HI,res,3);
+                        gHkcorr = gicp_correction(Xsrcpcl, gHkcorr);
+                }
+
+                solret.gHkcorr.push_back(gHkcorr);
+        }
         //std::cout << "solret.gHkcorr = " << solret.gHkcorr << std::endl;
 
-        if(gicp==true) {
-                std::vector<float> res = options["mapfit"]["downsample"]["resolution"];
-                Eigen :: Matrix4f HI = Eigen :: Matrix4f::Identity();
-                pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl= getalignSeqMeas(t0,tf,tk, HI,res,3);
-                solret.gHkcorr = gicp_correction(Xsrcpcl, solret.gHkcorr);
-        }
+
         return solret;
 
 }
