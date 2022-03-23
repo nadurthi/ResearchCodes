@@ -1,0 +1,132 @@
+BinMatch:
+  Lmax:
+  - 200.0
+  - 200.0
+  dxBase:
+  - 30.0
+  - 30.0
+  dxMatch:
+  - 2.0
+  - 2.0
+  thfineres: 0.08726646259971647
+  thmax: 2.9670597283903604
+Data:
+  folder: /media/na0043/misc/DATA/KITTI/odometry/dataset
+  sequence: '05'
+Localize:
+  dmax: 10
+  likelihoodsearchmethod: octree
+  lookup:
+    resolution:
+    - 0.25
+    - 0.25
+    - 0.25
+  octree:
+    resolution: 0.1
+    searchmethod: ApprxNN
+  sig0: 0.35
+MapManager:
+  map:
+    downsample:
+      enable: true
+      resolution:
+      - 0.2
+      - 0.2
+      - 0.2
+  map2D:
+    downsample:
+      enable: true
+      resolution:
+      - 0.1
+      - 0.1
+      - 0.1
+    removeRoad: false
+  mapnormals:
+    enable: true
+    knn: 15
+    min_norm_z_thresh: 0.5
+    radius: 1
+    resolution:
+    - 0.05
+    - 0.05
+    - 0.05
+MeasMenaager:
+  meas:
+    downsample:
+      enable: true
+      resolution:
+      - 0.2
+      - 0.2
+      - 0.2
+  meas2D:
+    downsample:
+      enable: true
+      resolution:
+      - 0.1
+      - 0.1
+      - 0.1
+    removeRoad: false
+  meas_Likelihood:
+    downsample:
+      enable: true
+      resolution:
+      - 1
+      - 1
+      - 1
+  measnormals:
+    enable: true
+    knn: 15
+    min_norm_z_thresh: 0.5
+    radius: 1
+    resolution:
+    - 0.05
+    - 0.05
+    - 0.05
+PF:
+  Npf: 1000
+  k0: 2000
+mapfit:
+  downsample:
+    resolution:
+    - 0.5
+    - 0.5
+    - 0.5
+  gicp:
+    setMaxCorrespondenceDistance: 10
+    setMaximumIterations: 10
+    setMaximumOptimizerIterations: 10
+    setRANSACIterations: 0
+    setRANSACOutlierRejectionThreshold: 1.5
+    setTransformationEpsilon: 1.0e-06
+    setUseReciprocalCorrespondences: 1
+plotting:
+  map_color:
+  - 211
+  - 211
+  - 211
+  map_pointsize: 2
+  pf_arrowlen: 5
+  pf_color:
+  - 211
+  - 0
+  - 0
+  pf_pointsize: 2
+  traj_color:
+  - 0
+  - 0
+  - 211
+  traj_pointsize: 2
+seqfit:
+  downsample:
+    resolution:
+    - 0.5
+    - 0.5
+    - 0.5
+  gicp:
+    setMaxCorrespondenceDistance: 10
+    setMaximumIterations: 5.0
+    setMaximumOptimizerIterations: 10.0
+    setRANSACIterations: 0
+    setRANSACOutlierRejectionThreshold: 1.5
+    setTransformationEpsilon: 1.0e-09
+    setUseReciprocalCorrespondences: 1

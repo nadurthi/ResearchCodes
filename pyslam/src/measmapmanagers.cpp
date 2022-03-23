@@ -44,9 +44,9 @@ void MapLocalizer::plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose){
         plotter.update();
 }
 
-void MapLocalizer::autoReadMeas_async(std::string folder){
+void MapLocalizer::autoReadMeas_async(std::string folder,int k0){
         // auto autoReadMeas_future = std::async(std::launch::async, &MapLocalizer::autoReadMeas,this,folder);
-        std::thread autoReadMeas_thread(&MapLocalizer::autoReadMeas,this,folder);
+        std::thread autoReadMeas_thread(&MapLocalizer::autoReadMeas,this,folder,k0);
         autoReadMeas_thread.detach();
 }
 
@@ -94,10 +94,10 @@ void MapLocalizer::removeRoad(pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl,pcl::Poin
 
 }
 
-void MapLocalizer::autoReadMeas(std::string folder){
+void MapLocalizer::autoReadMeas(std::string folder,int k0){
         boost::filesystem::path p1(folder);
 
-        int k=0;
+        int k=k0;
         while(1 && quitsim==false) {
                 if (measQ.size()<10) {
                         std::stringstream ss;
@@ -196,8 +196,8 @@ std::vector<Eigen::MatrixXf> MapLocalizer::getMeasQ_eigen(bool popit){
 }
 
 
-void MapLocalizer::cleanUp(int k){
-        for(int i=0; i<k; ++i) {
+void MapLocalizer::cleanUp(){
+        for(int i=0; i<meas.size(); ++i) {
                 meas[i]->clear();
                 meas_noroad[i]->clear();
         }
@@ -255,7 +255,7 @@ void MapLocalizer::resetH(){
         gHk.push_back(Eigen::Matrix4f::Identity());
 
 
-        tk=0;
+
         meas.clear();
         meas_noroad.clear();
         T.clear();
@@ -274,15 +274,64 @@ void MapLocalizer::resetH(){
 
 
 }
+void MapLocalizer::resetsim(){
+        Vel.clear();
+        AngVel.clear();
+        XseqPos.clear();
 
+        Vel.push_back(Eigen::Vector3f::Zero());
+        AngVel.push_back(Eigen::Vector3f::Zero());
+        XseqPos.push_back(Eigen::Vector3f::Zero());
+
+        i1Hi_seq.clear();
+
+        gHk.clear();
+        gHk.push_back(Eigen::Matrix4f::Identity());
+
+
+
+        meas.clear();
+        meas_noroad.clear();
+        T.clear();
+
+        // map.reset();
+        // map2D.reset();
+        //
+        // octree.reset();
+        // kdtree.reset();
+        //
+        // Xdist_min.clear();
+
+        if(bmHsols_async_future.valid()==true) {
+                bmHsols_async_future.get();
+        }
+        if(seqregister_future.valid()==true) {
+                seqregister_future.get();
+        }
+        if(setrelstates_future.valid()==true) {
+                setrelstates_future.get();
+        }
+
+        measQmtx.lock();
+        for (int i=0; i<measQ.size(); i++) {
+                std::cout << "measQ popped : "<< i << '\n';
+                measQ.pop();
+        }
+        for (int i=0; i<measnoroadQ.size(); i++) {
+                std::cout << "measnoroadQ popped : "<< i << '\n';
+                measnoroadQ.pop();
+        }
+        measQmtx.unlock();
+
+}
 //-----------------Setters------------------
 structmeas MapLocalizer::addMeas_fromQ(Eigen::Matrix4f H,float t){
         Timer TT("addMeas_fromQ",timerptr);
-        T.push_back(t);
+        T.push_back(std::round(10e4*t)/10e4);
 
         structmeas sm;
         sm.dt=getdt();
-        sm.tk=tk;
+        sm.tk=t;
 
         measQmtx.lock();
         pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl=measQ.front();
@@ -298,7 +347,7 @@ structmeas MapLocalizer::addMeas_fromQ(Eigen::Matrix4f H,float t){
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_t (new pcl::PointCloud<pcl::PointXYZ> ());
         pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl_nr_t (new pcl::PointCloud<pcl::PointXYZ> ());
-        if(H.isApprox(Eigen::Matrix4f::Zero())) {
+        if(H.isApprox(Eigen::Matrix4f::Identity())) {
                 Xpcl_t=Xpcl;
                 Xpcl_nr_t=Xpcl_nr;
                 sm.X1gv=sm.X1v;
@@ -320,7 +369,7 @@ structmeas MapLocalizer::addMeas_fromQ(Eigen::Matrix4f H,float t){
 
 
 
-        ++tk;
+
 
         return sm;
         // dt,tk,X1v,X1gv,X1v_roadrem,X1gv_roadrem
@@ -356,8 +405,8 @@ void MapLocalizer::addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,const Eige
         meas_noroad.push_back(cloud_filtered2D);
 
 
-        T.push_back(t);
-        ++tk;
+        T.push_back(std::round(10e4*t)/10e4);
+
 }
 
 
@@ -426,12 +475,30 @@ void MapLocalizer::computeHlevels(){
         bm.computeHlevels(X2);
 }
 
+int MapLocalizer::time2index(float tk){
+        float tk1 = std::round(10e4*tk)/10e4;
+        // float tk2 = std::round(10e5*tk)/10e5;
+        // float tk3 = std::round(10e7*tk)/10e7;
+        auto it1 = std::find(T.begin(), T.end(), tk1);
+        // auto it2 = std::find(T.begin(), T.end(), tk2);
+        // auto it3 = std::find(T.begin(), T.end(), tk3);
+        if(it1!= T.end())
+                return it1 - T.begin();
+        // else if(it2!= T.end())
+        //         return it2 - T.begin();
+        // else if(it3!= T.end())
+        //         return it3 - T.begin();
+        else
+                return -1;
+}
 
-void MapLocalizer::setgHk(int tk, Eigen::Matrix4f gHs ){
-        gHkmtx.lock();
-        gHk[tk] = gHs;
-        gHkmtx.unlock();
-
+void MapLocalizer::setgHk(float tk, Eigen::Matrix4f gHs ){
+        int idx = time2index(tk);
+        if (idx>=0) {
+                gHkmtx.lock();
+                gHk[idx] = gHs;
+                gHkmtx.unlock();
+        }
 }
 void MapLocalizer::setLookUpDist(std::string filename){
         Timer TT("setLookUpDist",timerptr);
@@ -617,6 +684,7 @@ std::vector<Eigen::Matrix4f> MapLocalizer::setSeq_gHk(){
                         break;
         }
         gHkmtx.unlock();
+        setRelStates();
         //std::cout << " done gloabl gHk "<<std::endl;
         return gHk;
 }
@@ -785,29 +853,30 @@ std::vector<Eigen::Vector3f> MapLocalizer::getangularvelocities(){
 
 
 
-Eigen::VectorXf MapLocalizer::getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk){
+Eigen::VectorXf MapLocalizer::getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,float tk){
         Timer TT("getLikelihoods_octree",timerptr);
-
+        int idx = time2index(tk);
         // std::cout << "got Xposes size = " << Xposes.rows() << std::endl;
         pcl::PointCloud<pcl::PointXYZ>::Ptr measfiltered;
-        measfiltered=meas.at(tk);
+        measfiltered=meas.at(idx);
         if(options["MeasMenaager"]["meas_Likelihood"]["downsample"]["enable"]==true) {
                 std::vector<float> res = options["MeasMenaager"]["meas_Likelihood"]["downsample"]["resolution"];
                 measfiltered.reset(new pcl::PointCloud<pcl::PointXYZ>());
-                pcl_filter_cloud(meas.at(tk),measfiltered,res);
+                pcl_filter_cloud(meas.at(idx),measfiltered,res);
         }
         return computeLikelihood(octree,Xposes,measfiltered,options["Localize"]["dmax"],options["Localize"]["sig0"]);
 }
 
-Eigen::VectorXf MapLocalizer::getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk){
+Eigen::VectorXf MapLocalizer::getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,float tk){
         Timer TT("getLikelihoods_lookup",timerptr);
+        int idx = time2index(tk);
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr measfiltered;
-        measfiltered=meas.at(tk);
+        measfiltered=meas.at(idx);
         if(options["MeasMenaager"]["meas_Likelihood"]["downsample"]["enable"]==true) {
                 std::vector<float> res = options["MeasMenaager"]["meas_Likelihood"]["downsample"]["resolution"];
                 measfiltered.reset(new pcl::PointCloud<pcl::PointXYZ>());
-                pcl_filter_cloud(meas.at(tk),measfiltered,res);
+                pcl_filter_cloud(meas.at(idx),measfiltered,res);
         }
         return computeLikelihood_lookup(Xdist,options["Localize"]["lookup"]["resolution"],Xdist_min,Xdist_max,
                                         Xposes,measfiltered,options["Localize"]["dmax"],options["Localize"]["sig0"]);
@@ -844,8 +913,9 @@ std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> >  MapLocalizer:
         return Ht;
 }
 
-std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f gHkatk){
+std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(float tk, Eigen::Matrix4f gHkatk){
         Timer TT("getsetSeq_gHk",timerptr);
+        int tidx = time2index(tk);
 
         setRegisteredSeqH();
         auto gHkset = getSeq_gHk();
@@ -857,20 +927,20 @@ std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f
         // }
 
         // std::cout<< "gHkset 1 size = "<< gHkset.size()<<std::endl;
-        if(tk>=gHkset.size() || tk<0)
+        if(tidx>=gHkset.size() || tidx<0)
                 return gHkset;
 
-        gHkset.at(tk) = gHkatk;
+        gHkset.at(tidx) = gHkatk;
         // std::cout << " at(tk) done" << std::endl;
-        if(tk<gHkset.size()-1) {
-                for(std::size_t k=tk+1; k<gHkset.size(); ++k) {
+        if(tidx<gHkset.size()-1) {
+                for(std::size_t k=tidx+1; k<gHkset.size(); ++k) {
                         gHkset[k]=gHkset[k-1]*i1Hi_seqset[k-1][k];
                         // std::cout<< ">>gHkset k = "<< k << " / " << meas.size() <<std::endl;
                 }
         }
         // std::cout<< "gHkset 2 size = "<< gHkset.size()<<std::endl;
-        if(tk>0) {
-                for(int k=tk-1; k>=0; --k) {
+        if(tidx>0) {
+                for(int k=tidx-1; k>=0; --k) {
                         auto H = i1Hi_seqset[k][k+1].inverse();
                         gHkset[k]=gHkset[k+1]*H;
                         // std::cout<< "gHkset k = "<< k << " / " << meas.size() <<std::endl;
@@ -880,12 +950,15 @@ std::vector<Eigen::Matrix4f> MapLocalizer::getsetSeq_gHk(int tk, Eigen::Matrix4f
         return gHkset;
 }
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas(int t0,int tf,int tk, Eigen::Matrix4f gHkatk,std::vector<float> res,int dim){
+pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas(float t0,float tf,float tk, Eigen::Matrix4f gHkatk,std::vector<float> res,int dim){
         Timer TT("getalignSeqMeas",timerptr);
+        int tkidx = time2index(tk);
+        int t0idx = time2index(t0);
+        int tfidx = time2index(tf);
 
         auto gHkset=getsetSeq_gHk(tk, gHkatk);
         pcl::PointCloud<pcl::PointXYZ>::Ptr mergedpcl(new pcl::PointCloud<pcl::PointXYZ>());
-        for(std::size_t k=t0; k<=tf; ++k) {
+        for(std::size_t k=t0idx; k<=tfidx; ++k) {
                 // std::cout<< "k="<<k<<std::endl;
                 auto pclptr = getmeas(k);
 
@@ -903,15 +976,18 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas(int t0,int tf,
         pcl_filter_cloud(mergedpcl,outputcld,res);
         return outputcld;
 }
-pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas_noroad(int t0,int tf,int tk, Eigen::Matrix4f gHkatk,std::vector<float> res,int dim){
+pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas_noroad(float t0,float tf,float tk, Eigen::Matrix4f gHkatk,std::vector<float> res,int dim){
         Timer TT("getalignSeqMeas_noroad",timerptr);
+        int tkidx = time2index(tk);
+        int t0idx = time2index(t0);
+        int tfidx = time2index(tf);
 
         // std::cout << "getalignSeqMeas_noroad----------" << std::endl;
         // std::cout << "t0,tf,tk = "<< t0 << " "<< tf << " "<< tk << " " << std::endl;
         auto gHkset=getsetSeq_gHk(tk, gHkatk);
         // std::cout << "getsetSeq_gHk----DONE------" << std::endl;
         pcl::PointCloud<pcl::PointXYZ>::Ptr mergedpcl(new pcl::PointCloud<pcl::PointXYZ>());
-        for(std::size_t k=t0; k<=tf; ++k) {
+        for(std::size_t k=t0idx; k<=tfidx; ++k) {
                 // std::cout<< "k="<<k<<std::endl;
                 auto pclptr = getmeas_noroad(k);
 
@@ -930,8 +1006,11 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr MapLocalizer::getalignSeqMeas_noroad(int t0,
         return outputcld;
 }
 
-Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHkest,std::vector<float> res,int dim){
+Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_eigen(float t0,float tf,float tk, Eigen::Matrix4f gHkest,std::vector<float> res,int dim){
         Timer TT("getalignSeqMeas_eigen",timerptr);
+        int tkidx = time2index(tk);
+        int t0idx = time2index(t0);
+        int tfidx = time2index(tf);
 
         //std::cout << res[0] << res[1] << res[2]<<std::endl;
         auto outputcld = getalignSeqMeas(t0,tf,tk,gHkest,res,dim);
@@ -941,8 +1020,11 @@ Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_eigen(int t0,int tf,int tk, Eige
         pcl2eigen(outputcld,X);
         return X(Eigen::all,Eigen::seq(0,dim-1));
 }
-Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHkest,std::vector<float> res,int dim){
+Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_noroad_eigen(float t0,float tf,float tk, Eigen::Matrix4f gHkest,std::vector<float> res,int dim){
         Timer TT("getalignSeqMeas_noroad_eigen",timerptr);
+        int tkidx = time2index(tk);
+        int t0idx = time2index(t0);
+        int tfidx = time2index(tf);
 
         //std::cout << res[0] << res[1] << res[2]<<std::endl;
         auto outputcld = getalignSeqMeas_noroad(t0,tf,tk,gHkest,res,dim);
@@ -956,7 +1038,7 @@ Eigen :: MatrixXf MapLocalizer::getalignSeqMeas_noroad_eigen(int t0,int tf,int t
 
 //-----------------Aligners-------------------------
 void
-MapLocalizer::BMatchseq_async(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
+MapLocalizer::BMatchseq_async(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
 // BMatchAndCorrH
 
         if (bmHsols_async_future.valid()==false) {
@@ -989,7 +1071,7 @@ MapLocalizer::getBMatchseq_async(){
 
 
 BMatchAndCorrH_async
-MapLocalizer::BMatchseq_async_caller(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
+MapLocalizer::BMatchseq_async_caller(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
 
         Timer TT("BMatchseq_async_caller",timerptr);
 
@@ -1014,7 +1096,7 @@ MapLocalizer::BMatchseq_async_caller(int t0,int tf,int tk,const Eigen::Ref<const
 }
 
 BMatchAndCorrH
-MapLocalizer::BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
+MapLocalizer::BMatchseq(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp){
         Timer TT("BMatchseq",timerptr);
 
         std::vector<float> res({bm.dxMatch(0),bm.dxMatch(1),1});

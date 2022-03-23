@@ -28,7 +28,7 @@ from pykitticustom import odometry
 from  uq.filters import pf 
 import multiprocessing as mp
 import queue
-
+import yaml
 from scipy.interpolate import UnivariateSpline
 
 import quaternion
@@ -37,6 +37,7 @@ from joblib import dump, load
 
 from pyslam import  slam
 from pyslam import kittilocal
+import argparse
 
 import json
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
@@ -88,29 +89,116 @@ def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
     alpha[:,3] = spld3(tvec)
     
     return tvec,qvec_sp,w,qdot,alpha
-#%%
-plt.close("all")
-# basedir =r'P:\SLAMData\Kitti\visualodo\dataset'
 
-basedir ='/media/na0043/misc/DATA/KITTI/odometry/dataset'
+#%%
+# basedir  = '/media/na0043/misc/DATA/KITTI/odometry/dataset'
 # Specify the dataset to load
 # sequence = '02'
 # sequence = '05'
 # sequence = '06'
 # sequence = '08'
-loop_closed_seq = ['02','05','06','08']
-sequence = '05'
+# loop_closed_seq = ['02','05','06','08']
+# sequence = '05'
+
+# D={}
+
+# D['Data']={'folder':'/media/na0043/misc/DATA/KITTI/odometry/dataset','sequence':'05'}
+
+# D['PF']={'Npf':1000,'k0':0}
+
+# D["Localize"]={}
+# D["Localize"]["sig0"]=0.45
+# D["Localize"]["dmax"]=10
+# D["Localize"]["likelihoodsearchmethod"]="octree" # lookup
+# D["Localize"]["octree"]={"resolution":0.1,
+#                          "searchmethod":"ApprxNN"}
+# D["Localize"]["lookup"]={"resolution":[0.25,0.25,0.25]}
+
+
+
+# #
+# D["MapManager"]={"map":{},"map2D":{},"mapnormals":{}}
+
+# D["MapManager"]["map"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
+# D["MapManager"]["mapnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
+# D["MapManager"]["map2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
+# D["MapManager"]["map2D"]["removeRoad"]=False
+
+# #
+# D["MeasMenaager"]={"meas":{},"meas2D":{},"meas_Likelihood":{}}
+# D["MeasMenaager"]["meas"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
+# D["MeasMenaager"]["measnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
+# D["MeasMenaager"]["meas_Likelihood"]["downsample"]={"enable":True,"resolution":[1,1,1]}
+# D["MeasMenaager"]["meas2D"]["removeRoad"]=False
+# D["MeasMenaager"]["meas2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
+
+
+# #
+# D["BinMatch"]={}
+# D['BinMatch']["dxMatch"]=[1.0,1.0]
+# D['BinMatch']["dxBase"]=[30.0,30.0]
+# D['BinMatch']["Lmax"]=[200.0,200.0]
+# D['BinMatch']["thmax"]=170*np.pi/180
+# D['BinMatch']["thfineres"]=2.5*np.pi/180
+
+# #
+# D["mapfit"]={"downsample":{},"gicp":{}}
+# D["mapfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
+# D["mapfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
+# D["mapfit"]["gicp"]["setMaximumIterations"]=5
+# D["mapfit"]["gicp"]["setMaximumOptimizerIterations"]=10
+# D["mapfit"]["gicp"]["setRANSACIterations"]=0
+# D["mapfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+# D["mapfit"]["gicp"]["setTransformationEpsilon"]=1e-6
+# D["mapfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
+
+# #
+# D["seqfit"]={"downsample":{},"gicp":{}}
+# D["seqfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
+# D["seqfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
+# D["seqfit"]["gicp"]["setMaximumIterations"]=5.0
+# D["seqfit"]["gicp"]["setMaximumOptimizerIterations"]=10.0
+# D["seqfit"]["gicp"]["setRANSACIterations"]=0
+# D["seqfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
+# D["seqfit"]["gicp"]["setTransformationEpsilon"]=1e-9
+# D["seqfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
+
+
+# D["plotting"]={}
+# D["plotting"]["map_color"]=[211,211,211]
+# D["plotting"]["map_pointsize"]=2
+# D["plotting"]["traj_color"]=[0,0,211]
+# D["plotting"]["traj_pointsize"]=2
+# D["plotting"]["pf_color"]=[211,0,0]
+# D["plotting"]["pf_pointsize"]=2
+# D["plotting"]["pf_arrowlen"]=5
+
+
+# with open('kitti_localize_config.yml', 'w') as outfile:
+#     yaml.dump(D, outfile, default_flow_style=False)
+
+with open('kitti_localize_config.yml', 'r') as outfile:
+    D=yaml.safe_load( outfile)
+
+#%%
+plt.close("all")
+# basedir =r'P:\SLAMData\Kitti\visualodo\dataset'
 
 
 
 
 
-dataset = odometry.odometry(basedir, sequence, frames=None) # frames=range(0, 20, 5)
+
+
+
+
+
+dataset = odometry.odometry(D['Data']['folder'], D['Data']['sequence'], frames=None) # frames=range(0, 20, 5)
 
 try:
     runfilename = __file__
 except:
-    runfilename = "/home/na0043/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/main_kitti_filter_localize_cpp.py"
+    runfilename = "/home/na0043/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/main_kitti_filter_localize_cpp_async_runs.py"
     
 metalog="""
 Journal paper KITTI localization using Particle filter
@@ -120,13 +208,13 @@ Date: Feb 22 2022
 """
 dt=dataset.times[1]-dataset.times[0]
 simmanger = uqsimmanager.SimManager(t0=dataset.times[0],tf=dataset.times[-1],dt=dt,dtplot=dt/10,
-                                  simname="KITTI-localization-%s"%(sequence),savepath="simulations",
+                                  simname="KITTI-localization-%s"%(D['Data']['sequence']),savepath="simulations",
                                   workdir=os.getcwd())
 
 simmanger.initialize()
 
-simmanger.data['sequence']=sequence
-simmanger.data['basedir']=basedir
+simmanger.data['sequence']=D['Data']['sequence']
+simmanger.data['basedir']=D['Data']['folder']
 
 
 nd=len(dataset.poses)
@@ -242,82 +330,15 @@ def getmeas_Q(outQ):
 plt.close("all")
 #%%
 
-D={}
+sequence=D['Data']['sequence']   
 
 
-D["Localize"]={}
-D["Localize"]["sig0"]=0.45
-D["Localize"]["dmax"]=10
-D["Localize"]["likelihoodsearchmethod"]="octree" # lookup
-D["Localize"]["octree"]={"resolution":0.1,
-                         "searchmethod":"ApprxNN"}
-D["Localize"]["lookup"]={"resolution":[0.25,0.25,0.25]}
-
-
-
-#
-D["MapManager"]={"map":{},"map2D":{},"mapnormals":{}}
-
-D["MapManager"]["map"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
-D["MapManager"]["mapnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
-D["MapManager"]["map2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
-D["MapManager"]["map2D"]["removeRoad"]=False
-
-#
-D["MeasMenaager"]={"meas":{},"meas2D":{},"meas_Likelihood":{}}
-D["MeasMenaager"]["meas"]["downsample"]={"enable":True,"resolution":[0.2,0.2,0.2]}
-D["MeasMenaager"]["measnormals"]={"enable":True,"resolution":[0.05,0.05,0.05],"radius":1,"min_norm_z_thresh":0.5,"knn":15}
-D["MeasMenaager"]["meas_Likelihood"]["downsample"]={"enable":True,"resolution":[1,1,1]}
-D["MeasMenaager"]["meas2D"]["removeRoad"]=False
-D["MeasMenaager"]["meas2D"]["downsample"]={"enable":True,"resolution":[0.1,0.1,0.1]}
-
-
-#
-D["BinMatch"]={}
-D['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
-D['BinMatch']["dxBase"]=list(np.array([30,30],dtype=np.float64))
-D['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
-D['BinMatch']["thmax"]=170*np.pi/180
-D['BinMatch']["thfineres"]=2.5*np.pi/180
-
-#
-D["mapfit"]={"downsample":{},"gicp":{}}
-D["mapfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
-D["mapfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
-D["mapfit"]["gicp"]["setMaximumIterations"]=5
-D["mapfit"]["gicp"]["setMaximumOptimizerIterations"]=10
-D["mapfit"]["gicp"]["setRANSACIterations"]=0
-D["mapfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
-D["mapfit"]["gicp"]["setTransformationEpsilon"]=1e-6
-D["mapfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
-
-#
-D["seqfit"]={"downsample":{},"gicp":{}}
-D["seqfit"]["downsample"]={"resolution":[0.5,0.5,0.5]}
-D["seqfit"]["gicp"]["setMaxCorrespondenceDistance"]=10
-D["seqfit"]["gicp"]["setMaximumIterations"]=5.0
-D["seqfit"]["gicp"]["setMaximumOptimizerIterations"]=10.0
-D["seqfit"]["gicp"]["setRANSACIterations"]=0
-D["seqfit"]["gicp"]["setRANSACOutlierRejectionThreshold"]=1.5
-D["seqfit"]["gicp"]["setTransformationEpsilon"]=1e-9
-D["seqfit"]["gicp"]["setUseReciprocalCorrespondences"]=1
-
-
-D["plotting"]={}
-D["plotting"]["map_color"]=[211,211,211]
-D["plotting"]["map_pointsize"]=2
-D["plotting"]["traj_color"]=[0,0,211]
-D["plotting"]["traj_pointsize"]=2
-D["plotting"]["pf_color"]=[211,0,0]
-D["plotting"]["pf_pointsize"]=2
-D["plotting"]["pf_arrowlen"]=5
-
-Npf = simmanger.data['Npf']=1000
-k0 = simmanger.data['k0'] = 0
+Npf = simmanger.data['Npf']=D['PF']['Npf']
+k0 = simmanger.data['k0'] = D['PF']['k0']
 
 KL=kittilocal.MapLocalizer(json.dumps(D))
 #  /media/na0043/misc/DATA/KITTI/odometry/dataset/sequences/00/velodyne
-velofolder = os.path.join(basedir,"sequences",sequence,"velodyne")
+velofolder = os.path.join(D['Data']['folder'],"sequences",D['Data']['sequence'],"velodyne")
 KL.autoReadMeas_async(velofolder,k0)
 
 # X=KL.getMeasQ_eigen(False)
@@ -360,11 +381,16 @@ pcd2ddown = pcd2ddown.voxel_down_sample(voxel_size=1)
 
 Xmap2Dflat=np.asarray(pcd2ddown.points)
 
-#%%
+
 
 KL.addMap(Xmap)
 KL.addMap2D(Xmap2D[:,:2])
 KL.setLookUpDist("kitti-pcd-lookupdist-seq-%s.bin"%sequence)
+#%%
+
+# KL.resetsim()
+
+time.sleep(2)
 
 minx,miny,minz,maxx,maxy,maxz=KL.MapPcllimits()
 
@@ -377,7 +403,6 @@ minx,miny,minz,maxx,maxy,maxz=KL.MapPcllimits()
 plt.close("all")
 
 
-Npf=1000
 
 
 Xlimits_scan=[minx,maxx]
@@ -662,18 +687,6 @@ def measModel(xx):
 
 
 
-Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
-    
-sampligfunc = getCTinitialSamples
-# sampligfunc= getCTinitialSamples_origin
-
-xstatepf, wpf, Q =sampligfunc(Npf)
-# xstatepf, wpf, Q =getUMinitialSamples(Npf)
-
-dim=xstatepf.shape[1]
-robotpf=pf.Particles(X=xstatepf,wts=wpf)
-
-
 
 
 
@@ -762,7 +775,7 @@ class plot3dPF:
         figpf = plt.figure(figsize=(20, 20))    
         axpf = figpf.add_subplot(111,projection='3d')
         
-        axpf.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],self.Xtpath[:k,2],'b')
+        axpf.plot(self.Xtpath[k0:k,0],self.Xtpath[k0:k,1],self.Xtpath[k0:k,2],'b')
         axpf.plot(X[:,0],X[:,1],X[:,2],'r.')
 
         for i in range(X.shape[0]):
@@ -792,7 +805,7 @@ class plot3dPF:
         plt.pause(sleep)
         if self.saveplot:
             figpf.show()
-            simmanger.savefigure(figpf, ['3Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P])
+            simmanger.savefigure(figpf, ['3Dmap','snapshot'], 'snapshot_'+str(int(k)),data=[k,X,m,P])
 
         
     def plot2D(self,k,X,m,P,X1vroadrem,HHs,sleep=0.5):
@@ -822,7 +835,7 @@ class plot3dPF:
         #     K.remove()
         
         
-        axpf2D.plot(self.Xtpath[:k,0],self.Xtpath[:k,1],'b')
+        axpf2D.plot(self.Xtpath[k0:k,0],self.Xtpath[k0:k,1],'b')
         axpf2D.plot(X[:,0],X[:,1],'r.')
         
         XX=utpltgmshp.getCovEllipsePoints2D(m[0:2],P[0:2,0:2],nsig=1,N=100)
@@ -843,11 +856,16 @@ class plot3dPF:
             
         if HHs is not None:
             # idxpf,kcompleted,Hpose,gHkcorr=HHs
-            idxpf,tk,kk,gHkest_initial,gHkcorr_atk = HHs
+            idxpf,tk,kk,gHkest_initial,gHkcorr_attk,gHkcorr_atk,gHkcorr,solQt0,solQtf,solQtk = HHs
+            
             
             pcd2ddown = o3d.geometry.PointCloud()
-            X1vroadrem2Dflatcorr=gHkcorr_atk[0:3,0:3].dot(X1vroadrem.T).T+gHkcorr_atk[0:3,3]
+            X1vroadrem2Dflatcorr=gHkcorr_attk[0:3,0:3].dot(X1vroadrem.T).T+gHkcorr_attk[0:3,3]
             X1vroadrem2Dflatcorr[:,2]=0
+            
+            xpos_corr_atk = gHkcorr_atk[0:3,3]
+            axpf2D.plot(xpos_corr_atk[0],xpos_corr_atk[1],'b^',markersize=12)
+            
             pcd2ddown.points = o3d.utility.Vector3dVector(X1vroadrem2Dflatcorr[:,:3])
             pcd2ddown = pcd2ddown.voxel_down_sample(voxel_size=2)
             
@@ -865,7 +883,7 @@ class plot3dPF:
         if self.saveplot:
             
             figpf2D.show()
-            simmanger.savefigure(figpf2D, ['2Dmap','snapshot'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
+            simmanger.savefigure(figpf2D, ['2Dmap','snapshot'], 'snapshot_'+str(int(k)),data=[k,X,m,P,HHs])
             
             xlim =[Xtpath[k,0]+np.min(X1vroadrem[:,0])-25,Xtpath[k,0]+np.max(X1vroadrem[:,0])+25]
             ylim =[Xtpath[k,1]+np.min(X1vroadrem[:,1])-25,Xtpath[k,1]+np.max(X1vroadrem[:,1])+25]
@@ -880,8 +898,23 @@ class plot3dPF:
             plt.show(block=False)
             plt.pause(0.1)
             figpf2D.show()
-            simmanger.savefigure(figpf2D, ['2Dmap','snapshot_closeup'], 'snapshot_'+str(int(k))+'.png',data=[k,X,m,P,HHs])
+            simmanger.savefigure(figpf2D, ['2Dmap','snapshot_closeup'], 'snapshot_'+str(int(k)),data=[k,X,m,P,HHs])
     
+
+
+Rposnoise=np.diag([(1)**2,(1)**2,(1)**2])
+    
+sampligfunc = getCTinitialSamples
+# sampligfunc= getCTinitialSamples_origin
+
+xstatepf, wpf, Q =sampligfunc(Npf)
+# xstatepf, wpf, Q =getUMinitialSamples(Npf)
+
+dim=xstatepf.shape[1]
+robotpf=pf.Particles(X=xstatepf,wts=wpf)
+
+
+
 
 plt.close("all")
 kittisimplotter = plot3dPF(Xtpath,Xmap2Dflat,saveplot=False)
@@ -919,10 +952,21 @@ vehicle_status = simmanger.data['vehicle_status'][k0] = "Localization"
 fps=time.time()
 simmanger.data['fps']=[]
 
+simmanger.data['simtvec']=[dataset.times[k0]]
+
+[Xbm,Ybm]=np.meshgrid(np.linspace(Xlimits[0], Xlimits[1],5),np.linspace(Ylimits[0], Ylimits[1],5))
+XXbm=np.vstack([Xbm.reshape(-1),Ybm.reshape(-1)]).T
+idxx=list(range(XXbm.shape[0]))
+np.random.shuffle( idxx)
+XXbm=XXbm[idxx,:]
+nbm = XXbm.shape[0]
+ccbm=0
+Pbm=np.ones(nbm)
 
 for k in range(k0+1,len(dataset)):
     simmanger.data['fps'].append( time.time()-fps  )
     fps=time.time()
+    simmanger.data['simtvec'].append(dataset.times[k])
     
     print(k)
     st=time.time()
@@ -957,21 +1001,7 @@ for k in range(k0+1,len(dataset)):
 
 
     ### BIN MATCH
-    if vehicle_status=="Localization":
-        idxpf=np.argmin(robotpf.wts)
-        DD=copy.deepcopy(D)
-        DD['BinMatch']["dxMatch"]=list(np.array([3,3],dtype=np.float64))
-        DD['BinMatch']["dxBase"]=list(np.array([30,30],dtype=np.float64))
-        DD['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
-        KL.setOptions_noreset(json.dumps(DD))
-        
-    if vehicle_status=="Tracking":
-        idxpf=np.argmax(robotpf.wts)
-        DD=copy.deepcopy(D)
-        DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
-        DD['BinMatch']["dxBase"]=list(np.array([25,25],dtype=np.float64))
-        DD['BinMatch']["Lmax"]=list(np.array([50,50],dtype=np.float64))
-        KL.setOptions_noreset(json.dumps(DD))
+    
         
     # idxpf=np.random.choice(list(range(Npf)),1,p=robotpf.wts)
     # idxpf=idxpf[0]
@@ -984,14 +1014,51 @@ for k in range(k0+1,len(dataset)):
     KL.setRelStates_async()
     
     if doBinMatch==1 and isBMworking==False:
+        if vehicle_status=="Localization":
+            # mm=np.mean(robotpf.wts)
+            # idxpf = (np.abs(robotpf.wts - mm)).argmin()
+            idxpf=np.argmax(robotpf.wts)
+            
+            # if np.all(Pbm>0):
+            ccbm=np.random.choice(range(nbm),size=1, replace=False, p=Pbm/np.sum(Pbm))[0]
+            robotpf.X[idxpf,0]=XXbm[ccbm,0]
+            robotpf.X[idxpf,1]=XXbm[ccbm,1]
+            # else:
+            #     robotpf.X[idxpf,0]=XXbm[ccbm,0]
+            #     robotpf.X[idxpf,1]=XXbm[ccbm,1]
+            #     ccbm+=1
+                
+            # if ccbm==nbm:
+            #     Pbm[Pbm==0]=1
+            #     idxx=list(range(XXbm.shape[0]))
+            #     np.random.shuffle( idxx)
+            #     XXbm=XXbm[idxx,:]
+            #     Pbm=Pbm[idxx]
+            #     ccbm=0
+                
+            DD=copy.deepcopy(D)
+            DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+            DD['BinMatch']["dxBase"]=list(np.array([20,20],dtype=np.float64))
+            DD['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
+            KL.setOptions_noreset(json.dumps(DD))
+
+        if vehicle_status=="Tracking":
+            idxpf=np.argmax(robotpf.wts)
+            DD=copy.deepcopy(D)
+            DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+            DD['BinMatch']["dxBase"]=list(np.array([25,25],dtype=np.float64))
+            DD['BinMatch']["Lmax"]=list(np.array([100,100],dtype=np.float64))
+            KL.setOptions_noreset(json.dumps(DD))
+            
         print("---doneLocalize ------ = ",doneLocalize)
         simmanger.data['BinMatch_idxpf'].append((k,idxpf))
         # Ridx,tidx = pose2Rt(robotpf.X[idxpf][:6])
         Hpose = kittilocal.pose2Hmat(robotpf.X[idxpf][:6])
         xpose_k = robotpf.X[idxpf].copy()
-        t0=k  #max([0,k-5])
-        tf=k
-        tk=k
+        xpose_k[-1]=0
+        t0=dataset.times[k]  #max([0,k-5])max([k0,k-2])
+        tf=dataset.times[k]
+        tk=dataset.times[k]
         
         # st=time.time()
         # solret=KL.BMatchseq(t0,tf,tk,Hpose,True)
@@ -1013,60 +1080,91 @@ for k in range(k0+1,len(dataset)):
     if solQ.isDone==True:
         isBMworking=False
         solret=solQ.bmHsol
-        if (solret.sols[0].cost>solret.sols[0].cost0):
-            # idxpfmin = np.argmin(robotpf.wts)
-            # robotpf.X[idxpfmin]=robotpf.X[idxpf].copy()
-            # xpose_tk=robotpf.X[idxpf].copy()
-            time.sleep(0.2)
-            gHkseq=KL.getSeq_gHk()
-            Velmeas=KL.getvelocities()
-            AngVelmeas=KL.getangularvelocities()
-            for si in range(len(solret.gHkcorr)):
+        print("-----------SOL IS DONE - -----------------------------")
+        print("-----------SOL IS DONE - -----------------------------")
+        # idxpfmin = np.argmin(robotpf.wts)
+        # robotpf.X[idxpfmin]=robotpf.X[idxpf].copy()
+        # xpose_tk=robotpf.X[idxpf].copy()
+        time.sleep(0.5)
+        gHkseq=KL.getSeq_gHk()
+        Velmeas=KL.getvelocities()
+        AngVelmeas=KL.getangularvelocities()
+        fflg=0
+        for si in range(len(solret.gHkcorr)):
+            print(solret.sols[si].costfrac)
+            if solret.sols[si].cost>solret.sols[si].cost0 and solret.sols[si].costfrac>0.6:
+                # Pbm[ccbm]+=2
+                
+                fflg=1
                 xpose_tk=xpose_k.copy()
                 
-                gHtk=gHkseq[solQ.tk].copy()
+                tkidx_datasettimes=np.argwhere(np.isclose(dataset.times,solQ.tk,rtol=1e-05, atol=1e-05))[0][0]
+                
+                tkidx = KL.time2index(solQ.tk)
+                gHtk=gHkseq[tkidx].copy()
                 gHk=gHkseq[-1].copy()
                 
                 tkHg=nplinalg.inv(gHtk)
                 kHtk=gHk.dot(tkHg)
-                gHkcorr_atk = kHtk.dot(solret.gHkcorr[si])
+                gHkcorr_atk = solret.gHkcorr[si].dot(kHtk)
+                gHkcorr_attk = solret.gHkcorr[si]
                 
                 xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
                 
-    
+                
                 
                 xpose_tk[6]=nplinalg.norm(Velmeas[-1])
                 xpose_tk[7:10]=AngVelmeas[-1]
                 
-                robotpf.X =np.vstack([robotpf.X,xpose_tk.copy()])
-                robotpf.wts = np.hstack([robotpf.wts,1])
+                Psamp = np.diag([50*nplinalg.norm(Velmeas[-1])*dt,7,7])
+                Xsamp = np.random.multivariate_normal(np.zeros(3), Psamp, 100)
                 
+                Xnewsamp = np.tile(xpose_tk, [100,1])
+                Xnewsamp[:,0:3]=gHkcorr_atk[0:3,0:3].dot(Xsamp.T).T+gHkcorr_atk[0:3,3]
+                
+                robotpf.X =np.vstack([robotpf.X,xpose_tk.copy(),Xnewsamp])
+                robotpf.wts = np.hstack([robotpf.wts,1*np.max(robotpf.wts)*np.ones(Xnewsamp.shape[0]+1)])
+                
+                
+
+
+        
                 if si==0:
-                    simmanger.data['BinMatchedH'][k]=(idxpf,solQ.tk,k,solQ.gHkest_initial,gHkcorr_atk)    
+                    simmanger.data['BinMatchedH'][k]=(idxpf,tkidx_datasettimes,k,solQ.gHkest_initial,gHkcorr_attk,gHkcorr_atk,solret.gHkcorr,solQ.t0,solQ.tf,solQ.tk)    
+        
+        if fflg==1:
+            Pbm[ccbm]+=5
+        else:
+            Pbm[ccbm]-=1
+            Pbm[ccbm] = np.max([Pbm[ccbm],0])
             
-           
-            robotpf.wts[:]=1
+        # break
+        if fflg==1:
             robotpf.wts=robotpf.wts/np.sum(robotpf.wts)            
 
     # measurement update
     
     if vehicle_status == "Localization":
         DD=copy.deepcopy(D)
-        DD["Localize"]["sig0"]=1
+        DD["Localize"]["sig0"]=0.25
         KL.setOptions_noreset(json.dumps(DD))
     
     if vehicle_status == "Tracking":
         KL.setOptions_noreset(json.dumps(D))
-        
+    
+    KL.setRelStates_async()
+    
+    
     st=time.time()
-    # likelihoods_octree=KL.getLikelihoods_octree(robotpf.X,k)
-    # likelihoods=KL.getLikelihoods_octree(robotpf.X,k)
-    likelihoods=KL.getLikelihoods_lookup(robotpf.X,k)
+    # likelihoods_octree=KL.getLikelihoods_octree(robotpf.X,dataset.times[k])
+    # likelihoods=KL.getLikelihoods_octree(robotpf.X,dataset.times[k])
+    likelihoods=KL.getLikelihoods_lookup(robotpf.X,dataset.times[k])
     
     likelihoods_exp=np.exp(-likelihoods)
-    likelihoods_exp[likelihoods_exp<1e-70]=1e-70
+    likelihoods_exp[likelihoods_exp<1e-190]=1e-190
+    likelihoods_exp[np.isnan(likelihoods_exp)]=1e-190
     
-    lostflg = np.all(likelihoods_exp==1e-70)
+    lostflg = np.all(likelihoods_exp<=1e-170)
     
     robotpf.wts=likelihoods_exp*robotpf.wts
     et=time.time()
@@ -1075,7 +1173,7 @@ for k in range(k0+1,len(dataset)):
     robotpf.renormlizeWts()
     
     # lost target
-    if np.all(np.isnan(robotpf.wts)):
+    if lostflg:
         simmanger.data['doneLocalize'][k]=doneLocalize=0
         xstatepf, wpf, Q =sampligfunc(Npf)
         robotpf.X=xstatepf
@@ -1089,7 +1187,10 @@ for k in range(k0+1,len(dataset)):
     if np.any(np.isnan(robotpf.wts)):
         robotpf.wts[np.isnan(robotpf.wts)]=0
         robotpf.renormlizeWts()
-        
+    
+    simmanger.data['vehicle_status'][k]=vehicle_status
+    
+    
     ### boostratp  resample 
     
     Neff=robotpf.getNeff()
@@ -1098,7 +1199,8 @@ for k in range(k0+1,len(dataset)):
         simmanger.data['Neff/Npf']=0.1
         if Neff/Npf<simmanger.data['Neff/Npf']:
             print("resampled at k = ",k)
-            robotpf.bootstrapResample(Npf=Npf,fraclowH=0.1,replace=False)
+            robotpf.bootstrapResample(Npf=Npf,fraclowH=0.2,replace=False)
+            # robotpf.bootstrapResample_vanilla(Npf=Npf)
             simmanger.data['resampled?'][k]=1
 
     if vehicle_status=="Tracking":
@@ -1109,9 +1211,10 @@ for k in range(k0+1,len(dataset)):
             simmanger.data['resampled?'][k]=1
 
 
+    
     m,P=robotpf.getEst()
     u,v=nplinalg.eig(P)
-
+    
     pos_std=np.sqrt(u[:3])
     if max(pos_std)<10:
         simmanger.data['doneLocalize'][k]=doneLocalize=1
@@ -1134,10 +1237,10 @@ for k in range(k0+1,len(dataset)):
     
     XPFmP_history.append((m,P))
     
-    if (k%25==0 or k==len(dataset)-1):
-        plt.close("all")
+    if (k%25==0 or k==len(dataset)-1 or k in simmanger.data['BinMatchedH'].keys()):
+    # if (k in simmanger.data['BinMatchedH'].keys()):    
         # kittisimplotter.plot3D(k,robotpf.X,m,P)
-        
+        plt.close("all")
         if k in simmanger.data['BinMatchedH'].keys():
             HHs=simmanger.data['BinMatchedH'][k]
         else:
@@ -1147,8 +1250,10 @@ for k in range(k0+1,len(dataset)):
         et=time.time()
         print("plot time = ",et-st)
         # kittisimplotter.plotOpen3D(k,robotpf.X,X1gv)
-        plt.pause(1.0)
-    
+        # plt.show(block=True)
+        # plt.pause(1.5)
+        
+
         
 
     # plt.show()
@@ -1156,6 +1261,27 @@ for k in range(k0+1,len(dataset)):
     
     # if k>=400:
     #     break
+
+KL.setRegisteredSeqH_async()
+time.sleep(2)
+KL.setRelStates_async()
+
+
+mest = np.array([x[0] for x in XPFmP_history])
+Pest = np.array([x[1] for x in XPFmP_history])
+Peststd=[]
+for i in  range(Pest.shape[0]):
+    u,v = nplinalg.eig(Pest[i])
+    Peststd.append(u)    
+Peststd=np.array(Peststd)
+simtvec=simmanger.data['simtvec']=np.array(simmanger.data['simtvec'])
+
+vehicle_status_vec = [(k,v) for k,v in simmanger.data['vehicle_status'].items()]
+sorted(vehicle_status_vec,key=lambda x: x[0])
+vehicle_status_vec=[x[1] for x in vehicle_status_vec]
+vehicle_status_vec=np.array([s=='Tracking' for s in vehicle_status_vec],dtype=bool)
+simmanger.data['vehicle_status_vec']=vehicle_status_vec
+
 
 timers=KL.gettimers()
 
@@ -1168,35 +1294,64 @@ AngVelmeas=np.vstack(AngVelmeas)
 PosRelmeas=np.vstack(PosRelmeas)
 
 nt = PosRelmeas.shape[0]
-splx=UnivariateSpline(dataset.times[:nt],PosRelmeas[:,0])
+splx=UnivariateSpline(dataset.times[k0:],PosRelmeas[:,0])
 splvx=splx.derivative()
 splax=splvx.derivative()
 
-sply=UnivariateSpline(dataset.times[:nt],PosRelmeas[:,1])
+sply=UnivariateSpline(dataset.times[k0:],PosRelmeas[:,1])
 splvy=sply.derivative()
 splay=splvy.derivative()
 
-splz=UnivariateSpline(dataset.times[:nt],PosRelmeas[:,2])
+splz=UnivariateSpline(dataset.times[k0:],PosRelmeas[:,2])
 splvz=splz.derivative()
 splaz=splvz.derivative()
 
 Velocities_meas=np.zeros((nt,3))
-Velocities_meas[:,0]=splvx(dataset.times[:nt])
-Velocities_meas[:,1]=splvy(dataset.times[:nt])
-Velocities_meas[:,2]=splvz(dataset.times[:nt])
+Velocities_meas[:,0]=splvx(dataset.times[k0:])
+Velocities_meas[:,1]=splvy(dataset.times[k0:])
+Velocities_meas[:,2]=splvz(dataset.times[k0:])
 
 plt.figure()
 plt.plot(dataset.times,Velocities[:,0])
-plt.plot(dataset.times[:nt],Velocities_meas[:,0],'r')
-plt.plot(dataset.times[:nt],Velmeas[:,0],'g')
+plt.plot(dataset.times[k0:],Velocities_meas[:,0],'r')
+plt.plot(dataset.times[k0:],Velmeas[:,0],'g')
 
 
 plt.figure()
 plt.plot(dataset.times,AngRates[:,0])
-plt.plot(dataset.times[:nt],AngVelmeas[:,0],'r')
-# plt.plot(dataset.times[:nt],AngVelmeas[:,0],'g')
+plt.plot(dataset.times[k0:],AngVelmeas[:,0],'r')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,8],'g')
+
+fig=plt.figure()
+plt.plot(dataset.times,Xtpath[:,0],'r',label='ground truth')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,0],'b',label='estimate')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,0]+3*Peststd[vehicle_status_vec==1,0],'g--',label='estimate+3\sigma')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,0]-3*Peststd[vehicle_status_vec==1,0],'g--',label='estimate-3\sigma')
+plt.xlabel('time (s)')
+plt.ylabel('x position (m)')
+plt.legend()
+simmanger.savefigure(fig, ['Metrics'], 'Xpositionestimate',data=[])
 
 
+fig=plt.figure()
+plt.plot(dataset.times,Xtpath[:,1],'r',label='ground truth')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,1],'b',label='estimate')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,1]+3*Peststd[vehicle_status_vec==1,1],'g--',label='estimate+3\sigma')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,1]-3*Peststd[vehicle_status_vec==1,1],'g--',label='estimate-3\sigma')
+plt.xlabel('time (s)')
+plt.ylabel('y position (m)')
+plt.legend()
+simmanger.savefigure(fig, ['Metrics'], 'Ypositionestimate',data=[])
+
+fig=plt.figure()
+plt.plot(dataset.times,Xtpath[:,2],'r',label='ground truth')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,2],'b',label='estimate')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,2]+3*Peststd[vehicle_status_vec==1,2],'g--',label='estimate+3\sigma')
+plt.plot(simtvec[vehicle_status_vec==1],mest[vehicle_status_vec==1,2]-3*Peststd[vehicle_status_vec==1,2],'g--',label='estimate-3\sigma')
+plt.xlabel('time (s)')
+plt.ylabel('z position (m)')
+plt.legend()
+simmanger.savefigure(fig, ['Metrics'], 'Zpositionestimate',data=[])
 
 vehiclestates=[Velmeas,AngVelmeas,PosRelmeas]
 
@@ -1238,7 +1393,7 @@ simmanger.save(metalog, mainfile=runfilename, vehiclestates=vehiclestates,
 # # plt.show()
 
 # #%%
-# gHkss=KL.getsetSeq_gHk(1, np.identity(4))
+# gHkss=KL.getsetSeq_gHk(dataset.times[1], np.identity(4))
 # Xmm=KL.getalignSeqMeas_eigen(0,0,0, np.identity(4),[0.2,0.2,0.2],3)
 # # pcd = o3d.geometry.PointCloud()
 # # pcd.points = o3d.utility.Vector3dVector(Xmm)

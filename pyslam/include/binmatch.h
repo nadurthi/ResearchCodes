@@ -34,6 +34,7 @@ struct BinMatchSol {
         Eigen::Matrix3f H;
         int cost0;
         int cost;
+        float costfrac;
         int lvl;
         int mxLVL;
 };

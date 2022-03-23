@@ -272,6 +272,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
         // Matrix2frow L0=t0-Lmax;
         // Matrix2frow L1=t0+Lmax;
 
+        int npt = Xsrc.rows();
 
 
         SolBox solbox_init;
@@ -346,7 +347,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
 
 
 
-        #pragma omp parallel for num_threads(5)
+        #pragma omp parallel for num_threads(4)
         for(std::size_t i=0; i<qv.size(); ++i) {
                 qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                 qv[i].flg=true;
@@ -390,7 +391,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                         }
                         q.pop();
                 }
-                #pragma omp parallel for num_threads(5)
+                #pragma omp parallel for num_threads(4)
                 for(std::size_t i=0; i<qv.size(); ++i) {
                         qv[i].cost=getPointCost(HLevels[qv[i].lvl],dxlevels[qv[i].lvl],Xth[qv[i].th],qv[i].lb);
                         qv[i].flg=true;
@@ -444,6 +445,7 @@ BinMatch::getmatch(const Eigen::Ref<const MatrixX2f>& Xsrc,const Eigen::Ref<cons
                         BinMatchSol bms;
                         bms.H=H12comp;
                         bms.cost0=cost0;
+                        bms.costfrac = static_cast<float>(sb.cost)/static_cast<float>(npt);
                         bms.cost=sb.cost;
                         bms.lvl = sb.lvl;
                         bms.mxLVL = mxLVL;

@@ -36,6 +36,7 @@ PYBIND11_MODULE(kittilocal, m) {
         .def_readwrite("cost0", &BinMatchSol::cost0)
         .def_readwrite("lvl", &BinMatchSol::lvl)
         .def_readwrite("mxLVL", &BinMatchSol::mxLVL)
+        .def_readwrite("costfrac", &BinMatchSol::costfrac)
         .def_readwrite("cost", &BinMatchSol::cost);
 
 
@@ -112,8 +113,12 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("getMeasQ_eigen", &MapLocalizer::getMeasQ_eigen)
         .def("setquitsim", &MapLocalizer::setquitsim)
 
+        .def("time2index", &MapLocalizer::time2index)
+
         .def("plotsim",&MapLocalizer::plotsim)
         .def("resetH", &MapLocalizer::resetH)
+        .def("resetsim", &MapLocalizer::resetsim)
+
         .def("addMeas_fromQ", &MapLocalizer::addMeas_fromQ)
         .def("addMeas", &MapLocalizer::addMeas)
         .def("addMap", &MapLocalizer::addMap)

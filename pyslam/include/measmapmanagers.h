@@ -25,9 +25,9 @@ struct BMatchAndCorrH {
 
 struct BMatchAndCorrH_async {
         BMatchAndCorrH bmHsol;
-        int tk;
-        int t0;
-        int tf;
+        float tk;
+        float t0;
+        float tf;
         bool do_gicp;
         Eigen :: Matrix4f gHkest_initial;
         Eigen :: Matrix4f gHkest_final;
@@ -48,15 +48,18 @@ void setOptions(std::string optstr);
 void setOptions_noreset(std::string opt);
 void setBMOptions(std::string opt);
 void resetH();
-void cleanUp(int k);
+void resetsim();
+void cleanUp();
 void setquitsim();
 
 void plotsim(const Eigen::Ref<const Eigen::MatrixXf> &Xpose);
 void removeRoad(pcl::PointCloud<pcl::PointXYZ>::Ptr Xpcl,pcl::PointCloud<pcl::PointXYZ>::Ptr& Xpcl_noroad);
-void autoReadMeas(std::string folder);
-void autoReadMeas_async(std::string folder);
+void autoReadMeas(std::string folder,int k0);
+void autoReadMeas_async(std::string folder,int k0);
 
 std::vector<Eigen::MatrixXf> getMeasQ_eigen(bool popit);
+
+int time2index(float tk);
 
 //-----------------Setters------------------
 structmeas addMeas_fromQ(Eigen::Matrix4f H,float t);
@@ -68,7 +71,7 @@ void addMeas(const Eigen::Ref<const Eigen::MatrixXf> &X,const Eigen::Ref<const E
 void addMap(const Eigen::Ref<const Eigen::MatrixXf> &X);
 void addMap2D(const Eigen::Ref<const Eigen::MatrixXf> &X);
 
-void setgHk(int tk, Eigen::Matrix4f gHk );
+void setgHk(float tk, Eigen::Matrix4f gHk );
 void setLookUpDist(std::string filename);
 void setRegisteredSeqH();
 void setRegisteredSeqH_async();
@@ -105,33 +108,33 @@ std::vector<Eigen::Vector3f> getvelocities();
 std::vector<Eigen::Vector3f> getpositions();
 std::vector<Eigen::Vector3f> getangularvelocities();
 
-Eigen::VectorXf getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
-Eigen::VectorXf getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,int tk);
+Eigen::VectorXf getLikelihoods_octree(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,float tk);
+Eigen::VectorXf getLikelihoods_lookup(const Eigen::Ref<const Eigen::MatrixXf> &Xposes,float tk);
 
 std::vector<Eigen::Matrix4f> getSeq_gHk();
 std::vector<Eigen::Matrix4f> geti1Hi_seq_vec();
 std::unordered_map<int, std::unordered_map<int,Eigen::Matrix4f> > geti1Hi_seq();
 
 
-std::vector<Eigen::Matrix4f> getsetSeq_gHk(int tk, Eigen::Matrix4f gHk);
+std::vector<Eigen::Matrix4f> getsetSeq_gHk(float tk, Eigen::Matrix4f gHk);
 
-pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
-pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas_noroad(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas(float t0,float tf,float tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+pcl::PointCloud<pcl::PointXYZ>::Ptr getalignSeqMeas_noroad(float t0,float tf,float tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 
-Eigen :: MatrixXf getalignSeqMeas_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
-Eigen :: MatrixXf getalignSeqMeas_noroad_eigen(int t0,int tf,int tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+Eigen :: MatrixXf getalignSeqMeas_eigen(float t0,float tf,float tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
+Eigen :: MatrixXf getalignSeqMeas_noroad_eigen(float t0,float tf,float tk, Eigen::Matrix4f gHk,std::vector<float> res,int dim);
 //-----------------Aligners-------------------------
 void
-BMatchseq_async(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
+BMatchseq_async(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
 
 BMatchAndCorrH_async
 getBMatchseq_async();
 
 BMatchAndCorrH_async
-BMatchseq_async_caller(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
+BMatchseq_async_caller(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHkest,bool gicp);
 
 BMatchAndCorrH
-BMatchseq(int t0,int tf,int tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);
+BMatchseq(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);
 
 
 // gHk takes k-frame local to gloal inertial frame
@@ -144,7 +147,6 @@ gettimers();
 
 //--------------------------
 
-int tk;
 std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> meas,meas_noroad;
 std::vector<float> T;
 std::vector<Eigen::Vector3f> XseqPos,Vel,AngVel;
