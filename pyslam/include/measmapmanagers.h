@@ -136,6 +136,8 @@ BMatchseq_async_caller(float t0,float tf,float tk,const Eigen::Ref<const Eigen :
 BMatchAndCorrH
 BMatchseq(float t0,float tf,float tk,const Eigen::Ref<const Eigen :: Matrix4f>&gHk,bool gicp=true);
 
+Vector6f
+gicp_correction_pose(float tk,Vector6f xpose);
 
 // gHk takes k-frame local to gloal inertial frame
 Eigen :: Matrix4f

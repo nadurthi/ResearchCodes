@@ -1163,7 +1163,19 @@ MapLocalizer::BMatchseq(float t0,float tf,float tk,const Eigen::Ref<const Eigen 
 
 }
 
+Vector6f
+MapLocalizer::gicp_correction_pose(float tk,Vector6f xpose){
 
+        auto gHkcorr=pose2Hmat(xpose);
+
+        std::vector<float> res = options["mapfit"]["downsample"]["resolution"];
+        Eigen :: Matrix4f HI = Eigen :: Matrix4f::Identity();
+        pcl::PointCloud<pcl::PointXYZ>::Ptr Xsrcpcl= getalignSeqMeas(tk,tk,tk, HI,res,3);
+        gHkcorr = gicp_correction(Xsrcpcl, gHkcorr);
+        Vector6f xposecorr=Hmat2pose_v2(gHkcorr);
+
+        return xposecorr;
+}
 
 // gHk takes k-frame local to gloal inertial frame
 Eigen::Matrix4f

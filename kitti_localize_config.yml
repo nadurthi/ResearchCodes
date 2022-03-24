@@ -6,9 +6,9 @@ BinMatch:
   - 30.0
   - 30.0
   dxMatch:
-  - 2.0
-  - 2.0
-  thfineres: 0.08726646259971647
+  - 1.5
+  - 1.5
+  thfineres: 0.04363323129985824
   thmax: 2.9670597283903604
 Data:
   folder: /media/na0043/misc/DATA/KITTI/odometry/dataset
@@ -24,7 +24,7 @@ Localize:
   octree:
     resolution: 0.1
     searchmethod: ApprxNN
-  sig0: 0.35
+  sig0: 0.45
 MapManager:
   map:
     downsample:
@@ -84,7 +84,7 @@ MeasMenaager:
     - 0.05
 PF:
   Npf: 1000
-  k0: 2000
+  k0: 0
 mapfit:
   downsample:
     resolution:
@@ -93,7 +93,7 @@ mapfit:
     - 0.5
   gicp:
     setMaxCorrespondenceDistance: 10
-    setMaximumIterations: 10
+    setMaximumIterations: 5
     setMaximumOptimizerIterations: 10
     setRANSACIterations: 0
     setRANSACOutlierRejectionThreshold: 1.5

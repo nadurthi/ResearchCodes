@@ -38,7 +38,7 @@ from joblib import dump, load
 from pyslam import  slam
 from pyslam import kittilocal
 import argparse
-
+from sklearn.cluster import KMeans
 import json
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
     spl0 = UnivariateSpline(tvec, qvec[:,0], k=k,s=s)
@@ -111,7 +111,7 @@ def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
 # D["Localize"]["dmax"]=10
 # D["Localize"]["likelihoodsearchmethod"]="octree" # lookup
 # D["Localize"]["octree"]={"resolution":0.1,
-#                          "searchmethod":"ApprxNN"}
+#                           "searchmethod":"ApprxNN"}
 # D["Localize"]["lookup"]={"resolution":[0.25,0.25,0.25]}
 
 
@@ -1014,12 +1014,14 @@ for k in range(k0+1,len(dataset)):
     KL.setRelStates_async()
     
     if doBinMatch==1 and isBMworking==False:
-        if vehicle_status=="Localization":
+        if vehicle_status=="Localization" or vehicle_status=="Tracking":
             # mm=np.mean(robotpf.wts)
             # idxpf = (np.abs(robotpf.wts - mm)).argmin()
-            idxpf=np.argmax(robotpf.wts)
+            idxpf=np.argmin(robotpf.wts)
             
             # if np.all(Pbm>0):
+            if np.all(Pbm==0):
+                Pbm[Pbm==0]=1
             ccbm=np.random.choice(range(nbm),size=1, replace=False, p=Pbm/np.sum(Pbm))[0]
             robotpf.X[idxpf,0]=XXbm[ccbm,0]
             robotpf.X[idxpf,1]=XXbm[ccbm,1]
@@ -1037,18 +1039,21 @@ for k in range(k0+1,len(dataset)):
             #     ccbm=0
                 
             DD=copy.deepcopy(D)
-            DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
-            DD['BinMatch']["dxBase"]=list(np.array([20,20],dtype=np.float64))
+            # DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+            DD['BinMatch']["dxBase"]=list(np.array([30,30],dtype=np.float64))
             DD['BinMatch']["Lmax"]=list(np.array([200,200],dtype=np.float64))
             KL.setOptions_noreset(json.dumps(DD))
 
-        if vehicle_status=="Tracking":
-            idxpf=np.argmax(robotpf.wts)
-            DD=copy.deepcopy(D)
-            DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
-            DD['BinMatch']["dxBase"]=list(np.array([25,25],dtype=np.float64))
-            DD['BinMatch']["Lmax"]=list(np.array([100,100],dtype=np.float64))
-            KL.setOptions_noreset(json.dumps(DD))
+        # if vehicle_status=="Tracking":
+        #     # kmeans = KMeans(n_clusters=5, random_state=10).fit(robotpf.X[:,:2])
+        #     # kmeans.cluster_centers_
+            
+        #     idxpf=np.argmax(robotpf.wts)
+        #     DD=copy.deepcopy(D)
+        #     # DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+        #     DD['BinMatch']["dxBase"]=list(np.array([25,25],dtype=np.float64))
+        #     DD['BinMatch']["Lmax"]=list(np.array([100,100],dtype=np.float64))
+        #     KL.setOptions_noreset(json.dumps(DD))
             
         print("---doneLocalize ------ = ",doneLocalize)
         simmanger.data['BinMatch_idxpf'].append((k,idxpf))
@@ -1056,7 +1061,7 @@ for k in range(k0+1,len(dataset)):
         Hpose = kittilocal.pose2Hmat(robotpf.X[idxpf][:6])
         xpose_k = robotpf.X[idxpf].copy()
         xpose_k[-1]=0
-        t0=dataset.times[k]  #max([0,k-5])max([k0,k-2])
+        t0=dataset.times[k]  #max([0,k-5])max([k0,k-10])
         tf=dataset.times[k]
         tk=dataset.times[k]
         
@@ -1085,17 +1090,17 @@ for k in range(k0+1,len(dataset)):
         # idxpfmin = np.argmin(robotpf.wts)
         # robotpf.X[idxpfmin]=robotpf.X[idxpf].copy()
         # xpose_tk=robotpf.X[idxpf].copy()
-        time.sleep(0.5)
+        time.sleep(0.25)
         gHkseq=KL.getSeq_gHk()
         Velmeas=KL.getvelocities()
         AngVelmeas=KL.getangularvelocities()
         fflg=0
         for si in range(len(solret.gHkcorr)):
             print(solret.sols[si].costfrac)
-            if solret.sols[si].cost>solret.sols[si].cost0 and solret.sols[si].costfrac>0.6:
+            if solret.sols[si].cost>solret.sols[si].cost0 and solret.sols[si].costfrac>0.5:
                 # Pbm[ccbm]+=2
                 
-                fflg=1
+                
                 xpose_tk=xpose_k.copy()
                 
                 tkidx_datasettimes=np.argwhere(np.isclose(dataset.times,solQ.tk,rtol=1e-05, atol=1e-05))[0][0]
@@ -1109,9 +1114,28 @@ for k in range(k0+1,len(dataset)):
                 gHkcorr_atk = solret.gHkcorr[si].dot(kHtk)
                 gHkcorr_attk = solret.gHkcorr[si]
                 
+                DD=copy.deepcopy(D)
+                # DD['BinMatch']["dxMatch"]=list(np.array([1,1],dtype=np.float64))
+                DD['BinMatch']["dxBase"]=list(np.array([10,10],dtype=np.float64))
+                DD['BinMatch']["Lmax"]=list(np.array([20,20],dtype=np.float64))
+                KL.setOptions_noreset(json.dumps(DD))
+
+
+                tkk=dataset.times[k]  
+                st=time.time()
+                solret2=KL.BMatchseq(tkk,tkk,tkk,gHkcorr_atk,True)
+                et=time.time()
+                print("Bin match and gicp time = ",et-st)
+                if solret2.sols[0].cost>solret2.sols[0].cost0 and solret2.sols[0].costfrac>0.6:
+                    pass
+                else:
+                    continue
+                fflg=1
+                
+                gHkcorr_atk=solret2.gHkcorr[0]
                 xpose_tk[0:6] = kittilocal.Hmat2pose(gHkcorr_atk)
                 
-                
+                # xpose_tk[0:6]=KL.gicp_correction_pose(dataset.times[k],xpose_tk[0:6])
                 
                 xpose_tk[6]=nplinalg.norm(Velmeas[-1])
                 xpose_tk[7:10]=AngVelmeas[-1]
@@ -1126,17 +1150,18 @@ for k in range(k0+1,len(dataset)):
                 robotpf.wts = np.hstack([robotpf.wts,1*np.max(robotpf.wts)*np.ones(Xnewsamp.shape[0]+1)])
                 
                 
-
+                # likelihood=KL.getLikelihoods_lookup(np.array([xpose_tk]),dataset.times[k])
 
         
                 if si==0:
                     simmanger.data['BinMatchedH'][k]=(idxpf,tkidx_datasettimes,k,solQ.gHkest_initial,gHkcorr_attk,gHkcorr_atk,solret.gHkcorr,solQ.t0,solQ.tf,solQ.tk)    
-        
+
         if fflg==1:
             Pbm[ccbm]+=5
+            Pbm[ccbm]=np.min([Pbm[ccbm],20])
         else:
-            Pbm[ccbm]-=1
-            Pbm[ccbm] = np.max([Pbm[ccbm],0])
+            Pbm[ccbm]=1
+            Pbm[ccbm] = np.max([Pbm[ccbm],1])
             
         # break
         if fflg==1:
@@ -1146,7 +1171,7 @@ for k in range(k0+1,len(dataset)):
     
     if vehicle_status == "Localization":
         DD=copy.deepcopy(D)
-        DD["Localize"]["sig0"]=0.25
+        DD["Localize"]["sig0"]=0.5
         KL.setOptions_noreset(json.dumps(DD))
     
     if vehicle_status == "Tracking":
@@ -1199,17 +1224,19 @@ for k in range(k0+1,len(dataset)):
         simmanger.data['Neff/Npf']=0.1
         if Neff/Npf<simmanger.data['Neff/Npf']:
             print("resampled at k = ",k)
-            robotpf.bootstrapResample(Npf=Npf,fraclowH=0.2,replace=False)
+            # robotpf.bootstrapResample(Npf=Npf,fraclowH=0.1,replace=False)
             # robotpf.bootstrapResample_vanilla(Npf=Npf)
+            robotpf.bootstrapResample_clustered(Nclusters=5,fraclowH=0.01,Npf=Npf)
             simmanger.data['resampled?'][k]=1
-
+        # Npf = 100
+            
     if vehicle_status=="Tracking":
         simmanger.data['Neff/Npf']=0.75
         if Neff/Npf<simmanger.data['Neff/Npf']:
             print("resampled at k = ",k)
             robotpf.bootstrapResample_vanilla(Npf=Npf)
             simmanger.data['resampled?'][k]=1
-
+        # Npf = simmanger.data['Npf']=D['PF']['Npf']
 
     
     m,P=robotpf.getEst()
@@ -1237,8 +1264,9 @@ for k in range(k0+1,len(dataset)):
     
     XPFmP_history.append((m,P))
     
-    if (k%25==0 or k==len(dataset)-1 or k in simmanger.data['BinMatchedH'].keys()):
+    # if (k%25==0 or k==len(dataset)-1 or k in simmanger.data['BinMatchedH'].keys()):
     # if (k in simmanger.data['BinMatchedH'].keys()):    
+    if (k%25==0 or k==len(dataset)-1):
         # kittisimplotter.plot3D(k,robotpf.X,m,P)
         plt.close("all")
         if k in simmanger.data['BinMatchedH'].keys():

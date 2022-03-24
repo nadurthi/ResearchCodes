@@ -152,6 +152,7 @@ PYBIND11_MODULE(kittilocal, m) {
         .def("getalignSeqMeas_eigen", &MapLocalizer::getalignSeqMeas_eigen)
         .def("getalignSeqMeas_noroad_eigen", &MapLocalizer::getalignSeqMeas_noroad_eigen)
         .def("BMatchseq", &MapLocalizer::BMatchseq)
+        .def("gicp_correction_pose", &MapLocalizer::gicp_correction_pose)
 
         .def("BMatchseq_async", &MapLocalizer::BMatchseq_async)
         .def("getBMatchseq_async", &MapLocalizer::getBMatchseq_async)
