@@ -10,6 +10,7 @@ import pickle as pkl
 import numpy as np
 import numpy.linalg as nplinalg
 import matplotlib.pyplot as plt
+import sys
 from matplotlib.colors import LogNorm
 from mpl_toolkits.mplot3d import Axes3D
 from threading import Thread
@@ -40,13 +41,13 @@ from pyslam import kittilocal
 import argparse
 from sklearn.cluster import KMeans
 import json
-#%%
 
 
 
 
 
-#%%
+
+
 def quat2omega_scipyspline(tvec,qvec,k=2,s=0.001):
     spl0 = UnivariateSpline(tvec, qvec[:,0], k=k,s=s)
     spl1 = UnivariateSpline(tvec, qvec[:,1], k=k,s=s)
@@ -226,7 +227,7 @@ if __name__=="__main__":
     
     simmanger.data['sequence']=D['Data']['sequence']
     simmanger.data['basedir']=D['Data']['folder']
-    
+    simmanger.data['D']=copy.deepcopy(D)
     
     nd=len(dataset.poses)
     
@@ -1279,9 +1280,9 @@ if __name__=="__main__":
         
         XPFmP_history.append((m,P))
         
-        # if (k%25==0 or k==len(dataset)-1 or k in simmanger.data['BinMatchedH'].keys()):
+        if (k%25==0 or k==len(dataset)-1 or k in simmanger.data['BinMatchedH'].keys()):
         # if (k in simmanger.data['BinMatchedH'].keys()):    
-        if (k%25==0 or k==len(dataset)-1):
+        # if (k%25==0 or k==len(dataset)-1):
             # kittisimplotter.plot3D(k,robotpf.X,m,P)
             plt.close("all")
             if k in simmanger.data['BinMatchedH'].keys():
@@ -1403,7 +1404,8 @@ if __name__=="__main__":
     simmanger.save(metalog, mainfile=runfilename, vehiclestates=vehiclestates,
                    options=D, Npf=Npf,XPFhistory=XPFhistory,
                    XPFmP_history=XPFmP_history,timers=timers)
-    
+
+sys.exit(0)
     #%%
     
     # gHk=KL.getSeq_gHk()
@@ -1543,3 +1545,232 @@ if __name__=="__main__":
     # print("Bin match asyc set time = ",et-st)
     
     # solQ=KL.getBMatchseq_async()
+
+
+#%% Summary plots
+
+
+# with open('kitti_localize_config.yml', 'r') as outfile:
+#     D=yaml.safe_load( outfile)
+
+# dataset = odometry.odometry(D['Data']['folder'], D['Data']['sequence'], frames=None) # frames=range(0, 20, 5)
+ 
+# nd=len(dataset.poses)
+
+# Xtpath=np.zeros((len(dataset),10))
+
+# for i in range(len(dataset)):
+#     H=dataset.calib.T_cam0_velo
+#     H=np.dot(nplinalg.inv(H),dataset.poses[i].dot(H))
+    
+#     Xtpath[i,0:3] = H.dot(np.array([0,0,0,1]))[0:3]
+#     # Xtpath[i,0:3] = dataset.poses[i].dot(np.array([0,0,0,1]))[0:3]
+    
+#     r = Rsc.from_matrix(H[0:3,0:3])
+    
+#     q =r.as_euler('zyx',degrees=False)
+#     Xtpath[i,3:6] = q
+    
+#     q =r.as_quat()
+#     Xtpath[i,6:] = q
+
+# tvec,qvec_sp,w,qdot,alpha=quat2omega_scipyspline(dataset.times,Xtpath[:,6:],k=3,s=0.0001)
+
+
+    
+# Velocities=np.zeros((len(dataset),3))
+# Acc=np.zeros((len(dataset),3))
+
+# splx=UnivariateSpline(dataset.times,Xtpath[:,0])
+# splvx=splx.derivative()
+# splax=splvx.derivative()
+
+# sply=UnivariateSpline(dataset.times,Xtpath[:,1])
+# splvy=sply.derivative()
+# splay=splvy.derivative()
+
+# splz=UnivariateSpline(dataset.times,Xtpath[:,2])
+# splvz=splz.derivative()
+# splaz=splvz.derivative()
+
+
+# Velocities[:,0]=splvx(dataset.times)
+# Velocities[:,1]=splvy(dataset.times)
+# Velocities[:,2]=splvz(dataset.times)
+
+# Acc[:,0]=splax(dataset.times)
+# Acc[:,1]=splay(dataset.times)
+# Acc[:,2]=splaz(dataset.times)
+
+# rotations = Rsc.from_euler('zyx', Xtpath[:,3:6], degrees=False)
+# spline =RscSpl(dataset.times, rotations)
+# AngRates=spline(dataset.times, 1)
+# AngAcc=spline(dataset.times, 2)
+# AngRates=AngRates[:,::-1]
+# AngAcc=AngAcc[:,::-1]
+
+# # metrics
+# # - 
+# # - time steps taken to begin tracking (with in 3sigma of truth for 10 steps)
+# # - error in "tracking", covariance of tracking
+# # - 
+
+
+# # simanger.data.keys()
+# # Out[3]: dict_keys(['sequence', 'basedir', 'Npf', 'k0', 'resampled?', 'BinMatch_idxpf', 'BinMatchedH', 'doneLocalize', 'lost', 'reinitialized?', 'vehicle_status', 'fps', 'simtvec', 'doBinMatch', 'Neff/Npf', 'vehicle_status_vec'])
+
+# # data.keys()
+# # Out[4]: dict_keys(['mainfile', 'vehiclestates', 'options', 'Npf', 'XPFhistory', 'XPFmP_history', 'timers'])
+
+
+# simfolder = '/media/na0043/misc/DATA/localization-paper'
+# simfiles=os.listdir(simfolder)
+# MTS={'fracstepstrack':[],'fracsteps2firsttrack':[],'fracstepstrack5mTruth':[],
+#      'Nstepstrack':[],'Nsteps2firsttrack':[],'Nstepstrack5mTruth':[],
+#      'rmsepos':[],'rmsedir':[]}
+# FPS=[]
+# plt.close("all")
+
+# for ff in simfiles:
+#     print(ff)
+#     ff=os.path.join(simfolder,ff)
+#     simanger,data=uqsimmanager.SimManager.load(ff)
+    
+#     simtvec = simanger.data['simtvec']
+#     simtKvec = np.array(list(range(simanger.data['k0'],len(dataset.times))),dtype=int)
+#     if 'vehicle_status_vec' not in simanger.data.keys():
+#         vehicle_status_vec = [(k,v) for k,v in simanger.data['vehicle_status'].items()]
+#         sorted(vehicle_status_vec,key=lambda x: x[0])
+#         vehicle_status_vec=[x[1] for x in vehicle_status_vec]
+#         vehicle_status_vec=np.array([s=='Tracking' for s in vehicle_status_vec],dtype=bool)
+#     else:
+#         vehicle_status_vec = simanger.data['vehicle_status_vec']
+        
+#     # designate tracking when eig(P)<5m and/or mu+-3sig
+    
+#     mest = np.array([x[0] for x in data['XPFmP_history']])
+#     Pest = np.array([x[1] for x in data['XPFmP_history']])
+    
+    
+    
+#     ## time-steps taken to localize
+#     fracstepstrack=np.round(100*np.sum(vehicle_status_vec==False)/len(vehicle_status_vec))
+#     fracsteps2firsttrack = np.round(100*(np.argwhere(vehicle_status_vec==True)[0][0])/len(simtKvec))
+    
+#     MTS['Nstepstrack'].append(np.sum(vehicle_status_vec==False))
+#     MTS['Nsteps2firsttrack'].append(np.argwhere(vehicle_status_vec==True)[0][0])
+    
+#     MTS['fracstepstrack'].append(fracstepstrack)
+#     MTS['fracsteps2firsttrack'].append(fracsteps2firsttrack)
+#     for i in range(len(simtKvec)):
+#         if np.all(nplinalg.norm(Xtpath[simtKvec[i:i+10],0:3]-mest[i:i+10,0:3],axis=1)<5):
+#             break
+#     MTS['fracstepstrack5mTruth'].append(np.round(100*i/len(vehicle_status_vec)))
+#     MTS['Nstepstrack5mTruth'].append(i)
+    
+#     ## error estimate tracking
+#     TvecKTrack = simtKvec[vehicle_status_vec==True]
+#     mestTrack = mest[vehicle_status_vec==True,:]
+#     PestTrack = Pest[vehicle_status_vec==True,:]
+#     simtvecTrack = simtvec[vehicle_status_vec==True]
+#     EIG=[]
+#     for i in range(len(PestTrack)):
+#         u,v = nplinalg.eig(PestTrack[i])
+#         EIG.append(u)
+#     stdTrack=np.sqrt(np.array(EIG))
+#     XtpathTrack = Xtpath[simanger.data['k0']:,:]
+#     XtpathTrack = XtpathTrack[vehicle_status_vec==True,:]
+#     rmsepos = np.sqrt(np.mean(np.sum(np.power(XtpathTrack[:,0:3]-mestTrack[:,0:3],2),axis=1)))
+#     # rmseeuler = np.sqrt(np.mean((np.power(XtpathTrack[:,3]-mestTrack[:,3],2))))
+#     # rmseeuler = np.sqrt(np.mean((np.power(XtpathTrack[:,4]-mestTrack[:,4],2))))
+    
+#     rotations_true = Rsc.from_euler('zyx', XtpathTrack[:,3:6], degrees=False)
+#     rotations_est = Rsc.from_euler('zyx', mestTrack[:,3:6], degrees=False)
+    
+#     rotmattrue=rotations_true.as_matrix()
+#     rotmatest=rotations_est.as_matrix()
+    
+#     rmsedir=np.sqrt(np.mean(np.sum(np.power(rotmattrue.dot([1,0,0])-rotmatest.dot([1,0,0]),2),axis=1)))
+    
+#     MTS['rmsepos'].append(rmsepos)
+#     MTS['rmsedir'].append(rmsedir)
+    
+#     FPS+=simanger.data['fps']
+    
+    
+    
+    
+# MTS=pd.DataFrame(MTS)
+
+# ##
+# methodstrings=['fracstepstrack','fracsteps2firsttrack','fracstepstrack5mTruth']
+# xpos1=np.arange(len(methodstrings),dtype=np.int)
+
+# fig1, ax1= plt.subplots(figsize=(20, 9))
+# ax1.set_ylabel('percent')
+# ax1.boxplot(MTS[methodstrings],positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+# ax1.set_xticklabels(['A','B','C'],fontsize=20)
+# ax1.set_yticklabels(range(0,100,10),fontsize=20)
+# ax1.set_ylabel("% of time steps",fontsize=20)
+# # ax3.set_xlabel('Methods')
+# ax1.grid(True,which="both",axis="y")
+
+# ##
+# methodstrings=['Nstepstrack','Nsteps2firsttrack','Nstepstrack5mTruth']
+# xpos1=np.arange(len(methodstrings),dtype=np.int)
+
+# fig0, ax0= plt.subplots(figsize=(20, 9))
+# ax0.set_ylabel('percent')
+# ax0.boxplot(MTS[methodstrings],positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+# ax0.set_xticklabels(['A','B','C'],fontsize=20)
+# ax0.set_yticklabels(range(0,100,10),fontsize=20)
+# ax0.set_ylabel("# scans",fontsize=20)
+# # ax3.set_xlabel('Methods')
+# ax0.grid(True,which="both",axis="y")
+
+
+# ##
+# methodstrings=['rmsepos']
+# xpos1=np.arange(len(methodstrings),dtype=np.int)
+
+# fig3, ax3= plt.subplots(figsize=(20, 9))
+# ax3.set_ylabel('percent')
+# # ax3.boxplot(MTS[methodstrings],positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+# MTS.hist(methodstrings,ax=ax3,xlabelsize=24,ylabelsize=24,bins=20)
+# # ax3.set_xticklabels(methodstrings)
+# ax3.set_xlabel("RMSE",fontsize=20)
+# ax3.set_ylabel("percent",fontsize=20)
+# # ax3.set_xlabel('Methods')
+# ax3.grid(True,which="both",axis="y")
+
+# ##
+# methodstrings=['rmsedir']
+# xpos1=np.arange(len(methodstrings),dtype=np.int)
+
+# fig4, ax4= plt.subplots(figsize=(20, 9))
+# ax4.set_ylabel('percent')
+# # ax3.boxplot(MTS[methodstrings],positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+# MTS.hist(methodstrings,ax=ax4,xlabelsize=24,ylabelsize=24,bins=20)
+# # ax3.set_xticklabels(methodstrings)
+# ax4.set_xlabel("RMSE",fontsize=20)
+# ax4.set_ylabel("percent",fontsize=20)
+# # ax3.set_xlabel('Methods')
+# ax4.grid(True,which="both",axis="y")
+
+
+# ##
+# methodstrings=['fps']
+# xpos1=np.arange(len(methodstrings),dtype=np.int)
+
+# fig44, ax44= plt.subplots(figsize=(20, 9))
+# FPS=np.array(FPS)
+# FPSgg=FPS[FPS<1]
+# # ax44.boxplot(MTS[methodstrings],positions = xpos1,boxprops={'linewidth':2},whiskerprops={'linewidth':2})
+# ax44.hist(FPSgg,bins=np.linspace(0,1,30),rwidth=0.9)
+# # ax44.set_xticklabels(methodstrings)
+# ax44.set_xlabel("Time taken for one scan",fontsize=20)
+# ax44.set_ylabel("count",fontsize=20)
+# # ax44.set_xlabel('Methods')
+# ax44.tick_params(axis='x', labelsize=20 )
+# ax44.tick_params(axis='y', labelsize=20 )
+# ax44.grid(True,which="both",axis="y")
