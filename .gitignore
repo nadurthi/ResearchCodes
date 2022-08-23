@@ -26,8 +26,24 @@ __pycache__/
 *.pcd
 *.joblib
 *.bin
+*.dill
+*.pcd
+*.joblib
+*.zip
+*.tar
+*.pth
+*.clf
+*.db3
+*.gz
+*.dbow3
+*.bin
+*.gch
 
 
+checkpoint/
+EKF-Inertial-Lidar-Sample
+EKF-Inertial-Lidar-Sample/
+ds_train.txt
 turtlebotData/
 datasets/
 simulations/
