@@ -128,13 +128,10 @@ class FasterRCNN(nn.Module):
         img_size = x.shape[2:]
 
         h = self.extractor(x)
-        
         rpn_locs, rpn_scores, rois, roi_indices, anchor = \
             self.rpn(h, img_size, scale)
-            
         roi_cls_locs, roi_scores = self.head(
             h, rois, roi_indices)
-        
         return roi_cls_locs, roi_scores, rois, roi_indices
 
     def use_preset(self, preset):

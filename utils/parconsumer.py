@@ -7,7 +7,7 @@ Created on Mon Jul  5 17:01:44 2021
 import multiprocessing as mp
 import queue
 import time
-
+import numpy as np
 
 def consumer(Func,ExitFlag,inQ,outQ):
     # print("in consumer")
@@ -21,7 +21,7 @@ def consumer(Func,ExitFlag,inQ,outQ):
         if inputarg is not None:
             
             # print("inputarg = ",inputarg)
-            result=Func(inputarg)
+            result=Func(*inputarg)
             outQ.put(result)
             
             time.sleep(0.1)
@@ -77,20 +77,24 @@ class ParallelConsumer():
             
         
 if __name__=="__main__":
-    def Fconsumer(inputarg):
-        i,line = inputarg
+    def Fconsumer(i,line):
+        # i,line = inputarg
         # print("Fconsumer = ",i,len(line))
-        
+        time.sleep(3*np.random.rand())
         return (i,len(line))
     
-    pc=ParallelConsumer(Fconsumer,Nproc=2,maxInQ=10)
-    ss=['aa','bbbb','cdcdsgfsdg','sfe']
+    pc=ParallelConsumer(Fconsumer,Nproc=5,maxInQ=100)
+    ss=['aa','bbbb','cdcdsgfsdg','sfe','aa','bbbb','cdcdsgfsdg','sfe',
+        'aa','bbbb','cdcdsgfsdg','sfe','aa','bbbb','cdcdsgfsdg','sfe',
+        'aa','bbbb','cdcdsgfsdg','sfe','aa','bbbb','cdcdsgfsdg','sfe']
     for i,s in enumerate(ss):
         pc.pushInputArg((i,s))
     result=[]
     for res in pc.iterateOutput():
         # print("output res = ",res)
         result.append(res)
+    
+    pc.finish()
     
     print("result = ")
     print(result)

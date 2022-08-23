@@ -1,0 +1,23 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+joblib = "*"
+h5py = "*"
+lz4 = "*"
+
+[packages]
+path-py = "*"
+joblib = "*"
+tensorboardx = "*"
+opencv-python = "*"
+scipy = "==1.1.0"
+imageio = "*"
+matplotlib = "*"
+imgaug = "*"
+open3d = "*"
+
+[requires]
+python_version = "3"

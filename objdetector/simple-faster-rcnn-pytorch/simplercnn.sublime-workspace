@@ -1,0 +1,446 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"ROS",
+				"ROS_INFO"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "train.py",
+			"settings":
+			{
+				"buffer_size": 5356,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Packages/Python/Python.sublime-build",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Anaconda Python Builder",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				],
+				[
+					"Packages/User/makebuild.sublime-build",
+					""
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"termi",
+				"Terminus: Close"
+			],
+			[
+				"ins",
+				"Package Control: Install Package"
+			],
+			[
+				"ter",
+				"Terminus: Close All"
+			],
+			[
+				"O",
+				"Open IPython Notebook"
+			],
+			[
+				"in",
+				"Package Control: Install Package"
+			],
+			[
+				"cla",
+				"Clang Format: Select Style"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+	],
+	"file_history":
+	[
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/faster_rcnn_vgg16.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/trainer.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/region_proposal_network.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/learnPyTorchCNN.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/roi_module.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/faster_rcnn.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/repos/simple-faster-rcnn-pytorch-master/model/region_proposal_network.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/utils/config.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/utils/creator_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/model/utils/bbox_tools.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/utils/array_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/data/util.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/test2.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/utils/eval_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/data/dataset.py",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/User/python3.sublime-build",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/ObjDetector/simple-faster-rcnn-pytorch/train.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/INSTALL.txt",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/utils/config.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/model/utils/bbox_tools.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/model/region_proposal_network.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/utils/array_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/utils/eval_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/utils/vis_tool.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/data/voc_dataset.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/data/dataset.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/SLAM/DNN/simple-faster-rcnn-pytorch/model/utils/nms/non_maximum_suppression.py",
+		"/home/nagnanamus/Downloads/Open3D/examples/TestData/fragment.pcd",
+		"/home/nagnanamus/.ipython/profile_nbserver/ipython_kernel_config.py",
+		"/home/nagnanamus/.ipython/profile_nbserver/ipython_config.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/src/hubmain/scripts/rosroverdashserver.py",
+		"/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitti/visualodo/pykitti/demos/demo_raw.py",
+		"/tmp/kite_tutorial.py",
+		"/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitti/visualodo/pykitti/pykitti/odometry.py",
+		"/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitti/visualodo/pykitti/demos/demo_odometry.py",
+		"/home/nagnanamus/Downloads/pythonpcl2/setup.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/src/hubmain/launch/hubmain.launch",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/launch/roverbot.launch",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/IPython Notebook/Default.sublime-keymap",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/CMakeLists.txt",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/User/SublimeIPythonNotebook.sublime-settings",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/IPython Notebook/SublimeIPythonNotebook.sublime-settings",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_cam_publish.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_i2c_looper.cpp",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/README.md",
+		"/media/nagnanamus/d0690b96-7f71-44f2-96da-9f7259180ec7/SLAMData/Kitti/tracking/mot/devkit_tracking/devkit/python/mailpy.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/helperfiles/show_video.html",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/computervision/pcl-examples/CMakeLists.txt",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/src/roscamhub/CMakeLists.txt",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/extsrc/I2Cdev.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/include/roverbot/I2Cdev.h",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_publish_sonar.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_battery_publish.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/motori2c/motori2c/motori2c.ino",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/extsrc/MB1242.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/include/roverbot/MB1242.h",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_pwm_ctrl.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/rosutils/msg/roverpwmcontrol.msg",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/rosutils/scripts/sendmsg.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/package.xml",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/src/roscamhub/package.xml",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_hub_ws/src/CMakeLists.txt",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/rosutils/msg/sonarmsg.msg",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/helperfiles/misc/QuadControl-cpp-master/Ground_station/src/I2Cdev.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/cfg/Roverbot.cfg",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/rover_publish_imu.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/rosutils/msg/RawImu.msg",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/extsrc/MPU6050.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/include/roverbot/MPU6050.h",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/extsrc/INA219.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/include/roverbot/INA219.h",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/rosutils/CMakeLists.txt",
+		"/home/nagnanamus/.config/sublime-text-3/Packages/Clang Format/clang_format_custom.sublime-settings",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/rosutils/CMakeLists.txt",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/roscodes/ros_roverbot_ws/src/roverbot/src/roverbot/rover_cam_publish.cpp",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/quadldwnld.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/plots.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/plots2.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/charts/candlestick.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/charts/libs.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/dataapp/utils.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/dataapp/libs.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/dataapp/constants.py",
+		"/home/nagnanamus/Insync/n.adurthi@gmail.com/Google Drive/repos/Stocks/trade_analytics/trade_analytics/charts/chartservers/dbcharts_websocketmanager.py"
+	],
+	"find":
+	{
+		"height": 27.0
+	},
+	"find_in_files":
+	{
+		"height": 101.0,
+		"where_history":
+		[
+			"<project>",
+			"project"
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"clip",
+			"NotebookApp",
+			"comple",
+			"cam_state",
+			"class RoverbotConfig",
+			"RoverbotConfig",
+			"I2C_SLAVE",
+			"writeBytes",
+			"getInstance",
+			"BBB_I2C_file"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "train.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5356,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								917,
+								917
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+								},
+								"icon":
+								{
+								},
+								"open":
+								{
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content"
+							],
+							"git_gutter_is_enabled": true,
+							"syntax": "Packages/Djaneiro/Syntaxes/Python Django.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 324.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 27.0
+	},
+	"input":
+	{
+		"height": 39.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 126.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.stino_build_panel":
+	{
+		"height": 0.0
+	},
+	"output.stino_panel":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Packages/User/python3.sublime-build",
+	"project": "simplercnn.sublime-project",
+	"replace":
+	{
+		"height": 50.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 276.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
